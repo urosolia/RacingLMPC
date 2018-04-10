@@ -1,7 +1,5 @@
 def Evaluate_e_ey(s, ey, PointAndTangent):
     import numpy as np
-    x = 1000000
-    y = 1000000
 
     # Compute the segment in which system is evolving
     index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
@@ -34,9 +32,6 @@ def Evaluate_e_ey(s, ey, PointAndTangent):
         # Finally compute the point
         x = CenterX + (np.abs(r) + ey) * np.cos(np.pi / 2 - spanAng + ang)
         y = CenterY + (np.abs(r) + ey) * np.sin(np.pi / 2 - spanAng + ang)
-
-    if x == 1000000:
-        print "Error point not on the track, s: ", s, " Track length:", PointAndTangent[-1,3]+PointAndTangent[-1,4]
 
     return x, y
 
