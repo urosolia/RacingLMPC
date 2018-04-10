@@ -1,5 +1,5 @@
 def Curvature(s, PointAndTangent):
-    curvature = 10000
+    import numpy as np
     TrackLength = PointAndTangent[-1,3]+PointAndTangent[-1,4]
 
     # In case on a lap after the first one
@@ -7,9 +7,10 @@ def Curvature(s, PointAndTangent):
         s = s - TrackLength
 
     # Given s \in [0, TrackLength] compute the curvature
-    for i in range(1, PointAndTangent.shape[0]):
-        if (s >= PointAndTangent[i, 3]) and (s < PointAndTangent[i, 3] + PointAndTangent[i, 4]):
-             curvature = PointAndTangent[i, 5]
+    # Compute the segment in which system is evolving
+    index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
+    i = int(np.where(np.squeeze(index))[0])
+    curvature = PointAndTangent[i, 5]
 
     return curvature
 
