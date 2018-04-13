@@ -20,7 +20,7 @@ def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
         h = 5
         stateFeatures = [0, 1, 2]
         inputFeatures = [1]
-        lamb = 0.0
+        lamb = 0.0000001
         yIndex = [0]
         scaling = np.array([[1.0, 0.0, 0.0],
                             [0.0, 1.0, 0.0],
@@ -34,7 +34,7 @@ def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
         h = 5
         stateFeatures = [0, 1, 2, 3]
         inputFeatures = [0] # May want to add acceleration here
-        lamb = 0.0
+        lamb = 0.0000001
         yIndex = [1]
         # scaling = np.array([[1.0, 0.0, 0.0],
         #                     [0.0, 1.0, 0.0],
@@ -48,8 +48,8 @@ def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
         # ====== Identify wz ======
         h = 5
         stateFeatures = [0, 1, 2, 3]
-        inputFeatures = [0]
-        lamb = 0.0
+        inputFeatures = [0] # May want to add acceleration here
+        lamb = 0.0000001
         yIndex = [2]
         # scaling = np.array([[1.0, 0.0, 0.0],
         #                     [0.0, 1.0, 0.0],
@@ -123,7 +123,7 @@ def LocLinReg(h, x, u, x0, yIndex, stateFeatures, inputFeatures, scaling, qp, ma
     # print 'x0Vec \n',x0Vec
     norm = la.norm(diff, 1, axis=1)
     indexTot =  np.squeeze(np.where(norm < h))
-    if indexTot.shape[0] >= MaxNumPoint:
+    if (indexTot.shape[0] >= MaxNumPoint):
         # index = np.argsort(norm)[0:MaxNumPoint]
         # print "Here \n",  norm[index]
         MinNorm = np.argmin(norm)
