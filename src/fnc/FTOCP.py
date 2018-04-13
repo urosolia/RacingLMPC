@@ -1,5 +1,5 @@
-def FTOCP(M, q, G, E, F, b, x0, np, qp, matrix):
-    res_cons = qp(M, matrix(q), F, matrix(b), G, E * matrix(x0))
+def FTOCP(M, q, G, L, E, F, b, x0, np, qp, matrix):
+    res_cons = qp(M, matrix(q), F, matrix(b), G, E * matrix(x0) + L)
     if res_cons['status'] == 'optimal':
         feasible = 1
     else:
@@ -13,7 +13,7 @@ def GetPred(Solution,n,d,N, np):
 
     return xPred, uPred
 
-def BuildMatEqConst(A ,B ,N ,n ,d ,np, spmatrix):
+def BuildMatEqConst(A, B, C, N, n, d, np, spmatrix, TimeVarying):
     # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
     # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
     # stucks the predicted trajectory x_{k|t} \forall k = t, \ldots, t+N+1 over the horizon and
@@ -21,22 +21,32 @@ def BuildMatEqConst(A ,B ,N ,n ,d ,np, spmatrix):
     Gx = np.eye(n * (N + 1))
     Gu = np.zeros((n * (N + 1), d * (N)))
 
-    for i in range(0, N):
-        ind1 = n + i * n + np.arange(n)
-        ind2x = i * n + np.arange(n)
-        Gx[np.ix_(ind1, ind2x)] = -A
-
-        ind2u = i * d + np.arange(d)
-        Gu[np.ix_(ind1, ind2u)] = -B
-
-    G = np.hstack((Gx, Gu))
     E = np.zeros((n * (N + 1), n))
     E[np.arange(n)] = np.eye(n)
 
+    L = np.zeros((n * (N + 1), 1))
+
+    for i in range(0, N):
+        ind1 = n + i * n + np.arange(n)
+        ind2x = i * n + np.arange(n)
+        ind2u = i * d + np.arange(d)
+
+        if TimeVarying == 0:
+            Gx[np.ix_(ind1, ind2x)] = -A
+            Gu[np.ix_(ind1, ind2u)] = -B
+            L[ind1, :]              =  C
+        else:
+            Gx[np.ix_(ind1, ind2x)] = -A[i]
+            Gu[np.ix_(ind1, ind2u)] = -B[i]
+            L[ind1, :]              =  C[i]
+
+    G = np.hstack((Gx, Gu))
+
     G_sparse = spmatrix(G[np.nonzero(G)], np.nonzero(G)[0], np.nonzero(G)[1], G.shape)
     E_sparse = spmatrix(E[np.nonzero(E)], np.nonzero(E)[0], np.nonzero(E)[1], E.shape)
+    L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0], np.nonzero(L)[1], L.shape)
 
-    return G_sparse, E_sparse
+    return G_sparse, E_sparse, L_sparse
 
 def BuildMatIneqConst(N, n, np, linalg, spmatrix):
     # Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
@@ -44,7 +54,7 @@ def BuildMatIneqConst(N, n, np, linalg, spmatrix):
                    [ 0., 0., 0., 0., 0., 1.],
                    [ 0., 0., 0., 0., 0.,-1.]])
 
-    bx = np.array([[ 4.], # vx max
+    bx = np.array([[ 10.], # vx max
                    [ 1.], # max ey
                    [ 1.]])# max ey
 
@@ -54,8 +64,8 @@ def BuildMatIneqConst(N, n, np, linalg, spmatrix):
                    [ 0., 1.],
                    [ 0.,-1.]])
 
-    bu = np.array([[ 1.],  # Max Steering
-                   [ 1.],  # Max Steering
+    bu = np.array([[ 0.5],  # Max Steering
+                   [ 0.5],  # Max Steering
                    [ 1.],  # Max Acceleration
                    [ 1.]]) # Max Acceleration
 
@@ -65,13 +75,12 @@ def BuildMatIneqConst(N, n, np, linalg, spmatrix):
     Mat = linalg.block_diag(*rep_a)
     NoTerminalConstr = np.zeros((np.shape(Mat)[0],n)) # No need to constraint also the terminal point
     Fxtot = np.hstack((Mat, NoTerminalConstr))
-    bxtot = np.repeat(bx, N)
-
+    bxtot = np.tile(np.squeeze(bx), N)
 
     # Let's start by computing the submatrix of F relates with the input
     rep_b = [Fu] * (N)
     Futot = linalg.block_diag(*rep_b)
-    butot = np.repeat(bu, N)
+    butot = np.tile(np.squeeze(bu), N)
 
     # Let's stack all together
     rFxtot, cFxtot = np.shape(Fxtot)
@@ -93,11 +102,10 @@ def BuildMatCost(Q, R, P, N, linalg, np, spmatrix, vt):
     c = [R] * (N)
     Mu = linalg.block_diag(*c)
 
-    M = linalg.block_diag(Mx, P, Mu)
+    M0 = linalg.block_diag(Mx, P, Mu)
+    xtrack = np.array([vt, 0, 0, 0, 0, 0])
+    q = - 2 * np.dot(np.append(np.tile(xtrack, N+1), np.zeros(R.shape[0]*N)), M0)
+    M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
 
     M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0], np.nonzero(M)[1], M.shape)
-
-    xtrack = np.array([vt, 0, 0, 0, 0, 0])
-    q = - np.append(np.tile(xtrack, N+1), np.zeros(R.shape[0]*N))
-
     return M_sparse, q

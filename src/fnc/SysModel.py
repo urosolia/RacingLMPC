@@ -9,6 +9,7 @@ def Curvature(s, PointAndTangent):
     # Given s \in [0, TrackLength] compute the curvature
     # Compute the segment in which system is evolving
     index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
+
     i = int(np.where(np.squeeze(index))[0])
     curvature = PointAndTangent[i, 5]
 
@@ -31,7 +32,7 @@ def DynModel(x, u, np, dt, PointAndTangent, CurAbsOn):
     Br = 1.0
 
     # Discretization Parameters
-    deltaT = 0.01
+    deltaT = 0.001
     x_next = np.zeros(x.shape[0])
 
     # Extract the value of the states
@@ -61,6 +62,7 @@ def DynModel(x, u, np, dt, PointAndTangent, CurAbsOn):
         x_next[1] = vy   + deltaT * (1 / m * (Fyf * np.cos(delta) + Fyr) - wz * vx)
         x_next[2] = wz   + deltaT * (1 / Iz *(lf * Fyf * np.cos(delta) - lr * Fyr) )
         if CurAbsOn == 1:
+            # print s
             cur = Curvature(s, PointAndTangent)
             x_next[3] = epsi + deltaT * ( wz - (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) * cur )
             x_next[4] = s    + deltaT * ( (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) )
@@ -72,12 +74,16 @@ def DynModel(x, u, np, dt, PointAndTangent, CurAbsOn):
         x_next[5] = ey + deltaT * (vx * np.sin(epsi) + vy * np.cos(epsi))
 
         # Update the value of the states
-        vx   = x_next[0]
-        vy   = x_next[1]
-        wz   = x_next[2]
-        epsi = x_next[3]
-        s    = x_next[4]
-        ey   = x_next[5]
+        vx   = x_next[0] #+ np.maximum(-0.01, np.min(np.random.randn()*0.01, 0.01))
+        vy   = x_next[1] #+ np.maximum(-0.01, np.min(np.random.randn()*0.01, 0.01))
+        wz   = x_next[2] #+ np.maximum(-0.01, np.min(np.random.randn()*0.01, 0.01))
+        epsi = x_next[3] #+ np.maximum(-0.001, np.min(np.random.randn()*0.001, 0.001))
+        s    = x_next[4] #+ np.maximum(-0.001, np.min(np.random.randn()*0.001, 0.001))
+        ey   = x_next[5] #+ np.maximum(-0.001, np.min(np.random.randn()*0.001, 0.001))
+
+        if (s < 0) and (CurAbsOn == 1):
+            print "Start Point: ", x, " Input: ", u
+            print "x_next: ", x_next
 
         # Increment counter
         i = i+1

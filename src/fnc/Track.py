@@ -40,13 +40,13 @@ def CreateTrack():
     # The track is created stucking lines and arc of circles. In particular, each line of spec specifies a segment of
     # length s of radius of curvature r. Note that the radius of curvature is negative for counter clock-wise curve.
     spec = np.array([[5            ,  0],
-                     [10 * np.pi / 2, -10], # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-                     [10           ,   0],
-                     [10 * np.pi / 2, -10],
-                     [20           ,  0],
-                     [10 * np.pi / 2, -10],
-                     [10           ,   0],
-                     [10 * np.pi / 2, -10]])
+                     [2 * np.pi / 2, -2], # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                     [5           ,   0],
+                     [2 * np.pi / 2, -2],
+                     [10           ,  0],
+                     [2 * np.pi / 2, -2],
+                     [5           ,   0],
+                     [2 * np.pi / 2, -2]])
 
     # Now given the above segments we compute the (x, y) points of the track and the angle of the tangent vector (psi) at
     # these points. For each segment we compute the (x, y, psi) coordinate at the last point of the segment. Furthermore,
