@@ -7,7 +7,7 @@ def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
     Atv = []; Btv = []; Ctv = []
 
     for i in range(0, N + 1):
-        MaxNumPoint = 200 # Need to reason on how these points are selected
+        MaxNumPoint = 500 # Need to reason on how these points are selected
         x0 = LinPoints[i, :]
 
 
@@ -114,7 +114,6 @@ def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
 
 def LocLinReg(h, x, u, x0, yIndex, stateFeatures, inputFeatures, scaling, qp, matrix, lamb, MaxNumPoint):
     import numpy as np
-    import random
     from numpy import linalg as la
     # What to learn a model such that: x_{k+1} = A x_k  + B u_k + C
     oneVec = np.ones( (x.shape[0]-1, 1) )
@@ -125,7 +124,6 @@ def LocLinReg(h, x, u, x0, yIndex, stateFeatures, inputFeatures, scaling, qp, ma
     indexTot =  np.squeeze(np.where(norm < h))
     if (indexTot.shape[0] >= MaxNumPoint):
         # index = np.argsort(norm)[0:MaxNumPoint]
-        # print "Here \n",  norm[index]
         MinNorm = np.argmin(norm)
         if MinNorm+MaxNumPoint >= indexTot.shape[0]:
             index = indexTot[indexTot.shape[0]-MaxNumPoint:indexTot.shape[0]]
@@ -135,12 +133,10 @@ def LocLinReg(h, x, u, x0, yIndex, stateFeatures, inputFeatures, scaling, qp, ma
         index = indexTot
 
     K  = ( 1 - ( norm[index] / h )**2 ) * 3/4
+    # K = np.ones(len(index))
     X0 = np.hstack( ( x[np.ix_(index, stateFeatures)], u[np.ix_(index, inputFeatures)] ) )
     M = np.hstack( ( X0, np.ones((X0.shape[0],1)) ) )
-    # print "Here \n ", index
-    # print index+1
-    # print x0
-    # print x[np.ix_(index, stateFeatures)]
+
     y = x[np.ix_(index+1, yIndex)]
     b = matrix( -np.dot( np.dot(M.T, np.diag(K)), y) )
 
