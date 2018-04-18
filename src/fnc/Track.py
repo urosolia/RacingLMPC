@@ -106,4 +106,4 @@ def CreateTrack():
     # Plot info
     np.set_printoptions(precision=2)
     print "Track length:", PointAndTangent[-1,3]+PointAndTangent[-1,4]
-    return PointAndTangent
+    return PointAndTangent, PointAndTangent[-1,3]+PointAndTangent[-1,4]

@@ -42,6 +42,9 @@ def BuildMatEqConst(A, B, C, N, n, d, np, spmatrix, TimeVarying):
 
     G = np.hstack((Gx, Gu))
 
+    # np.savetxt('G_MPC.csv', G, delimiter=',', fmt='%f')
+    # np.savetxt('E_MPC.csv', E, delimiter=',', fmt='%f')
+
     G_sparse = spmatrix(G[np.nonzero(G)], np.nonzero(G)[0], np.nonzero(G)[1], G.shape)
     E_sparse = spmatrix(E[np.nonzero(E)], np.nonzero(E)[0], np.nonzero(E)[1], E.shape)
     L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0], np.nonzero(L)[1], L.shape)
@@ -55,8 +58,8 @@ def BuildMatIneqConst(N, n, np, linalg, spmatrix):
                    [ 0., 0., 0., 0., 0.,-1.]])
 
     bx = np.array([[ 10.], # vx max
-                   [ 1.], # max ey
-                   [ 1.]])# max ey
+                   [ 2.], # max ey
+                   [ 2.]])# max ey
 
     # Buil the matrices for the input constraint in each region. In the region i we want Fx[i]x <= bx[b]
     Fu = np.array([[ 1., 0.],

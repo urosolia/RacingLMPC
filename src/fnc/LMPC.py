@@ -1,5 +1,5 @@
-def LMPC(npG, L, npE, F, b, x0, np, qp, matrix, datetime, la, SS, Qfun, N, n, d, spmatrix, numSS_Points):
-    x = SS[:, :, 0]
+def LMPC(npG, L, npE, F, b, x0, np, qp, matrix, datetime, la, SS, Qfun, N, n, d, spmatrix, numSS_Points, Qslack, Q_LMPC, R_LMPC, it):
+    x = SS[:, :, it-1]
 
     oneVec = np.ones((x.shape[0], 1))
     x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
@@ -7,32 +7,32 @@ def LMPC(npG, L, npE, F, b, x0, np, qp, matrix, datetime, la, SS, Qfun, N, n, d,
     norm = la.norm(diff, 1, axis=1)
     MinNorm = np.argmin(norm)
 
-
     SS_Points = x[MinNorm:MinNorm + numSS_Points, :].T
-
-    print SS_Points
 
     G, E = LMPC_TermConstr(npG, npE, N, n, d, np, spmatrix, SS_Points)
 
-    Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, 0]
-    M, q = LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, np, spmatrix)
+    Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it-1]
+    M, q = LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, np, spmatrix, Qslack, Q_LMPC, R_LMPC)
 
     startTimer = datetime.datetime.now()
     Sol, feasible = LMPC_FTOCP(M, q, G, L, E, F, b, x0, np, qp, matrix)
-    xPred, uPred, lambdPred = LMPC_GetPred(Sol, n,d,N, np)
+    xPred, uPred, lambdPred, slack = LMPC_GetPred(Sol, n,d,N, np)
 
-    print SS_Points.shape, lambdPred.shape
-    print "Term Costr \n", np.dot(SS_Points, lambdPred),"\n", xPred[:,-1], "\n", xPred.T
+    # print SS_Points.shape, lambdPred.shape
+    # print "Term Costr \n", np.dot(SS_Points, lambdPred),"\n", xPred[:,-1], "\n", xPred.T
+    # print "Here lambda ", lambdPred, lambdPred.shape, np.dot(np.ones(lambdPred.shape[0]), lambdPred)
+    # print "Check Slack", slack, np.dot(SS_Points, lambdPred)-xPred[:,-1]
 
-    print "Here lambda ", lambdPred, lambdPred.shape
-    print "Sol:", Sol
+    # name = raw_input("Please enter name: ")
+
+
     endTimer = datetime.datetime.now();
     deltaTimer = endTimer - startTimer
 
-    return Sol, feasible, deltaTimer
+    return Sol, feasible, deltaTimer, slack
 
 
-def ComputeCost(x, u, np):
+def ComputeCost(x, u, np, TrackLengthh):
     Cost = 10000 * np.ones((x.shape[0]))  # The cost has the same elements of the vector x --> time +1
 
     # Now compute the cost moving backwards in a Dynamic Programming (DP) fashion.
@@ -40,8 +40,10 @@ def ComputeCost(x, u, np):
     for i in range(0, x.shape[0]):
         if (i == 0):  # Note that for i = 0 --> pick the latest element of the vector x
             Cost[x.shape[0] - 1 - i] = 0
-        else:
+        elif x[x.shape[0] - 1 - i, 4]< TrackLengthh:
             Cost[x.shape[0] - 1 - i] = Cost[x.shape[0] - 1 - i + 1] + 1
+        else:
+            Cost[x.shape[0] - 1 - i] = 0
 
     return Cost
 
@@ -56,12 +58,12 @@ def LMPC_TermConstr(G, E, N ,n ,d ,np, spmatrix, SS_Points):
 
     G_enlarged = np.vstack((G, TermCons))
 
-    G_lambda = np.zeros(( G_enlarged.shape[0], SS_Points.shape[1]))
-    G_lambda[G_enlarged.shape[0] - n:G_enlarged.shape[0], :] = -SS_Points
+    G_lambda = np.zeros(( G_enlarged.shape[0], SS_Points.shape[1] + n))
+    G_lambda[G_enlarged.shape[0] - n:G_enlarged.shape[0], :] = np.hstack((-SS_Points, np.eye(n)))
 
     G_LMPC0 = np.hstack((G_enlarged, G_lambda))
     G_ConHull = np.zeros((1, G_LMPC0.shape[1]))
-    G_ConHull[-1, G_ConHull.shape[1]-SS_Points.shape[1]:G_ConHull.shape[1]] = np.ones((1,SS_Points.shape[1]))
+    G_ConHull[-1, G_ConHull.shape[1]-SS_Points.shape[1]-n:G_ConHull.shape[1]-n] = np.ones((1,SS_Points.shape[1]))
 
     G_LMPC = np.vstack((G_LMPC0, G_ConHull))
 
@@ -75,12 +77,9 @@ def LMPC_TermConstr(G, E, N ,n ,d ,np, spmatrix, SS_Points):
 
     return G_LMPC_sparse, E_LMPC_sparse
 
-def LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, np, spmatrix):
+def LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, np, spmatrix, Qslack, Q, R):
     from scipy import linalg
 
-
-    Q = np.diag([10.0, 0.0, 0.0, 1.0, 0.0, 10.0])  # vx, vy, wz, epsi, s, ey
-    R = np.diag([1.0, 0.1])  # delta, a
     P = Q
     vt = 2
 
@@ -92,10 +91,13 @@ def LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, np, spmatrix):
     Mu = linalg.block_diag(*c)
 
     M00 = linalg.block_diag(Mx, P, Mu)
-    M0  = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)))
+    M0  = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), Qslack)
     xtrack = np.array([vt, 0, 0, 0, 0, 0])
     q0 = - 2 * np.dot(np.append(np.tile(xtrack, N+1), np.zeros(R.shape[0]*N)), M00)
-    q  = np.append(q0, Sel_Qfun)
+    # print q0.shape, Sel_Qfun.shape, Q.shape[0], np.zeros(Q.shape[0]).shape
+    q  = np.append(np.append(q0, Sel_Qfun), np.zeros(Q.shape[0]))
+
+    # np.savetxt('q.csv', q, delimiter=',', fmt='%f')
 
     M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
 
@@ -107,10 +109,9 @@ def LMPC_FTOCP(M, q, G, L, E, F, b, x0, np, qp, matrix):
     G_cvx = F
     A_cvx = G
 
-    print A_cvx.size, G_cvx.size
+    # print A_cvx.size, G_cvx.size
+    # print M.size,  matrix(q).size, F.size, matrix(b).size, G.size, E.size, L.size
 
-
-    print M.size,  matrix(q).size, F.size, matrix(b).size, G.size, E.size, L.size
     res_cons = qp(M, matrix(q), F, matrix(b), G, E * matrix(x0) + L)
     if res_cons['status'] == 'optimal':
         feasible = 1
@@ -201,7 +202,11 @@ def LMPC_BuildMatIneqConst(N, n, np, linalg, spmatrix, numSS_Points):
     FDummy = np.vstack( ( Dummy1, Dummy2) )
     I = -np.eye(numSS_Points)
 
-    F = linalg.block_diag( FDummy, I )
+    FDummy2 = linalg.block_diag( FDummy, I )
+
+    Fslack = np.zeros((FDummy2.shape[0], n))
+
+    F = np.hstack((FDummy2, Fslack))
 
     # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
 
@@ -213,5 +218,6 @@ def LMPC_BuildMatIneqConst(N, n, np, linalg, spmatrix, numSS_Points):
 def LMPC_GetPred(Solution,n,d,N, np):
     xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n*(N+1))]),(N+1,n))))
     uPred = np.squeeze(np.transpose(np.reshape((Solution[n*(N+1)+np.arange(d*N)]),(N, d))))
-    lambd = Solution[n*(N+1)+d*N:]
-    return xPred, uPred, lambd
+    lambd = Solution[n*(N+1)+d*N:Solution.shape[0]-n]
+    slack = Solution[Solution.shape[0]-n:]
+    return xPred, uPred, lambd, slack
