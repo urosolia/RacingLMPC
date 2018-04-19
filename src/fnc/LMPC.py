@@ -1,17 +1,15 @@
 def LMPC(npG, L, npE, F, b, x0, np, qp, matrix, datetime, la, SS, Qfun, N, n, d, spmatrix, numSS_Points, Qslack, Q_LMPC, R_LMPC, it):
-    x = SS[:, :, it-1]
 
-    oneVec = np.ones((x.shape[0], 1))
-    x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
-    diff = x - x0Vec
-    norm = la.norm(diff, 1, axis=1)
-    MinNorm = np.argmin(norm)
+    SS_Points1, Sel_Qfun1 = SelectPoints(SS, Qfun, it-1, x0, numSS_Points/2, np, la)
+    SS_Points2, Sel_Qfun2 = SelectPoints(SS, Qfun, it-2, x0, numSS_Points/2, np, la)
 
-    SS_Points = x[MinNorm:MinNorm + numSS_Points, :].T
+    SS_Points = np.hstack((SS_Points1, SS_Points2))
+
+    Sel_Qfun = np.hstack((Sel_Qfun1, Sel_Qfun2))
+
 
     G, E = LMPC_TermConstr(npG, npE, N, n, d, np, spmatrix, SS_Points)
 
-    Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it-1]
     M, q = LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, np, spmatrix, Qslack, Q_LMPC, R_LMPC)
 
     startTimer = datetime.datetime.now()
@@ -31,6 +29,18 @@ def LMPC(npG, L, npE, F, b, x0, np, qp, matrix, datetime, la, SS, Qfun, N, n, d,
 
     return Sol, feasible, deltaTimer, slack
 
+def SelectPoints(SS, Qfun, it, x0, numSS_Points, np, la):
+    x = SS[:, :, it]
+
+    oneVec = np.ones((x.shape[0], 1))
+    x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
+    diff = x - x0Vec
+    norm = la.norm(diff, 1, axis=1)
+    MinNorm = np.argmin(norm)
+
+    SS_Points = x[MinNorm:MinNorm + numSS_Points, :].T
+    Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it]
+    return SS_Points, Sel_Qfun
 
 def ComputeCost(x, u, np, TrackLengthh):
     Cost = 10000 * np.ones((x.shape[0]))  # The cost has the same elements of the vector x --> time +1

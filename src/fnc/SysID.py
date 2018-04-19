@@ -3,14 +3,12 @@ def LMPC_EstimateABC(LinPoints, N, n, d, SS, uSS, TimeSS, qp, matrix, PointAndTa
     from SysModel import Curvature
     import datetime
 
-    it = 1
-    x = SS[0:TimeSS[it], :, it]
-    u = uSS[0:TimeSS[it]-1, :, it]
-
     Atv = []; Btv = []; Ctv = []; indexUsed_list = []
 
+    usedIt = range(it-1,it)
+
     for i in range(0, N + 1):
-        MaxNumPoint = 500 # Need to reason on how these points are selected
+        MaxNumPoint = 200 # Need to reason on how these points are selected
         x0 = LinPoints[i, :]
 
         Ai = np.zeros((n, n))
@@ -18,49 +16,42 @@ def LMPC_EstimateABC(LinPoints, N, n, d, SS, uSS, TimeSS, qp, matrix, PointAndTa
         Ci = np.zeros((n, 1))
 
         # Compute Index to use
-        h = 2
+        h = 5
         lamb = 0.0
         stateFeatures = [0, 1, 2]
-        scaling = np.eye(len(stateFeatures))
+        scaling = np.array([[1.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0],
+                            [0.0, 0.0, 1.0]])
 
-        indexSelected, K = ComputeIndex(h, x, x0, stateFeatures, scaling, MaxNumPoint)
+        indexSelected = []
+        K = []
+        for i in usedIt:
+            indexSelected_i, K_i = ComputeIndex(h, SS, TimeSS, i, x0, stateFeatures, scaling, MaxNumPoint)
+            indexSelected.append(indexSelected_i)
+            K.append(K_i)
+
         # =========================
         # ====== Identify vx ======
         inputFeatures = [1]
-        Q, M= Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, it, np, matrix, lamb, K)
+        Q_vx, M_vx= Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, usedIt, np, matrix, lamb, K)
 
         yIndex = 0
-        AA, BB, CC = LMPC_LocLinReg(Q, K, stateFeatures, inputFeatures, qp, SS, yIndex, it, matrix, M, indexSelected)
+        b = Compute_b(SS, yIndex, usedIt, matrix, M_vx, indexSelected, K, np)
+        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_vx, b, stateFeatures, inputFeatures, qp)
 
-        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex], indexUsed = LocLinReg(h, x, u, x0, yIndex, stateFeatures, inputFeatures, scaling, qp, matrix, lamb, MaxNumPoint)
-        if (indexSelected==indexUsed).all() and (AA==Ai[yIndex, stateFeatures]).all() and (BB==Bi[yIndex, inputFeatures]).all() and (CC==Ci[yIndex]).all():
-            print "True"
-        else:
-            print "Error!!!!!"
-        # =========================
-        # ====== Identify vy ======
-        stateFeatures = [0, 1, 2]
-        inputFeatures = [0] # May want to add acceleration here
-        yIndex = 1
-        scaling = np.eye(len(stateFeatures))
+        # =======================================
+        # ====== Identify Lateral Dynamics ======
+        inputFeatures = [0]
+        Q_lat, M_lat= Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, usedIt, np, matrix, lamb, K)
 
-        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex], indexUsed = LocLinReg(h, x, u, x0, yIndex, stateFeatures, inputFeatures, scaling, qp, matrix, lamb, MaxNumPoint)
+        yIndex = 1 # vy
+        b = Compute_b(SS, yIndex, usedIt, matrix, M_lat, indexSelected, K, np)
+        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_lat, b, stateFeatures, inputFeatures, qp)
 
-        # Ai1[yIndex, stateFeatures] = np.asarray(Res_vy)[i][0]
-        # Bi1[yIndex, inputFeatures] = np.asarray(Res_vy)[i][1]
-        # Ci1[yIndex] = np.asarray(Res_vy)[i][2]
-        # =========================
-        # ====== Identify wz ======
-        stateFeatures = [0, 1, 2]
-        inputFeatures = [0] # May want to add acceleration here
-        yIndex = 2
-        scaling = np.eye(len(stateFeatures))
+        yIndex = 2 # wz
+        b = Compute_b(SS, yIndex, usedIt, matrix, M_lat, indexSelected, K, np)
+        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_lat, b, stateFeatures, inputFeatures, qp)
 
-        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex], indexUsed = LocLinReg(h, x, u, x0, yIndex, stateFeatures, inputFeatures, scaling, qp, matrix, lamb, MaxNumPoint)
-
-        # Ai1[yIndex, stateFeatures] = np.asarray(Res_wz)[i][0]
-        # Bi1[yIndex, inputFeatures] = np.asarray(Res_wz)[i][1]
-        # Ci1[yIndex] = np.asarray(Res_wz)[i][2]
         # ===========================
         # ===== Linearization =======
         vx = x0[0]; vy   = x0[1]
@@ -118,7 +109,7 @@ def LMPC_EstimateABC(LinPoints, N, n, d, SS, uSS, TimeSS, qp, matrix, PointAndTa
         Atv.append(Ai)
         Btv.append(Bi)
         Ctv.append(Ci)
-        indexUsed_list.append(indexUsed)
+        indexUsed_list.append(indexSelected)
 
     # print "Tot Atv1 ins: ", Atv1
     # print "Tot Atv is: ", Atv
@@ -128,27 +119,45 @@ def LMPC_EstimateABC(LinPoints, N, n, d, SS, uSS, TimeSS, qp, matrix, PointAndTa
     # print "Tot Ctv is: ", Ctv
     return Atv, Btv, Ctv, indexUsed_list
 
-def Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, it, np, matrix, lamb, K):
-    X0 = np.hstack((np.squeeze(SS[np.ix_(indexSelected, stateFeatures, [it])]),
-                    np.squeeze(uSS[np.ix_(indexSelected, inputFeatures, [it])], axis=2)))
+def Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, usedIt, np, matrix, lamb, K):
+    Counter = 0
+    it = 1
+    X0   = np.empty((0,len(stateFeatures)+len(inputFeatures)))
+    Ktot = np.empty((0))
+
+    for it in usedIt:
+        X0 = np.append( X0, np.hstack((np.squeeze(SS[np.ix_(indexSelected[Counter], stateFeatures, [it])]),
+                            np.squeeze(uSS[np.ix_(indexSelected[Counter], inputFeatures, [it])], axis=2))), axis=0)
+        Ktot = np.append(Ktot, K[Counter])
+        Counter = Counter + 1
+
     M = np.hstack((X0, np.ones((X0.shape[0], 1))))
-    Q0 = np.dot(np.dot(M.T, np.diag(K)), M)
+    Q0 = np.dot(np.dot(M.T, np.diag(Ktot)), M)
     Q = matrix(Q0 + lamb * np.eye(Q0.shape[0]))
 
 
     return Q, M
 
-def LMPC_LocLinReg(Q, K, stateFeatures, inputFeatures, qp, SS, yIndex, it, matrix, M, indexSelected):
+def Compute_b(SS, yIndex, usedIt, matrix, M, indexSelected, K, np):
+    Counter = 0
+    y = np.empty((0))
+    Ktot = np.empty((0))
+
+    for it in usedIt:
+        y = np.append(y, np.squeeze(SS[np.ix_(indexSelected[Counter] + 1, [yIndex], [it])]))
+        Ktot = np.append(Ktot, K[Counter])
+        Counter = Counter + 1
+
+    b = matrix(-np.dot(np.dot(M.T, np.diag(Ktot)), y))
+
+    return b
+
+def LMPC_LocLinReg(Q, b, stateFeatures, inputFeatures, qp):
     import numpy as np
     from numpy import linalg as la
     import datetime
 
     # K = np.ones(len(index))
-
-
-    # print "Removable time: ", deltaTimer_tv.total_seconds()
-    y = np.squeeze(SS[np.ix_(indexSelected + 1, [yIndex], [it])])
-    b = matrix(-np.dot(np.dot(M.T, np.diag(K)), y))
 
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
     res_cons = qp(Q, b) # This is ordered as [A B C]
@@ -163,17 +172,19 @@ def LMPC_LocLinReg(Q, K, stateFeatures, inputFeatures, qp, SS, yIndex, it, matri
 
     return A, B, C
 
-def ComputeIndex(h, x, x0, stateFeatures, scaling, MaxNumPoint):
+def ComputeIndex(h, SS, TimeSS, it, x0, stateFeatures, scaling, MaxNumPoint):
     import numpy as np
     from numpy import linalg as la
     import datetime
 
+
+
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
 
     # What to learn a model such that: x_{k+1} = A x_k  + B u_k + C
-    oneVec = np.ones( (x.shape[0]-1, 1) )
+    oneVec = np.ones( (SS[0:TimeSS[it], :, it].shape[0]-1, 1) )
     x0Vec = (np.dot( np.array([x0[stateFeatures]]).T, oneVec.T )).T
-    diff  = np.dot(( x[0:-1, stateFeatures] - x0Vec ), scaling)
+    diff  = np.dot(( SS[0:TimeSS[it], :, it][0:-1, stateFeatures] - x0Vec ), scaling)
     # print 'x0Vec \n',x0Vec
     norm = la.norm(diff, 1, axis=1)
     indexTot =  np.squeeze(np.where(norm < h))
