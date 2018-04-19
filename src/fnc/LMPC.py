@@ -42,7 +42,7 @@ def SelectPoints(SS, Qfun, it, x0, numSS_Points, np, la):
     Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it]
     return SS_Points, Sel_Qfun
 
-def ComputeCost(x, u, np, TrackLengthh):
+def ComputeCost(x, u, np, TrackLength):
     Cost = 10000 * np.ones((x.shape[0]))  # The cost has the same elements of the vector x --> time +1
 
     # Now compute the cost moving backwards in a Dynamic Programming (DP) fashion.
@@ -50,7 +50,7 @@ def ComputeCost(x, u, np, TrackLengthh):
     for i in range(0, x.shape[0]):
         if (i == 0):  # Note that for i = 0 --> pick the latest element of the vector x
             Cost[x.shape[0] - 1 - i] = 0
-        elif x[x.shape[0] - 1 - i, 4]< TrackLengthh:
+        elif x[x.shape[0] - 1 - i, 4]< TrackLength:
             Cost[x.shape[0] - 1 - i] = Cost[x.shape[0] - 1 - i + 1] + 1
         else:
             Cost[x.shape[0] - 1 - i] = 0

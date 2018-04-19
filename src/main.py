@@ -179,24 +179,24 @@ print "===== TV-MPC terminated"
 # Initialize
 PlotIndex = 0
 PlotPred  = 0
-TimeLMPC  = 200                             # Simulation time
+TimeLMPC  = 400                             # Simulation time
 PointsLMPC = int(TimeLMPC / dt)            # Number of points in the simulation
 uLMPC = np.zeros((PointsLMPC, 2))          # Initialize the input vector
 xLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
 x_globLMPC = np.zeros((PointsLMPC+1, 6))   # Initialize the state vector in absolute reference frame
-Laps       = 5
+Laps       = 20
 
 xLMPC[0,:] = x[0,:]
 x_globLMPC[0,:] = x_glob[0,:]
 # Time loop
 LinPoints = xMPC_tv[0:N+1,:]
 
-numSS_Points = 20
+numSS_Points = 100
 
-TimeSS= 10000*np.ones(10)
-SS    = 10000*np.ones((2*xMPC_tv.shape[0], 6, 10))
-uSS   = 10000*np.ones((2*xMPC_tv.shape[0], 2, 10))
-Qfun  = 0*np.ones((2*xMPC_tv.shape[0], 10)) # Need to initialize at zero as adding point on the fly
+TimeSS= 10000*np.ones(Laps+2)
+SS    = 10000*np.ones((2*xMPC_tv.shape[0], 6, Laps+2))
+uSS   = 10000*np.ones((2*xMPC_tv.shape[0], 2, Laps+2))
+Qfun  = 0*np.ones((2*xMPC_tv.shape[0], Laps+2)) # Need to initialize at zero as adding point on the fly
 
 # Adding Trajectory to safe set iteration 0
 TimeSS[0] = xMPC.shape[0]
@@ -214,7 +214,7 @@ print Qfun[0:TimeSS[0], 0], Qfun[0:TimeSS[1], 1]
 
 F_LMPC, b_LMPC = LMPC_BuildMatIneqConst(N, n, np, linalg, spmatrix, numSS_Points)
 
-Qslack = 1*np.diag([100, 1, 1, 1, 100, 1000])
+Qslack = 1*np.diag([100, 1, 1, 1, 100, 500])
 Q_LMPC = 0 * np.diag([0.0, 1.0, 10.0, 0.0, 0.0, 0.0])  # vx, vy, wz, epsi, s, ey
 R_LMPC = 1 * np.diag([1.0, 0.1])  # delta, a
 
@@ -531,23 +531,23 @@ if plotFlagLMPC == 1:
     plt.figure(8)
     plt.subplot(711)
     for i in range(2, Laps + 2):
-        plt.plot(SS[0:TimeSS[i], 0, i], '-o')
+        plt.plot(SS[0:TimeSS[i], 4, i], SS[0:TimeSS[i], 0, i], '-o')
     plt.ylabel('vx')
     plt.subplot(712)
     for i in range(2, Laps + 2):
-        plt.plot(SS[0:TimeSS[i], 1, i], '-o')
+        plt.plot(SS[0:TimeSS[i], 4, i], SS[0:TimeSS[i], 1, i], '-o')
     plt.ylabel('vy')
     plt.subplot(713)
     for i in range(2, Laps + 2):
-        plt.plot(SS[0:TimeSS[i], 2, i], '-o')
+        plt.plot(SS[0:TimeSS[i], 4, i], SS[0:TimeSS[i], 2, i], '-o')
     plt.ylabel('wz')
     plt.subplot(714)
     for i in range(2, Laps + 2):
-        plt.plot(SS[0:TimeSS[i], 3, i], '-o')
+        plt.plot(SS[0:TimeSS[i], 4, i], SS[0:TimeSS[i], 3, i], '-o')
     plt.ylabel('epsi')
     plt.subplot(715)
     for i in range(2, Laps + 2):
-        plt.plot(SS[0:TimeSS[i], 5, i], '-o')
+        plt.plot(SS[0:TimeSS[i], 4, i], SS[0:TimeSS[i], 5, i], '-o')
     plt.ylabel('ey')
     plt.subplot(716)
     for i in range(2, Laps + 2):
