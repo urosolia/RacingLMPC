@@ -82,9 +82,9 @@ def DynModel(x, x_glob, u, np, dt, PointAndTangent):
 
 
         # Noises
-        noise_vx = np.maximum(-0.05, np.min(np.random.randn()*0.001, 0.05))
-        noise_vy = np.maximum(-0.01, np.min(np.random.randn()*0.001, 0.01))
-        noise_wz = np.maximum(-0.01, np.min(np.random.randn()*0.001, 0.01))
+        noise_vx = np.maximum(-0.05, np.min(np.random.randn()*0.01, 0.05))
+        noise_vy = np.maximum(-0.1, np.min(np.random.randn()*0.01, 0.1))
+        noise_wz = np.maximum(-0.1, np.min(np.random.randn()*0.01, 0.1))
 
         # Update the value of the states
         psi  = x_next[3]

@@ -29,15 +29,15 @@ RunLMPC    = 1; plotFlagLMPC   = 1
 # ======================================================================================================================
 # ====================================== INITIALIZE PARAMETERS =========================================================
 # ======================================================================================================================
-dt = 1.0/50.0                      # Controller discretization time
+dt = 1.0/10.0                      # Controller discretization time
 Time = 100                          # Simulation time
 Points = int(Time/dt)              # Number of points in the simulation
 u = np.zeros((Points, 2))          # Initialize the input vector
 x      = np.zeros((Points+1, 6))   # Initialize state vector (In curvilinear abscissas)
 x_glob = np.zeros((Points+1, 6))   # Initialize the state vector in absolute reference frame
-vt = 2
+vt = 0.8
 
-x[0,0] = 1.5; x_glob[0,0] = 1.5
+x[0,0] = 0.5; x_glob[0,0] = 0.5
 x[0,4] = 0.5; x_glob[0,4] = 0.5
 # Create the track. The vector PointAndTangent = [xf yf]
 PointAndTangent, TrackLength = CreateTrack()
@@ -47,7 +47,7 @@ PointAndTangent, TrackLength = CreateTrack()
 if RunPID == 1:
     for i in range(0, Points):
         u[i, 0] = - 0.6 * x[i, 5] - 0.9 * x[i, 3] + np.maximum(-0.9, np.min(np.random.randn()*0.25, 0.9))
-        u[i, 1] = vt - x[i, 0] + np.maximum(-0.5, np.min(np.random.randn()*0.15, 0.5))
+        u[i, 1] = 1.5*(vt - x[i, 0]) + np.maximum(-0.2, np.min(np.random.randn()*0.10, 0.2))
         x[i+1, :], x_glob[i+1, :] = DynModel(x[i, :], x_glob[i, :], u[i, :], np, dt, PointAndTangent)
 
     print "Number of laps completed: ", int(np.floor(x[-1, 4] / (PointAndTangent[-1, 3] + PointAndTangent[-1, 4])))
@@ -67,10 +67,10 @@ print "A matrix: \n", A, "\n B matrix: \n", B
 
 n = 6
 d = 2
-N = 8
+N = 12
 
-Q = np.diag([10.0, 0.0, 0, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
-R = np.diag([10.0, 1.0]) # delta, a
+Q = np.diag([1.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
+R = np.diag([1.0, 10.0]) # delta, a
 
 M, q    = BuildMatCost(Q, R, Q, N, linalg, np, spmatrix, vt)
 F, b    = BuildMatIneqConst(N, n, np, linalg, spmatrix)
@@ -184,7 +184,7 @@ PointsLMPC = int(TimeLMPC / dt)            # Number of points in the simulation
 uLMPC = np.zeros((PointsLMPC, 2))          # Initialize the input vector
 xLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
 x_globLMPC = np.zeros((PointsLMPC+1, 6))   # Initialize the state vector in absolute reference frame
-Laps       = 20
+Laps       = 5
 
 xLMPC[0,:] = x[0,:]
 x_globLMPC[0,:] = x_glob[0,:]
@@ -192,6 +192,7 @@ x_globLMPC[0,:] = x_glob[0,:]
 LinPoints = xMPC_tv[0:N+1,:]
 
 numSS_Points = 100
+swifth = N-1
 
 TimeSS= 10000*np.ones(Laps+2)
 SS    = 10000*np.ones((2*xMPC_tv.shape[0], 6, Laps+2))
@@ -199,10 +200,10 @@ uSS   = 10000*np.ones((2*xMPC_tv.shape[0], 2, Laps+2))
 Qfun  = 0*np.ones((2*xMPC_tv.shape[0], Laps+2)) # Need to initialize at zero as adding point on the fly
 
 # Adding Trajectory to safe set iteration 0
-TimeSS[0] = xMPC.shape[0]
-SS[0:TimeSS[0],:, 0]  = xMPC
-uSS[0:TimeSS[0]-1,:, 0]  = uMPC
-Qfun[0:TimeSS[0], 0] = ComputeCost(xMPC, uMPC, np, TrackLength)
+TimeSS[0] = x.shape[0]
+SS[0:TimeSS[0],:, 0]  = x
+uSS[0:TimeSS[0]-1,:, 0]  = u
+Qfun[0:TimeSS[0], 0] = ComputeCost(x, u, np, TrackLength)
 
 # Adding Trajectory to safe set iteration 1
 TimeSS[1] = xMPC_tv.shape[0]
@@ -214,9 +215,9 @@ print Qfun[0:TimeSS[0], 0], Qfun[0:TimeSS[1], 1]
 
 F_LMPC, b_LMPC = LMPC_BuildMatIneqConst(N, n, np, linalg, spmatrix, numSS_Points)
 
-Qslack = 1*np.diag([100, 1, 1, 1, 100, 500])
-Q_LMPC = 0 * np.diag([0.0, 1.0, 10.0, 0.0, 0.0, 0.0])  # vx, vy, wz, epsi, s, ey
-R_LMPC = 1 * np.diag([1.0, 0.1])  # delta, a
+Qslack = 50*np.diag([1, 10, 10, 10, 10, 10])
+Q_LMPC = 0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # vx, vy, wz, epsi, s, ey
+R_LMPC = 5 * np.diag([1.0, 1.0])  # delta, a
 
 if PlotIndex == 1:
     plt.figure(105)
@@ -310,13 +311,15 @@ if RunLMPC == 1:
             else:
                 startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
 
-                Atv, Btv, Ctv, indexUsed_list = LMPC_EstimateABC(LinPoints, N, n, d, SS, uSS, TimeSS, qp, matrix,
+                Atv, Btv, Ctv, indexUsed_list = LMPC_EstimateABC(LinPoints, LinInput, N, n, d, SS, uSS, TimeSS, qp, matrix,
                                                                  PointAndTangent, dt, it)
                 endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
                 # Atv0, Btv0, Ctv0 = EstimateABC(LinPoints, N, n, d, x_ID, u_ID, qp, matrix, PointAndTangent, dt)
                 # print (Atv0[0]==Atv[0]).all()
-
+                #
                 G, E, L, npG, npE = LMPC_BuildMatEqConst(Atv, Btv, Ctv, N, n, d, np, spmatrix, 1)
+                # G, E, L, npG, npE = LMPC_BuildMatEqConst(A, B, np.zeros((n, 1)), N, n, d, np, spmatrix, 0)
+
                 if PlotIndex == 1:
                     line.set_xdata(x_globMPC_tv[indexUsed_list[0], 4])
                     line.set_ydata(x_globMPC_tv[indexUsed_list[0], 5])
@@ -327,10 +330,14 @@ if RunLMPC == 1:
 
 
 
-            Sol, feasible, deltaTimer, slack = LMPC(npG, L, npE, F_LMPC, b_LMPC, x0, np, qp, matrix, datetime, la, SS, Qfun,  N, n, d, spmatrix, numSS_Points, Qslack, Q_LMPC, R_LMPC, it)
+            Sol, feasible, deltaTimer, slack = LMPC(npG, L, npE, F_LMPC, b_LMPC, x0, np, qp, matrix, datetime, la, SS,
+                                                    Qfun,  N, n, d, spmatrix, numSS_Points, Qslack, Q_LMPC, R_LMPC, it, swifth)
 
             xPred, uPred = GetPred(Sol, n, d, N, np)
+
             LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
+            LinInput = uPred.T
+
             uLMPC[i, :] = uPred[:, 0]
             xLMPC[i + 1, :], x_globLMPC[absTime + 1, :] = DynModel(xLMPC[i, :], x_globLMPC[absTime, :], uLMPC[i, :], np, dt,
                                                              PointAndTangent)
@@ -352,8 +359,6 @@ if RunLMPC == 1:
                 plt.draw()
                 plt.pause(1e-17)
 
-
-
             if i <= 5:
                 print("Linearization time: %.4fs Solver time: %.4fs" % (deltaTimer_tv.total_seconds(), deltaTimer.total_seconds()))
                 print "Time: ", i * dt, "Current State and Input: ", xLMPC[i, :], uLMPC[i, :]
@@ -370,6 +375,7 @@ if RunLMPC == 1:
             absTime = absTime + 1
 
 
+
     np.savez('LMPC_PathFollowing', x=xLMPC, u=uLMPC, x_glob=x_globLMPC)
 else:
     data = np.load('LMPC_PathFollowing.npz')
@@ -377,11 +383,12 @@ else:
     uLMPC      = data['u']
     x_globLMPC = data['x_glob']
 
-it = 2 + Laps
-SS[0:i, :, it-1]  = xLMPC[0:i, :]
-uSS[0:i-1, :, it-1] = uLMPC[0:i-1, :]
-TimeSS[it-1] = i
-Qfun[0:i, it-1] = ComputeCost(xLMPC[0:i, :], xLMPC[0:i-1, :], np, TrackLength)
+if RunLMPC == 1:
+    it = 2 + Laps
+    SS[0:i, :, it-1]  = xLMPC[0:i, :]
+    uSS[0:i-1, :, it-1] = uLMPC[0:i-1, :]
+    TimeSS[it-1] = i
+    Qfun[0:i, it-1] = ComputeCost(xLMPC[0:i, :], xLMPC[0:i-1, :], np, TrackLength)
 
 print "===== LMPC terminated"
 # ======================================================================================================================
@@ -390,14 +397,15 @@ print "===== LMPC terminated"
 for i in range(0,Laps+2):
     print "Cost at iteration ", i, " is ",Qfun[0,i]
 print "===== Start Plotting"
+width = 0.8
 if plotFlag == 1:
     Points = np.floor(10*(PointAndTangent[-1, 3] + PointAndTangent[-1, 4]))
     Points1 = np.zeros((Points,2))
     Points2 = np.zeros((Points,2))
     Points0 = np.zeros((Points,2))
     for i in range(0,int(Points)):
-        Points1[i, :] = Evaluate_e_ey(i*0.1, 1.5, PointAndTangent)
-        Points2[i, :] = Evaluate_e_ey(i*0.1,-1.5, PointAndTangent)
+        Points1[i, :] = Evaluate_e_ey(i*0.1, width, PointAndTangent)
+        Points2[i, :] = Evaluate_e_ey(i*0.1,-width, PointAndTangent)
         Points0[i, :] = Evaluate_e_ey(i*0.1, 0, PointAndTangent)
 
     plt.figure(1)
@@ -436,8 +444,8 @@ if plotFlagMPC == 1:
     Points2 = np.zeros((Points,2))
     Points0 = np.zeros((Points,2))
     for i in range(0,int(Points)):
-        Points1[i, :] = Evaluate_e_ey(i*0.1, 1.5, PointAndTangent)
-        Points2[i, :] = Evaluate_e_ey(i*0.1,-1.5, PointAndTangent)
+        Points1[i, :] = Evaluate_e_ey(i*0.1, width, PointAndTangent)
+        Points2[i, :] = Evaluate_e_ey(i*0.1,-width, PointAndTangent)
         Points0[i, :] = Evaluate_e_ey(i*0.1, 0, PointAndTangent)
 
     plt.figure(3)
@@ -477,8 +485,8 @@ if plotFlagMPC_tv == 1:
     Points2 = np.zeros((Points,2))
     Points0 = np.zeros((Points,2))
     for i in range(0,int(Points)):
-        Points1[i, :] = Evaluate_e_ey(i*0.1, 1.5, PointAndTangent)
-        Points2[i, :] = Evaluate_e_ey(i*0.1,-1.5, PointAndTangent)
+        Points1[i, :] = Evaluate_e_ey(i*0.1, width, PointAndTangent)
+        Points2[i, :] = Evaluate_e_ey(i*0.1,-width, PointAndTangent)
         Points0[i, :] = Evaluate_e_ey(i*0.1, 0, PointAndTangent)
 
     plt.figure(5)
@@ -517,8 +525,8 @@ if plotFlagLMPC == 1:
     Points2 = np.zeros((Points,2))
     Points0 = np.zeros((Points,2))
     for i in range(0,int(Points)):
-        Points1[i, :] = Evaluate_e_ey(i*0.1, 1.5, PointAndTangent)
-        Points2[i, :] = Evaluate_e_ey(i*0.1,-1.5, PointAndTangent)
+        Points1[i, :] = Evaluate_e_ey(i*0.1, width, PointAndTangent)
+        Points2[i, :] = Evaluate_e_ey(i*0.1,-width, PointAndTangent)
         Points0[i, :] = Evaluate_e_ey(i*0.1, 0, PointAndTangent)
 
     plt.figure(7)
