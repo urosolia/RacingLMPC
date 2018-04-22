@@ -21,9 +21,9 @@ pwz = Pool(4)  # Initialize the pool for multicore
 
 solvers.options['show_progress'] = False
 # CHOOSE WHAT TO RUN
-RunPID     = 0; plotFlag       = 0
-RunMPC     = 0; plotFlagMPC    = 0
-RunMPC_tv  = 0; plotFlagMPC_tv = 0
+RunPID     = 1; plotFlag       = 0
+RunMPC     = 1; plotFlagMPC    = 0
+RunMPC_tv  = 1; plotFlagMPC_tv = 0
 RunLMPC    = 1; plotFlagLMPC   = 1
 
 # ======================================================================================================================
@@ -376,12 +376,14 @@ if RunLMPC == 1:
 
 
 
-    np.savez('LMPC_PathFollowing', x=xLMPC, u=uLMPC, x_glob=x_globLMPC)
+    np.savez('LMPC_PathFollowing', x=xLMPC, u=uLMPC, x_glob=x_globLMPC, ss=SS, uss=uSS)
 else:
     data = np.load('LMPC_PathFollowing.npz')
     xLMPC      = data['x']
     uLMPC      = data['u']
     x_globLMPC = data['x_glob']
+    SS         = data['SS']
+    uSS        = data['uSS']
 
 if RunLMPC == 1:
     it = 2 + Laps

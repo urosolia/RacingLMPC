@@ -81,19 +81,14 @@ def DynModel(x, x_glob, u, np, dt, PointAndTangent):
         cur_x_next[5] = ey + deltaT * (vx * np.sin(epsi) + vy * np.cos(epsi))
 
 
-        # Noises
-        noise_vx = np.maximum(-0.05, np.min(np.random.randn()*0.01, 0.05))
-        noise_vy = np.maximum(-0.1, np.min(np.random.randn()*0.01, 0.1))
-        noise_wz = np.maximum(-0.1, np.min(np.random.randn()*0.01, 0.1))
-
         # Update the value of the states
         psi  = x_next[3]
         X    = x_next[4]
         Y    = x_next[5]
 
-        vx   = cur_x_next[0] + noise_vx
-        vy   = cur_x_next[1] + noise_vy
-        wz   = cur_x_next[2] + noise_wz
+        vx   = cur_x_next[0]
+        vy   = cur_x_next[1]
+        wz   = cur_x_next[2]
         epsi = cur_x_next[3]
         s    = cur_x_next[4]
         ey   = cur_x_next[5]
@@ -105,4 +100,13 @@ def DynModel(x, x_glob, u, np, dt, PointAndTangent):
         # Increment counter
         i = i+1
 
+    # Noises
+    noise_vx = np.maximum(-0.05, np.min(np.random.randn() * 0.01, 0.05))
+    noise_vy = np.maximum(-0.1, np.min(np.random.randn() * 0.01, 0.1))
+    noise_wz = np.maximum(-0.1, np.min(np.random.randn() * 0.01, 0.1))
+
+    cur_x_next[0] = cur_x_next[0] + noise_vx
+    cur_x_next[1] = cur_x_next[1] + noise_vy
+    cur_x_next[2] = cur_x_next[2] + noise_wz
+    
     return cur_x_next, x_next
