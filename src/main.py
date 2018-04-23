@@ -21,9 +21,9 @@ pwz = Pool(4)  # Initialize the pool for multicore
 
 solvers.options['show_progress'] = False
 # CHOOSE WHAT TO RUN
-RunPID     = 1; plotFlag       = 0
-RunMPC     = 1; plotFlagMPC    = 0
-RunMPC_tv  = 1; plotFlagMPC_tv = 0
+RunPID     = 0; plotFlag       = 0
+RunMPC     = 0; plotFlagMPC    = 0
+RunMPC_tv  = 0; plotFlagMPC_tv = 0
 RunLMPC    = 1; plotFlagLMPC   = 1
 
 # ======================================================================================================================
@@ -191,7 +191,7 @@ x_globLMPC[0,:] = x_glob[0,:]
 # Time loop
 LinPoints = xMPC_tv[0:N+1,:]
 
-numSS_Points = 100
+numSS_Points = 30
 swifth = N-1
 
 TimeSS= 10000*np.ones(Laps+2)

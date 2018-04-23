@@ -108,5 +108,5 @@ def DynModel(x, x_glob, u, np, dt, PointAndTangent):
     cur_x_next[0] = cur_x_next[0] + noise_vx
     cur_x_next[1] = cur_x_next[1] + noise_vy
     cur_x_next[2] = cur_x_next[2] + noise_wz
-    
+
     return cur_x_next, x_next

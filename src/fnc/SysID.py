@@ -8,7 +8,7 @@ def LMPC_EstimateABC(LinPoints, LinInput, N, n, d, SS, uSS, TimeSS, qp, matrix, 
     usedIt = range(it-2,it)
 
     for i in range(0, N):
-        MaxNumPoint = 200 # Need to reason on how these points are selected
+        MaxNumPoint = 40 # Need to reason on how these points are selected
         x0 = LinPoints[i, :]
 
         Ai = np.zeros((n, n))
