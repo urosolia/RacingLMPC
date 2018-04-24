@@ -393,4 +393,12 @@ def Regression(x, u, lamb):
     A = W.T[:, 0:6]
     B = W.T[:, 6:8]
 
-    return A, B
+    print W.T.shape, X.shape, Y.shape
+    ErrorMatrix = np.dot( X, W) - Y
+    print ErrorMatrix.shape
+    ErrorMax = np.max(ErrorMatrix, axis=0)
+    ErrorMin = np.min(ErrorMatrix, axis=0)
+    print ErrorMax.shape
+    Error = np.vstack((ErrorMax, ErrorMin))
+
+    return A, B, Error

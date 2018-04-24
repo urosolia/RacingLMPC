@@ -5,14 +5,18 @@ from FTOCP import BuildMatEqConst, BuildMatCost, BuildMatIneqConst, FTOCP, GetPr
 from Track import CreateTrack, Evaluate_e_ey
 from SysID import LocLinReg, Regression, EstimateABC, LMPC_EstimateABC
 from LMPC import LMPC, ComputeCost, LMPC_BuildMatEqConst, LMPC_BuildMatIneqConst
+from InvariantSets import PropagatePoly, GenerateW, Invariance
 import numpy as np
 import matplotlib.pyplot as plt
 from cvxopt.solvers import qp
 from cvxopt import spmatrix, matrix, solvers
 from scipy import linalg
+import scipy
 import datetime
 from numpy import linalg as la
 from pathos.multiprocessing import ProcessingPool as Pool
+from polyhedron import Vrep, Hrep
+
 from functools import partial
 
 pvx = Pool(4)  # Initialize the pool for multicore
@@ -22,7 +26,7 @@ pwz = Pool(4)  # Initialize the pool for multicore
 solvers.options['show_progress'] = False
 # CHOOSE WHAT TO RUN
 RunPID     = 0; plotFlag       = 0
-RunMPC     = 0; plotFlagMPC    = 0
+RunMPC     = 0; plotFlagMPC    = 1
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
 RunLMPC    = 1; plotFlagLMPC   = 1
 
@@ -62,7 +66,19 @@ else:
 # ======================================================================================================================
 print "Starting MPC"
 lamb = 0.0000001
-A, B = Regression(x, u, lamb)
+SafetyFactor = 1.15
+A, B, Error = Regression(x, u, lamb)
+
+# np.savetxt('Error.csv', Error, delimiter=',', fmt='%f')
+# np.savetxt('A.csv', A, delimiter=',', fmt='%f')
+# np.savetxt('B.csv', B, delimiter=',', fmt='%f')
+#
+# W = GenerateW(Error*SafetyFactor)
+
+#rho = 0.1
+#max_r = 10
+#InvariantSet = Invariance(A_cl, W, rho, max_r)
+
 print "A matrix: \n", A, "\n B matrix: \n", B
 
 n = 6
@@ -177,9 +193,9 @@ print "===== TV-MPC terminated"
 # ==============================  LMPC w\ LOCAL LINEAR REGRESSION ======================================================
 # ======================================================================================================================
 # Initialize
-PlotIndex = 0
-PlotPred  = 0
-TimeLMPC  = 400                             # Simulation time
+PlotIndex  = 0
+PlotPred   = 0
+TimeLMPC   = 400                             # Simulation time
 PointsLMPC = int(TimeLMPC / dt)            # Number of points in the simulation
 uLMPC = np.zeros((PointsLMPC, 2))          # Initialize the input vector
 xLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
@@ -194,10 +210,10 @@ LinPoints = xMPC_tv[0:N+1,:]
 numSS_Points = 30
 swifth = N-1
 
-TimeSS= 10000*np.ones(Laps+2)
-SS    = 10000*np.ones((2*xMPC_tv.shape[0], 6, Laps+2))
-uSS   = 10000*np.ones((2*xMPC_tv.shape[0], 2, Laps+2))
-Qfun  = 0*np.ones((2*xMPC_tv.shape[0], Laps+2)) # Need to initialize at zero as adding point on the fly
+TimeSS = 10000*np.ones(Laps+2)
+SS     = 10000*np.ones((2*xMPC_tv.shape[0], 6, Laps+2))
+uSS    = 10000*np.ones((2*xMPC_tv.shape[0], 2, Laps+2))
+Qfun   = 0*np.ones((2*xMPC_tv.shape[0], Laps+2)) # Need to initialize at zero as adding point on the fly
 
 # Adding Trajectory to safe set iteration 0
 TimeSS[0] = x.shape[0]
@@ -382,8 +398,8 @@ else:
     xLMPC      = data['x']
     uLMPC      = data['u']
     x_globLMPC = data['x_glob']
-    SS         = data['SS']
-    uSS        = data['uSS']
+    SS         = data['ss']
+    uSS        = data['uss']
 
 if RunLMPC == 1:
     it = 2 + Laps

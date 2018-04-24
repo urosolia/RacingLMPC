@@ -103,7 +103,7 @@ def DynModel(x, x_glob, u, np, dt, PointAndTangent):
     # Noises
     noise_vx = np.maximum(-0.05, np.min(np.random.randn() * 0.01, 0.05))
     noise_vy = np.maximum(-0.1, np.min(np.random.randn() * 0.01, 0.1))
-    noise_wz = np.maximum(-0.1, np.min(np.random.randn() * 0.01, 0.1))
+    noise_wz = np.maximum(-0.05, np.min(np.random.randn() * 0.005, 0.05))
 
     cur_x_next[0] = cur_x_next[0] + noise_vx
     cur_x_next[1] = cur_x_next[1] + noise_vy
