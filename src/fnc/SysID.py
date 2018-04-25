@@ -226,7 +226,7 @@ def ComputeIndex(h, SS, uSS, TimeSS, it, x0, stateFeatures, scaling, MaxNumPoint
 
     return index, K
 
-def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
+def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt, Ke):
     import numpy as np
     from SysModel import Curvature
 
@@ -305,7 +305,7 @@ def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
         depsi_wz   =      dt
         depsi_epsi =  1 - dt * ( -vx * np.sin(epsi) - vy * np.cos(epsi) ) / den * cur
         depsi_s    =      0                                                                      # Because cur = constant
-        depsi_ey   =    - dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den**2) * cur * (-cur)
+        depsi_ey   =      dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den**2) * cur * (-cur)
 
         Ai[3, :]   = [depsi_vx, depsi_vy, depsi_wz, depsi_epsi, depsi_s, depsi_ey]
 
@@ -317,7 +317,7 @@ def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
         ds_wz    =  0
         ds_epsi  =  dt * (-vx * np.sin(epsi) - vy * np.cos(epsi)) / den
         ds_s     = 1 #+ Ts * (Vx * cos(epsi) - Vy * sin(epsi)) / (1 - ey * rho) ^ 2 * (-ey * drho);
-        ds_ey    =  dt * ( vx * np.cos(epsi) - vy * np.sin(epsi)) / (( den )**2)* (-cur)
+        ds_ey    = -dt * ( vx * np.cos(epsi) - vy * np.sin(epsi)) / ( den*2)* (-cur)
 
         Ai[4, :] = [ds_vx, ds_vy, ds_wz, ds_epsi, ds_s, ds_ey]
 
@@ -333,7 +333,7 @@ def EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt):
 
         Ai[5, :] = [dey_vx, dey_vy, dey_wz, dey_epsi, dey_s, dey_ey]
 
-        Atv.append(Ai)
+        Atv.append(Ai-Bi*Ke)
         Btv.append(Bi)
         Ctv.append(Ci)
 

@@ -25,10 +25,36 @@ pwz = Pool(4)  # Initialize the pool for multicore
 
 solvers.options['show_progress'] = False
 # CHOOSE WHAT TO RUN
-RunPID     = 0; plotFlag       = 0
-RunMPC     = 0; plotFlagMPC    = 1
-RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 1
+RunPID     = 1; plotFlag       = 0
+RunMPC     = 1; plotFlagMPC    = 1
+RunMPC_tv  = 1; plotFlagMPC_tv = 1
+RunLMPC    = 0; plotFlagLMPC   = 0
+
+Lower_d = np.array([-0.0793, -0.0230, -0.2260, -0.0306, 0.0000, 0.0000])
+Upper_d = np.array([ 0.1178,  0.0142,  0.1748,  0.0385, 0.2493, 0.0414])
+Error_Bounds = [Lower_d, Upper_d]
+print Error_Bounds[0]
+print Error_Bounds[1]
+
+def dlqr(A, B, Q, R):
+    """Solve the discrete time lqr controller. From MWM website
+
+
+    x[k+1] = A x[k] + B u[k]
+
+    cost = sum x[k].T*Q*x[k] + u[k].T*R*u[k]
+    """
+    # ref Bertsekas, p.151
+
+    # first, try to solve the ricatti equation
+    X = np.matrix(scipy.linalg.solve_discrete_are(A, B, Q, R))
+
+    # compute the LQR gain
+    K = np.matrix(scipy.linalg.inv(B.T * X * B + R) * (B.T * X * A))
+
+    eigVals, eigVecs = scipy.linalg.eig(A - B * K)
+
+    return K, X, eigVals
 
 # ======================================================================================================================
 # ====================================== INITIALIZE PARAMETERS =========================================================
@@ -74,6 +100,11 @@ A, B, Error = Regression(x, u, lamb)
 # np.savetxt('B.csv', B, delimiter=',', fmt='%f')
 #
 # W = GenerateW(Error*SafetyFactor)
+Q = np.eye(6)
+R = 100*np.eye(2)
+Ke, _, _ = dlqr(A,B,Q,R)
+
+Acl = A-B*Ke
 
 #rho = 0.1
 #max_r = 10
@@ -85,15 +116,15 @@ n = 6
 d = 2
 N = 12
 
-Q = np.diag([1.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
-R = np.diag([1.0, 10.0]) # delta, a
+Q = np.diag([500.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
+R = np.diag([1.0, 0.1]) # delta, a
 
 M, q    = BuildMatCost(Q, R, Q, N, linalg, np, spmatrix, vt)
-F, b    = BuildMatIneqConst(N, n, np, linalg, spmatrix)
-G, E, L = BuildMatEqConst(A, B, np.zeros((n,1)), N, n, d, np, spmatrix, 0)
+F, b, E = BuildMatIneqConst(N, n, np, linalg, spmatrix, Ke, Error_Bounds)
+G, L    = BuildMatEqConst(Acl, B, np.zeros((n,1)), N, n, d, np, spmatrix, 0)
 
 # Initialize
-TimeMPC = 100                             # Simulation time
+TimeMPC = 50                             # Simulation time
 PointsMPC = int(TimeMPC / dt)            # Number of points in the simulation
 uMPC = np.zeros((PointsMPC, 2))          # Initialize the input vector
 xMPC      = np.zeros((PointsMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
@@ -110,7 +141,8 @@ if RunMPC == 1:
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
 
         xPred, uPred = GetPred(Sol, n, d, N, np)
-        uMPC[i, :] = uPred[:, 0]
+
+        uMPC[i, :] = uPred[:, 0] - np.dot(Ke,xMPC[i, :])
         xMPC[i+1, :], x_globMPC[i+1, :] = DynModel(xMPC[i, :], x_globMPC[i, :], uMPC[i, :], np, dt, PointAndTangent)
 
         if i <= 5:
@@ -137,7 +169,7 @@ print "===== MPC terminated"
 # ===================================  LOCAL LINEAR REGRESSION =========================================================
 # ======================================================================================================================
 # Initialize
-TimeMPC_tv = 100                             # Simulation time
+TimeMPC_tv = 50                             # Simulation time
 PointsMPC_tv = int(TimeMPC_tv / dt)            # Number of points in the simulation
 uMPC_tv = np.zeros((PointsMPC_tv, 2))          # Initialize the input vector
 xMPC_tv      = np.zeros((PointsMPC_tv+1, 6))   # Initialize state vector (In curvilinear abscissas)
@@ -154,11 +186,11 @@ if RunMPC_tv == 1:
 
         startTimer = datetime.datetime.now() # Start timer for LMPC iteration
         if i == 0:
-            F, b = BuildMatIneqConst(N, n, np, linalg, spmatrix)
-            G, E, L = BuildMatEqConst(A, B, np.zeros((n, 1)), N, n, d, np, spmatrix, 0)
+            F, b, E = BuildMatIneqConst(N, n, np, linalg, spmatrix, Ke, Error_Bounds)
+            G, L = BuildMatEqConst(A, B, np.zeros((n, 1)), N, n, d, np, spmatrix, 0)
         else:
-            Atv, Btv, Ctv = EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt)
-            G, E, L = BuildMatEqConst(Atv, Btv, Ctv, N, n, d, np, spmatrix, 1)
+            Atv, Btv, Ctv = EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt, Ke)
+            G, L = BuildMatEqConst(Atv, Btv, Ctv, N, n, d, np, spmatrix, 1)
         endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
 
         startTimer = datetime.datetime.now() # Start timer for LMPC iteration
@@ -167,7 +199,7 @@ if RunMPC_tv == 1:
 
         xPred, uPred = GetPred(Sol, n, d, N, np)
         LinPoints = xPred.T
-        uMPC_tv[i, :] = uPred[:, 0]
+        uMPC_tv[i, :] = uPred[:, 0] - np.dot(Ke,xMPC_tv[i, :])
         xMPC_tv[i+1, :], x_globMPC_tv[i+1, :] = DynModel(xMPC_tv[i, :], x_globMPC_tv[i, :], uMPC_tv[i, :], np, dt, PointAndTangent)
 
         if i <= 5:

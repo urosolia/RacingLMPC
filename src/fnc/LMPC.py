@@ -79,8 +79,8 @@ def LMPC_TermConstr(G, E, N ,n ,d ,np, spmatrix, SS_Points):
 
     E_LMPC = np.vstack((E, np.zeros((n + 1, n))))
 
-    # np.savetxt('G.csv', G_LMPC, delimiter=',', fmt='%f')
-    # np.savetxt('E.csv', E_LMPC, delimiter=',', fmt='%f')
+    np.savetxt('G.csv', G_LMPC, delimiter=',', fmt='%f')
+    np.savetxt('E.csv', E_LMPC, delimiter=',', fmt='%f')
 
     G_LMPC_sparse = spmatrix(G_LMPC[np.nonzero(G_LMPC)], np.nonzero(G_LMPC)[0], np.nonzero(G_LMPC)[1], G_LMPC.shape)
     E_LMPC_sparse = spmatrix(E_LMPC[np.nonzero(E_LMPC)], np.nonzero(E_LMPC)[0], np.nonzero(E_LMPC)[1], E_LMPC.shape)
@@ -212,9 +212,9 @@ def LMPC_BuildMatIneqConst(N, n, np, linalg, spmatrix, numSS_Points):
     FDummy = np.vstack( ( Dummy1, Dummy2) )
     I = -np.eye(numSS_Points)
 
-    FDummy2 = linalg.block_diag( FDummy, I )
+    FDummy2 = linalg.block_diag( FDummy, I ) # Make sure the lambda are => 0
 
-    Fslack = np.zeros((FDummy2.shape[0], n))
+    Fslack = np.zeros((FDummy2.shape[0], n)) # Adding terms related with the slack variable associated with the terminal constraint
 
     F = np.hstack((FDummy2, Fslack))
 

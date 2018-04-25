@@ -28,7 +28,7 @@ r_selected = Compute_mRPI(A-B*Ke, W, rho)
 BasisVector = W.V'
 NumBasic = size(BasisVector,2)
 %%
-SampledPoint = []
+SampledPoint = [zeros(6,1)]
 
 for i = 1:5000
     Point = zeros(6, 1);
@@ -113,3 +113,6 @@ end
 %%
 save('Workspace')
 [(sum(Checking))/size(Checking,1) (sum(Checking1))/size(Checking1,1)]
+
+csvwrite('Lower_d.csv',Lower_d)
+csvwrite('Upper_d.csv',Upper_d)
