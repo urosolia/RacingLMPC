@@ -2,10 +2,16 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b82c504b-cebe-4b95-a526-6942af548f40" name="Default" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change beforePath="$PROJECT_DIR$/src/E.csv" afterPath="" />
+      <change beforePath="$PROJECT_DIR$/src/G.csv" afterPath="" />
       <change beforePath="$PROJECT_DIR$/src/LMPC_PathFollowing.npz" afterPath="$PROJECT_DIR$/src/LMPC_PathFollowing.npz" />
       <change beforePath="$PROJECT_DIR$/src/MPC_PathFollowing.npz" afterPath="$PROJECT_DIR$/src/MPC_PathFollowing.npz" />
       <change beforePath="$PROJECT_DIR$/src/MPC_tv_PathFollowing.npz" afterPath="$PROJECT_DIR$/src/MPC_tv_PathFollowing.npz" />
       <change beforePath="$PROJECT_DIR$/src/PID_PathFollowing.npz" afterPath="$PROJECT_DIR$/src/PID_PathFollowing.npz" />
+      <change beforePath="$PROJECT_DIR$/src/fnc/FTOCP.py" afterPath="$PROJECT_DIR$/src/fnc/FTOCP.py" />
+      <change beforePath="$PROJECT_DIR$/src/fnc/LMPC.py" afterPath="$PROJECT_DIR$/src/fnc/LMPC.py" />
+      <change beforePath="$PROJECT_DIR$/src/fnc/SysID.py" afterPath="$PROJECT_DIR$/src/fnc/SysID.py" />
       <change beforePath="$PROJECT_DIR$/src/main.py" afterPath="$PROJECT_DIR$/src/main.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -20,11 +26,21 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="main.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="262">
-              <caret line="252" column="7" lean-forward="false" selection-start-line="252" selection-start-column="7" selection-end-line="252" selection-end-column="7" />
+            <state relative-caret-position="254">
+              <caret line="284" column="26" lean-forward="false" selection-start-line="284" selection-start-column="26" selection-end-line="284" selection-end-column="26" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="LMPC.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="459">
+              <caret line="252" column="22" lean-forward="false" selection-start-line="252" selection-start-column="22" selection-end-line="252" selection-end-column="22" />
               <folding />
             </state>
           </provider>
@@ -33,7 +49,7 @@
       <file leaf-file-name="InvariantSets.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/InvariantSets.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="338">
+            <state relative-caret-position="945">
               <caret line="63" column="0" lean-forward="false" selection-start-line="63" selection-start-column="0" selection-end-line="81" selection-end-column="24" />
               <folding>
                 <element signature="e#0#18#0" expanded="true" />
@@ -45,18 +61,8 @@
       <file leaf-file-name="FTOCP.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/FTOCP.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1559">
-              <caret line="131" column="0" lean-forward="false" selection-start-line="131" selection-start-column="0" selection-end-line="131" selection-end-column="0" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="LMPC.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="355">
-              <caret line="71" column="75" lean-forward="false" selection-start-line="71" selection-start-column="75" selection-end-line="71" selection-end-column="75" />
+            <state relative-caret-position="206">
+              <caret line="137" column="53" lean-forward="false" selection-start-line="137" selection-start-column="51" selection-end-line="137" selection-end-column="53" />
               <folding />
             </state>
           </provider>
@@ -65,7 +71,7 @@
       <file leaf-file-name="SysModel.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/SysModel.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="660">
+            <state relative-caret-position="631">
               <caret line="97" column="36" lean-forward="false" selection-start-line="97" selection-start-column="36" selection-end-line="97" selection-end-column="36" />
               <folding />
             </state>
@@ -75,8 +81,8 @@
       <file leaf-file-name="Track.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/Track.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="780">
-              <caret line="52" column="22" lean-forward="false" selection-start-line="52" selection-start-column="22" selection-end-line="52" selection-end-column="31" />
+            <state relative-caret-position="60">
+              <caret line="4" column="0" lean-forward="false" selection-start-line="4" selection-start-column="0" selection-end-line="4" selection-end-column="0" />
               <folding />
             </state>
           </provider>
@@ -85,8 +91,8 @@
       <file leaf-file-name="SysID.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/SysID.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="35">
-              <caret line="295" column="64" lean-forward="false" selection-start-line="295" selection-start-column="64" selection-end-line="295" selection-end-column="64" />
+            <state relative-caret-position="270">
+              <caret line="18" column="13" lean-forward="false" selection-start-line="18" selection-start-column="13" selection-end-line="18" selection-end-column="13" />
               <folding />
             </state>
           </provider>
@@ -103,22 +109,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>cu</find>
-      <find>la</find>
-      <find>b</find>
-      <find>q</find>
-      <find>LMPC_BuildMatEqConst</find>
-      <find>vt</find>
-      <find>N</find>
-      <find>npG</find>
-      <find>L</find>
-      <find>b_termConstr</find>
-      <find>A</find>
-      <find>savetxt</find>
-      <find>xPred</find>
-      <find>-1</find>
-      <find>vst</find>
-      <find>Linearization</find>
       <find>solver</find>
       <find>Track</find>
       <find>EstimateABC</find>
@@ -130,9 +120,25 @@
       <find>np.append</find>
       <find>cvs</find>
       <find>csv</find>
-      <find>depsi_ey</find>
       <find>BuildMatIneqConst</find>
       <find>SS</find>
+      <find>A</find>
+      <find>A_cl</find>
+      <find>G.csv</find>
+      <find>E</find>
+      <find>GetPred</find>
+      <find>LMPC_BuildMatEqConst</find>
+      <find>shape</find>
+      <find>depsi_ey</find>
+      <find>negative</find>
+      <find>s is negative, here the state</find>
+      <find>linalg</find>
+      <find>LMPC_TermConstr</find>
+      <find>RunLMPC</find>
+      <find>Curvature</find>
+      <find>vt</find>
+      <find>Ke</find>
+      <find>Qslack</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -143,21 +149,21 @@
       <list>
         <option value="$PROJECT_DIR$/src/fnc/LocalLinearRegrassion.py" />
         <option value="$PROJECT_DIR$/src/fnc/LocalLinearRegression.py" />
-        <option value="$PROJECT_DIR$/src/fnc/Track.py" />
         <option value="$PROJECT_DIR$/src/fnc/SysModel.py" />
         <option value="$PROJECT_DIR$/src/InvariantSets.py" />
-        <option value="$PROJECT_DIR$/src/fnc/LMPC.py" />
-        <option value="$PROJECT_DIR$/src/fnc/SysID.py" />
         <option value="$PROJECT_DIR$/src/fnc/FTOCP.py" />
+        <option value="$PROJECT_DIR$/src/fnc/Track.py" />
+        <option value="$PROJECT_DIR$/src/fnc/SysID.py" />
+        <option value="$PROJECT_DIR$/src/fnc/LMPC.py" />
         <option value="$PROJECT_DIR$/src/main.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="-1656" />
+    <option name="x" value="-1673" />
     <option name="y" value="-150" />
-    <option name="width" value="1630" />
-    <option name="height" value="1050" />
+    <option name="width" value="1640" />
+    <option name="height" value="1036" />
   </component>
   <component name="ProjectView">
     <navigator currentView="ProjectPane" proportions="" version="1">
@@ -181,6 +187,11 @@
             <path>
               <item name="RacingLMPC" type="b2602c69:ProjectViewProjectNode" />
               <item name="RacingLMPC" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="RacingLMPC" type="b2602c69:ProjectViewProjectNode" />
+              <item name="RacingLMPC" type="462c0819:PsiDirectoryNode" />
+              <item name="Matlab" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="RacingLMPC" type="b2602c69:ProjectViewProjectNode" />
@@ -257,18 +268,18 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-1656" y="-150" width="1630" height="1050" extended-state="0" />
+    <frame x="-1673" y="-150" width="1640" height="1036" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.154133" sideWeight="0.48809522" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.15318097" sideWeight="0.48809522" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.21675393" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.37832093" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39203355" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39107332" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.17477097" sideWeight="0.5119048" order="2" side_tool="true" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
@@ -633,34 +644,10 @@
     <entry file="file://$PROJECT_DIR$/src/fnc/LocalLinearRegrassion.py" />
     <entry file="file://$PROJECT_DIR$/src/fnc/LocalLinearRegression.py" />
     <entry file="file://$USER_HOME$/Desktop/SysID.py" />
-    <entry file="file://$PROJECT_DIR$/src/fnc/Track.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="780">
-          <caret line="52" column="22" lean-forward="false" selection-start-line="52" selection-start-column="22" selection-end-line="52" selection-end-column="31" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/../SwitchSysLMPC/src/fnc/UtilityFunc.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/SysModel.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="660">
-          <caret line="97" column="36" lean-forward="false" selection-start-line="97" selection-start-column="36" selection-end-line="97" selection-end-column="36" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/SysID.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="35">
-          <caret line="295" column="64" lean-forward="false" selection-start-line="295" selection-start-column="64" selection-end-line="295" selection-end-column="64" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -672,25 +659,41 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/FTOCP.py">
+    <entry file="file://$PROJECT_DIR$/src/fnc/SysModel.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1559">
-          <caret line="131" column="0" lean-forward="false" selection-start-line="131" selection-start-column="0" selection-end-line="131" selection-end-column="0" />
+        <state relative-caret-position="631">
+          <caret line="97" column="36" lean-forward="false" selection-start-line="97" selection-start-column="36" selection-end-line="97" selection-end-column="36" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main.py">
+    <entry file="file://$PROJECT_DIR$/src/fnc/Track.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="262">
-          <caret line="252" column="7" lean-forward="false" selection-start-line="252" selection-start-column="7" selection-end-line="252" selection-end-column="7" />
+        <state relative-caret-position="60">
+          <caret line="4" column="0" lean-forward="false" selection-start-line="4" selection-start-column="0" selection-end-line="4" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fnc/SysID.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="270">
+          <caret line="18" column="13" lean-forward="false" selection-start-line="18" selection-start-column="13" selection-end-line="18" selection-end-column="13" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fnc/FTOCP.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="206">
+          <caret line="137" column="53" lean-forward="false" selection-start-line="137" selection-start-column="51" selection-end-line="137" selection-end-column="53" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/InvariantSets.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="338">
+        <state relative-caret-position="945">
           <caret line="63" column="0" lean-forward="false" selection-start-line="63" selection-start-column="0" selection-end-line="81" selection-end-column="24" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
@@ -700,8 +703,16 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="355">
-          <caret line="71" column="75" lean-forward="false" selection-start-line="71" selection-start-column="75" selection-end-line="71" selection-end-column="75" />
+        <state relative-caret-position="459">
+          <caret line="252" column="22" lean-forward="false" selection-start-line="252" selection-start-column="22" selection-end-line="252" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="254">
+          <caret line="284" column="26" lean-forward="false" selection-start-line="284" selection-start-column="26" selection-end-line="284" selection-end-column="26" />
           <folding />
         </state>
       </provider>

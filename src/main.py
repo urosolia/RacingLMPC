@@ -4,7 +4,7 @@ from SysModel import DynModel
 from FTOCP import BuildMatEqConst, BuildMatCost, BuildMatIneqConst, FTOCP, GetPred
 from Track import CreateTrack, Evaluate_e_ey
 from SysID import LocLinReg, Regression, EstimateABC, LMPC_EstimateABC
-from LMPC import LMPC, ComputeCost, LMPC_BuildMatEqConst, LMPC_BuildMatIneqConst
+from LMPC import LMPC, ComputeCost, LMPC_BuildMatEqConst, LMPC_BuildMatIneqConst, LMPC_GetPred
 from InvariantSets import PropagatePoly, GenerateW, Invariance
 import numpy as np
 import matplotlib.pyplot as plt
@@ -68,7 +68,7 @@ x_glob = np.zeros((Points+1, 6))   # Initialize the state vector in absolute ref
 vt = 0.8
 
 x[0,0] = 0.5; x_glob[0,0] = 0.5
-x[0,4] = 0.5; x_glob[0,4] = 0.5
+x[0,4] = 0.0; x_glob[0,4] = 0.0
 # Create the track. The vector PointAndTangent = [xf yf]
 PointAndTangent, TrackLength = CreateTrack()
 # ======================================================================================================================
@@ -132,6 +132,8 @@ zMPC      = np.zeros((PointsMPC+1, 6))   # Initialize state vector (In curviline
 x_globMPC = np.zeros((PointsMPC+1, 6))   # Initialize the state vector in absolute reference frame
 
 xMPC[0,:] = x[0,:]
+zMPC[0,:] = x[0,:]
+
 x_globMPC[0,:] = x_glob[0,:]
 # Time loop
 if RunMPC == 1:
@@ -145,7 +147,7 @@ if RunMPC == 1:
 
         uMPC[i, :] = uPred[:, 0] - np.dot(Ke,xMPC[i, :])
         xMPC[i+1, :], x_globMPC[i+1, :] = DynModel(xMPC[i, :], x_globMPC[i, :], uMPC[i, :], np, dt, PointAndTangent)
-        zMPC[i+1, :] = np.dot(A, zMPC[i, :]) + np.dot(B, uMPC[i, :])
+        zMPC[i+1, :] = xPred[:, 0]
 
         if i <= 5:
             print("Solver time: %.4fs" % (deltaTimer.total_seconds()))
@@ -180,6 +182,8 @@ zMPC_tv      = np.zeros((PointsMPC_tv+1, 6))   # Initialize state vector (In cur
 x_globMPC_tv = np.zeros((PointsMPC_tv+1, 6))   # Initialize the state vector in absolute reference frame
 
 xMPC_tv[0,:] = x[0,:]
+zMPC_tv[0,:] = x[0,:]
+
 x_globMPC_tv[0,:] = x_glob[0,:]
 # Time loop
 LinPoints = x[0:N+1,:]
@@ -191,10 +195,10 @@ if RunMPC_tv == 1:
         startTimer = datetime.datetime.now() # Start timer for LMPC iteration
         if i == 0:
             F, b, E = BuildMatIneqConst(N, n, np, linalg, spmatrix, Ke, Error_Bounds)
-            G, L = BuildMatEqConst(A, B, np.zeros((n, 1)), N, n, d, np, spmatrix, 0)
+            G, L = BuildMatEqConst(Acl, B, np.zeros((n, 1)), N, n, d, np, spmatrix, 0)
         else:
-            Atv, Btv, Ctv = EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt, Ke)
-            G, L = BuildMatEqConst(Atv, Btv, Ctv, N, n, d, np, spmatrix, 1)
+            Atv_cl, Btv, Ctv = EstimateABC(LinPoints, N, n, d, x, u, qp, matrix, PointAndTangent, dt, Ke)
+            G, L = BuildMatEqConst(Atv_cl, Btv, Ctv, N, n, d, np, spmatrix, 1)
         endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
 
         startTimer = datetime.datetime.now() # Start timer for LMPC iteration
@@ -205,7 +209,7 @@ if RunMPC_tv == 1:
         LinPoints = xPred.T
         uMPC_tv[i, :] = uPred[:, 0] - np.dot(Ke,xMPC_tv[i, :])
         xMPC_tv[i+1, :], x_globMPC_tv[i+1, :] = DynModel(xMPC_tv[i, :], x_globMPC_tv[i, :], uMPC_tv[i, :], np, dt, PointAndTangent)
-        zMPC_tv[i+1, :] = np.dot(A, zMPC_tv[i, :]) + np.dot(B, uMPC_tv[i, :])
+        zMPC_tv[i+1, :] = xPred[:, 0]
 
         if i <= 5:
             print("Linearization time: %.4fs Solver time: %.4fs" % (deltaTimer_tv.total_seconds(), deltaTimer.total_seconds()))
@@ -237,15 +241,19 @@ TimeLMPC   = 400                             # Simulation time
 PointsLMPC = int(TimeLMPC / dt)            # Number of points in the simulation
 uLMPC = np.zeros((PointsLMPC, 2))          # Initialize the input vector
 xLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
+zLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
 x_globLMPC = np.zeros((PointsLMPC+1, 6))   # Initialize the state vector in absolute reference frame
-Laps       = 5
+Laps       = 2
 
 xLMPC[0,:] = x[0,:]
+zLMPC[0,:] = x[0,:]
+z0 = x[0,:]
 x_globLMPC[0,:] = x_glob[0,:]
 # Time loop
-LinPoints = xMPC_tv[0:N+1,:]
+LinPoints = xMPC_tv[0:N+1, :]
+LinInput  = uMPC_tv[0:N, :]
 
-numSS_Points = 30
+numSS_Points = 50
 swifth = N-1
 
 TimeSS = 10000*np.ones(Laps+2)
@@ -270,11 +278,11 @@ Qfun[0:TimeSS[1], 1] = ComputeCost(xMPC_tv, uMPC_tv, np, TrackLength)
 
 print Qfun[0:TimeSS[0], 0], Qfun[0:TimeSS[1], 1]
 
-F_LMPC, b_LMPC = LMPC_BuildMatIneqConst(N, n, np, linalg, spmatrix, numSS_Points)
+F_LMPC, b_LMPC, E_LMPC = LMPC_BuildMatIneqConst(N, n, np, linalg, spmatrix, numSS_Points, Error_Bounds, Ke)
 
-Qslack = 50*np.diag([1, 10, 10, 10, 10, 10])
-Q_LMPC = 0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # vx, vy, wz, epsi, s, ey
-R_LMPC = 5 * np.diag([1.0, 1.0])  # delta, a
+Qslack = 50 * np.diag([30, 10, 10, 10, 10, 10])
+Q_LMPC =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # vx, vy, wz, epsi, s, ey
+R_LMPC =  5 * np.diag([1.0, 0.1])  # delta, a
 
 if PlotIndex == 1:
     plt.figure(105)
@@ -332,6 +340,7 @@ print (uSS[0:TimeSS[1]-1,:, 1]== uMPC_tv).all()
 print (xSS[0:TimeSS[1],:, 1]== xMPC_tv).all()
 print xSS[0:TimeSS[1],:, 1],"\n", xMPC_tv
 
+
 absTime = 0
 if RunLMPC == 1:
     for it in range(2,2+Laps):
@@ -340,16 +349,19 @@ if RunLMPC == 1:
             u_ID = uMPC_tv
         else:
             print xLMPC[i-2:i+2, :], xLMPC[i, :]
+            zSS[0:i, :, it-1]  = zLMPC[0:i, :]
             xSS[0:i, :, it-1]  = xLMPC[0:i, :]
             uSS[0:i-1, :, it-1] = uLMPC[0:i-1, :]
             TimeSS[it-1] = i
 
-            x_ID = xSS[0:i, :, it-1]
-            u_ID = uSS[0:i-1, :, it-1]
 
             Qfun[0:i, it-1] = ComputeCost(xLMPC[0:i, :], xLMPC[0:i-1, :], np, TrackLength)
 
             print Qfun[:, it-1], Qfun[:, it-2], it
+            zLMPC[0, :] = zLMPC[i, :]
+            zLMPC[0, 4] = zLMPC[i, 4] - TrackLength
+            zLMPC[1:,:] = 0*zLMPC[1:,:]
+
             xLMPC[0, :] = xLMPC[i, :]
             xLMPC[0, 4] = xLMPC[i, 4] - TrackLength
             xLMPC[1:,:] = 0*xLMPC[1:,:]
@@ -360,45 +372,45 @@ if RunLMPC == 1:
         while (xLMPC[i, 4] < TrackLength):
             x0 = xLMPC[i, :]
 
-            if (i == 0) and (it == 2):
-                startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
-                G, E, L, npG, npE = LMPC_BuildMatEqConst(A, B, np.zeros((n, 1)), N, n, d, np, spmatrix, 0)
-                endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
+            startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
 
-            else:
-                startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
+            Atv, Btv, Ctv, indexUsed_list = LMPC_EstimateABC(LinPoints, LinInput, N, n, d, xSS, uSS, TimeSS, qp, matrix,
+                                                             PointAndTangent, dt, it)
+            endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
+            # Atv0, Btv0, Ctv0 = EstimateABC(LinPoints, N, n, d, x_ID, u_ID, qp, matrix, PointAndTangent, dt)
+            # print (Atv0[0]==Atv[0]).all()
+            #
+            G, E, L, npG, npE = LMPC_BuildMatEqConst(Acl, B, Atv, Btv, Ctv, N, n, d, np, spmatrix, Ke, linalg)
 
-                Atv, Btv, Ctv, indexUsed_list = LMPC_EstimateABC(LinPoints, LinInput, N, n, d, xSS, uSS, TimeSS, qp, matrix,
-                                                                 PointAndTangent, dt, it)
-                endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
-                # Atv0, Btv0, Ctv0 = EstimateABC(LinPoints, N, n, d, x_ID, u_ID, qp, matrix, PointAndTangent, dt)
-                # print (Atv0[0]==Atv[0]).all()
-                #
-                G, E, L, npG, npE = LMPC_BuildMatEqConst(Atv, Btv, Ctv, N, n, d, np, spmatrix, 1)
-                # G, E, L, npG, npE = LMPC_BuildMatEqConst(A, B, np.zeros((n, 1)), N, n, d, np, spmatrix, 0)
-
-                if PlotIndex == 1:
-                    line.set_xdata(x_globMPC_tv[indexUsed_list[0], 4])
-                    line.set_ydata(x_globMPC_tv[indexUsed_list[0], 5])
-                    line0.set_xdata(x_globLMPC[i,4])
-                    line0.set_ydata(x_globLMPC[i,5])
-                    plt.draw()
-                    plt.pause(1e-17)
+            if PlotIndex == 1:
+                line.set_xdata(x_globMPC_tv[indexUsed_list[0], 4])
+                line.set_ydata(x_globMPC_tv[indexUsed_list[0], 5])
+                line0.set_xdata(x_globLMPC[i,4])
+                line0.set_ydata(x_globLMPC[i,5])
+                plt.draw()
+                plt.pause(1e-17)
 
 
 
-            Sol, feasible, deltaTimer, slack = LMPC(npG, L, npE, F_LMPC, b_LMPC, x0, np, qp, matrix, datetime, la, xSS,
+            Sol, feasible, deltaTimer, slack = LMPC(npG, L, npE, E_LMPC, F_LMPC, b_LMPC, z0, x0, np, qp, matrix, datetime, la, zSS, xSS,
                                                     Qfun,  N, n, d, spmatrix, numSS_Points, Qslack, Q_LMPC, R_LMPC, it, swifth)
 
-            xPred, uPred = GetPred(Sol, n, d, N, np)
+            zPred, uPred, xPred, lamb, slack = LMPC_GetPred(Sol, n, d, N, np)
+
+            # print "zPred: \n",zPred.T
+            # print "uPred: \n",uPred.T
+            # print "xPred: \n",xPred.T
+            # print "slack: \n", slack
 
             LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
             LinInput = uPred.T
 
-            uLMPC[i, :] = uPred[:, 0]
+            uLMPC[i, :] = uPred[:, 0] - np.dot(Ke, xLMPC[i, :])
             xLMPC[i + 1, :], x_globLMPC[absTime + 1, :] = DynModel(xLMPC[i, :], x_globLMPC[absTime, :], uLMPC[i, :], np, dt,
                                                              PointAndTangent)
-
+            zLMPC[i, :] =zPred[:, 0]
+            print "Previois: ", xLMPC[i, :], "Next: ", xLMPC[i+1, :], "Input: ", uLMPC[i, :], "Nom Input: ", uPred[:, 0]
+            z0 = zLMPC[i, :]
             print xLMPC[i + 1, 4], TrackLength, it, xLMPC[i + 1, 0], np.dot(slack, slack), slack
             if PlotPred == 1:
                 line1.set_xdata(np.arange(i, i+N+1))
@@ -426,6 +438,7 @@ if RunLMPC == 1:
                 break
 
             if it > 2:
+                zSS[Counter + i + 1, :, it - 1]  = zLMPC[i + 1, :] + np.array([0, 0, 0, 0, TrackLength, 0])
                 xSS[Counter + i + 1, :, it - 1]  = xLMPC[i + 1, :] + np.array([0, 0, 0, 0, TrackLength, 0])
                 uSS[Counter + i + 1, :, it - 1] = uLMPC[i, :]
             i = i + 1
@@ -444,6 +457,7 @@ else:
 
 if RunLMPC == 1:
     it = 2 + Laps
+    zSS[0:i, :, it-1]  = zLMPC[0:i, :]
     xSS[0:i, :, it-1]  = xLMPC[0:i, :]
     uSS[0:i-1, :, it-1] = uLMPC[0:i-1, :]
     TimeSS[it-1] = i
@@ -516,18 +530,23 @@ if plotFlagMPC == 1:
 
     plt.figure(4)
     plt.subplot(711)
+    plt.plot(zMPC[:, 0], '-rs')
     plt.plot(xMPC[:, 0], '-o')
     plt.ylabel('vx')
     plt.subplot(712)
+    plt.plot(zMPC[:, 1], '-rs')
     plt.plot(xMPC[:, 1], '-o')
     plt.ylabel('vy')
     plt.subplot(713)
+    plt.plot(zMPC[:, 2], '-rs')
     plt.plot(xMPC[:, 2],'-o')
     plt.ylabel('wz')
     plt.subplot(714)
+    plt.plot(zMPC[:, 3], '-rs')
     plt.plot(xMPC[:, 3],'-o')
     plt.ylabel('epsi')
     plt.subplot(715)
+    plt.plot(zMPC[:, 5], '-rs')
     plt.plot(xMPC[:, 5], '-o')
     plt.ylabel('ey')
     plt.subplot(716)
@@ -558,18 +577,23 @@ if plotFlagMPC_tv == 1:
     plt.figure(6)
     plt.subplot(711)
     plt.plot(xMPC_tv[:, 0], '-o')
+    plt.plot(zMPC_tv[:, 0], '-rs')
     plt.ylabel('vx')
     plt.subplot(712)
     plt.plot(xMPC_tv[:, 1], '-o')
+    plt.plot(zMPC_tv[:, 1], '-rs')
     plt.ylabel('vy')
     plt.subplot(713)
     plt.plot(xMPC_tv[:, 2],'-o')
+    plt.plot(zMPC_tv[:, 2], '-rs')
     plt.ylabel('wz')
     plt.subplot(714)
     plt.plot(xMPC_tv[:, 3],'-o')
+    plt.plot(zMPC_tv[:, 3], '-rs')
     plt.ylabel('epsi')
     plt.subplot(715)
     plt.plot(xMPC_tv[:, 5], '-o')
+    plt.plot(zMPC_tv[:, 5], '-rs')
     plt.ylabel('ey')
     plt.subplot(716)
     plt.plot(uMPC_tv[:, 0], '-o')
@@ -598,22 +622,27 @@ if plotFlagLMPC == 1:
     plt.figure(8)
     plt.subplot(711)
     for i in range(2, Laps + 2):
+        plt.plot(xSS[0:TimeSS[i], 4, i], zSS[0:TimeSS[i], 0, i], '-rs')
         plt.plot(xSS[0:TimeSS[i], 4, i], xSS[0:TimeSS[i], 0, i], '-o')
     plt.ylabel('vx')
     plt.subplot(712)
     for i in range(2, Laps + 2):
+        plt.plot(xSS[0:TimeSS[i], 4, i], zSS[0:TimeSS[i], 1, i], '-rs')
         plt.plot(xSS[0:TimeSS[i], 4, i], xSS[0:TimeSS[i], 1, i], '-o')
     plt.ylabel('vy')
     plt.subplot(713)
     for i in range(2, Laps + 2):
+        plt.plot(xSS[0:TimeSS[i], 4, i], zSS[0:TimeSS[i], 2, i], '-rs')
         plt.plot(xSS[0:TimeSS[i], 4, i], xSS[0:TimeSS[i], 2, i], '-o')
     plt.ylabel('wz')
     plt.subplot(714)
     for i in range(2, Laps + 2):
+        plt.plot(xSS[0:TimeSS[i], 4, i], zSS[0:TimeSS[i], 3, i], '-rs')
         plt.plot(xSS[0:TimeSS[i], 4, i], xSS[0:TimeSS[i], 3, i], '-o')
     plt.ylabel('epsi')
     plt.subplot(715)
     for i in range(2, Laps + 2):
+        plt.plot(xSS[0:TimeSS[i], 4, i], zSS[0:TimeSS[i], 5, i], '-rs')
         plt.plot(xSS[0:TimeSS[i], 4, i], xSS[0:TimeSS[i], 5, i], '-o')
     plt.ylabel('ey')
     plt.subplot(716)

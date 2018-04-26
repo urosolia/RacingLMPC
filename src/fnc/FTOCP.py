@@ -94,13 +94,13 @@ def BuildMatIneqConst(N, n, np, linalg, spmatrix, Ke, Error_Bounds):
     # Let's start by computing the submatrix of F relates with the input
     rep_b = [Fu] * (N)
     Futot = linalg.block_diag(*rep_b)
+    butot = np.tile(np.squeeze(bu), N)
 
     rep_c = [np.squeeze(Fux)] * (N)       # This parts considers that u_tot = -Kx + u
     Mat1  = linalg.block_diag(*rep_c)
     NoTerminalConstr_x_N = np.zeros((np.shape(Mat1)[0],n)) # No need to consider x_N as there is not u_N
     Fxutot = np.hstack((Mat1, NoTerminalConstr_x_N))
 
-    butot = np.tile(np.squeeze(bu), N)
 
     # Let's stack all together
     rFxtot, cFxtot = np.shape(Fxtot)
@@ -108,7 +108,7 @@ def BuildMatIneqConst(N, n, np, linalg, spmatrix, Ke, Error_Bounds):
     Dummy1 = np.hstack( (Fxtot                    , np.zeros((rFxtot,cFutot))))
     Dummy2 = np.hstack( (Fxutot                   , Futot))
     F_horizon = np.vstack( ( Dummy1, Dummy2) )
-    b_horozon = np.hstack((bxtot, butot))
+    b_horizon = np.hstack((bxtot, butot))
 
 
     # Now constraint x(t) - x_0 \in O_e, basically -x(t) + Lower_bound <= -x_0 <= -x(t) + Upper_bound
@@ -120,7 +120,7 @@ def BuildMatIneqConst(N, n, np, linalg, spmatrix, Ke, Error_Bounds):
     F = np.vstack((F_0, F_horizon))
     Lower_bound = Error_Bounds[0]
     Upper_bound = Error_Bounds[1]
-    b = np.hstack((Upper_bound, -Lower_bound, b_horozon))
+    b = np.hstack((Upper_bound, -Lower_bound, b_horizon))
 
     E = np.zeros((F.shape[0], n))
     E[0:n,0:n]   = -np.eye(n)
