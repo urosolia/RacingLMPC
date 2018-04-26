@@ -121,7 +121,7 @@ def LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, np, spmatrix, Qslack, Q, R):
     Mu = linalg.block_diag(*c)
 
     M00 = linalg.block_diag(Mx, P, Mu, Mx, P)
-    M0  = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), np.zeros((numSS_Points, numSS_Points)), 0*Qslack, Qslack)
+    M0  = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), np.zeros((numSS_Points, numSS_Points)), Qslack, Qslack)
     xtrack = np.array([vt, 0, 0, 0, 0, 0])
     # print np.append(np.zeros(Q.shape[0]*(N+1) + R.shape[0]*N), np.tile(xtrack, N+1)).shape, M00.shape
     q0 = - 2 * np.dot(np.append(np.zeros(Q.shape[0]*(N+1) + R.shape[0]*N), np.tile(xtrack, N+1)), M00)

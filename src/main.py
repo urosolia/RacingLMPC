@@ -243,7 +243,7 @@ uLMPC = np.zeros((PointsLMPC, 2))          # Initialize the input vector
 xLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
 zLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
 x_globLMPC = np.zeros((PointsLMPC+1, 6))   # Initialize the state vector in absolute reference frame
-Laps       = 2
+Laps       = 5
 
 xLMPC[0,:] = x[0,:]
 zLMPC[0,:] = x[0,:]
@@ -253,7 +253,7 @@ x_globLMPC[0,:] = x_glob[0,:]
 LinPoints = xMPC_tv[0:N+1, :]
 LinInput  = uMPC_tv[0:N, :]
 
-numSS_Points = 50
+numSS_Points = 30
 swifth = N-1
 
 TimeSS = 10000*np.ones(Laps+2)
@@ -268,6 +268,9 @@ xSS[0:TimeSS[0],:, 0]  = xMPC
 zSS[0:TimeSS[0],:, 0]  = zMPC
 uSS[0:TimeSS[0]-1,:, 0]  = uMPC
 Qfun[0:TimeSS[0], 0] = ComputeCost(xMPC, uMPC, np, TrackLength)
+for i in np.arange(0, Qfun.shape[0]):
+    if Qfun[i, 0] == 0:
+        Qfun[i, 0] = Qfun[i-1, 0] - 1
 
 # Adding Trajectory to safe set iteration 1
 TimeSS[1] = xMPC_tv.shape[0]
@@ -275,6 +278,9 @@ xSS[0:TimeSS[1],:, 1]  = xMPC_tv
 zSS[0:TimeSS[1],:, 1]  = zMPC_tv
 uSS[0:TimeSS[1]-1,:, 1]  = uMPC_tv
 Qfun[0:TimeSS[1], 1] = ComputeCost(xMPC_tv, uMPC_tv, np, TrackLength)
+for i in np.arange(0, Qfun.shape[0]):
+    if Qfun[i, 1] == 0:
+        Qfun[i, 1] = Qfun[i-1, 1] - 1
 
 print Qfun[0:TimeSS[0], 0], Qfun[0:TimeSS[1], 1]
 
@@ -283,6 +289,7 @@ F_LMPC, b_LMPC, E_LMPC = LMPC_BuildMatIneqConst(N, n, np, linalg, spmatrix, numS
 Qslack = 50 * np.diag([30, 10, 10, 10, 10, 10])
 Q_LMPC =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # vx, vy, wz, epsi, s, ey
 R_LMPC =  5 * np.diag([1.0, 0.1])  # delta, a
+
 
 if PlotIndex == 1:
     plt.figure(105)
@@ -332,13 +339,6 @@ if PlotPred == 1:
     ax5 = fig.add_subplot(5, 1, 5)
     ax5.plot(xMPC_tv[0:PointsLMPC + 100, 5], '-o')
     line5, = ax5.plot(xdata, ydata, 'or-')
-
-print uSS[0:TimeSS[1]-1,:, 1].shape, uMPC_tv.shape
-print xSS[0:TimeSS[1],:, 1].shape, xMPC_tv.shape
-
-print (uSS[0:TimeSS[1]-1,:, 1]== uMPC_tv).all()
-print (xSS[0:TimeSS[1],:, 1]== xMPC_tv).all()
-print xSS[0:TimeSS[1],:, 1],"\n", xMPC_tv
 
 
 absTime = 0
@@ -440,7 +440,10 @@ if RunLMPC == 1:
             if it > 2:
                 zSS[Counter + i + 1, :, it - 1]  = zLMPC[i + 1, :] + np.array([0, 0, 0, 0, TrackLength, 0])
                 xSS[Counter + i + 1, :, it - 1]  = xLMPC[i + 1, :] + np.array([0, 0, 0, 0, TrackLength, 0])
-                uSS[Counter + i + 1, :, it - 1] = uLMPC[i, :]
+                uSS[Counter + i + 1, :, it - 1]  = uLMPC[i, :]
+                if  Qfun[Counter + i + 1, it - 1] == 0:
+                    Qfun[Counter + i + 1, it - 1] = Qfun[Counter + i, it - 1] - 1
+
             i = i + 1
             absTime = absTime + 1
 
@@ -464,6 +467,8 @@ if RunLMPC == 1:
     Qfun[0:i, it-1] = ComputeCost(xLMPC[0:i, :], xLMPC[0:i-1, :], np, TrackLength)
 
 print "===== LMPC terminated"
+np.savetxt('Qfun.csv', Qfun, delimiter=',', fmt='%f')
+
 # ======================================================================================================================
 # ========================================= PLOT TRACK =================================================================
 # ======================================================================================================================
