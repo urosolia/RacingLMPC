@@ -220,18 +220,18 @@ TimeSS[0] = x.shape[0]
 SS[0:TimeSS[0],:, 0]  = x
 uSS[0:TimeSS[0]-1,:, 0]  = u
 Qfun[0:TimeSS[0], 0] = ComputeCost(x, u, np, TrackLength)
-# for i in np.arange(0, Qfun.shape[0]):
-#     if Qfun[i, 0] == 0:
-#         Qfun[i, 0] = Qfun[i-1, 0] - 1
+for i in np.arange(0, Qfun.shape[0]):
+    if Qfun[i, 0] == 0:
+        Qfun[i, 0] = Qfun[i-1, 0] - 1
 
 # Adding Trajectory to safe set iteration 1
 TimeSS[1] = xMPC_tv.shape[0]
 SS[0:TimeSS[1],:, 1]  = xMPC_tv
 uSS[0:TimeSS[1]-1,:, 1]  = uMPC_tv
 Qfun[0:TimeSS[1], 1] = ComputeCost(xMPC_tv, uMPC_tv, np, TrackLength)
-# for i in np.arange(0, Qfun.shape[0]):
-#     if Qfun[i, 1] == 0:
-#         Qfun[i, 1] = Qfun[i-1, 1] - 1
+for i in np.arange(0, Qfun.shape[0]):
+    if Qfun[i, 1] == 0:
+        Qfun[i, 1] = Qfun[i-1, 1] - 1
 
 print Qfun[0:TimeSS[0], 0], Qfun[0:TimeSS[1], 1]
 
@@ -393,8 +393,8 @@ if RunLMPC == 1:
             if it > 2:
                 SS[Counter + i + 1, :, it - 1]  = xLMPC[i + 1, :] + np.array([0, 0, 0, 0, TrackLength, 0])
                 uSS[Counter + i + 1, :, it - 1] = uLMPC[i, :]
-                #if Qfun[Counter + i + 1, it - 1] == 0:
-                #    Qfun[Counter + i + 1, it - 1] = Qfun[Counter + i, it - 1] - 1
+                if Qfun[Counter + i + 1, it - 1] == 0:
+                   Qfun[Counter + i + 1, it - 1] = Qfun[Counter + i, it - 1] - 1
             i = i + 1
             absTime = absTime + 1
 
