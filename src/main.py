@@ -200,15 +200,15 @@ PointsLMPC = int(TimeLMPC / dt)            # Number of points in the simulation
 uLMPC = np.zeros((PointsLMPC, 2))          # Initialize the input vector
 xLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
 x_globLMPC = np.zeros((PointsLMPC+1, 6))   # Initialize the state vector in absolute reference frame
-Laps       = 5
+Laps       = 3
 
 xLMPC[0,:] = x[0,:]
 x_globLMPC[0,:] = x_glob[0,:]
 # Time loop
 LinPoints = xMPC_tv[0:N+1,:]
 
-numSS_Points = 30
-swifth = N-1
+numSS_Points = 30 + N
+swifth = 0#N-1
 
 TimeSS = 10000*np.ones(Laps+2)
 SS     = 10000*np.ones((2*xMPC_tv.shape[0], 6, Laps+2))
@@ -298,6 +298,7 @@ print (SS[0:TimeSS[1],:, 1]== xMPC_tv).all()
 print SS[0:TimeSS[1],:, 1],"\n", xMPC_tv
 
 absTime = 0
+feasible = 1
 if RunLMPC == 1:
     for it in range(2,2+Laps):
         if it <= 2:
@@ -321,11 +322,14 @@ if RunLMPC == 1:
             Counter = i
             # name = raw_input("Please enter name: ")
 
+        if feasible == 0:
+            break
+
         i = 0
         while (xLMPC[i, 4] < TrackLength):
             x0 = xLMPC[i, :]
 
-            if i == 0:
+            if (i == 0) and (it == 2 ):
                 startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
                 G, E, L, npG, npE = LMPC_BuildMatEqConst(A, B, np.zeros((n, 1)), N, n, d, np, spmatrix, 0)
                 endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
@@ -413,7 +417,7 @@ if RunLMPC == 1:
     it = 2 + Laps
     SS[0:i, :, it-1]  = xLMPC[0:i, :]
     uSS[0:i-1, :, it-1] = uLMPC[0:i-1, :]
-    TimeSS[it-1] = i
+    TimeSS[it-1] = i-1
     Qfun[0:i, it-1] = ComputeCost(xLMPC[0:i, :], xLMPC[0:i-1, :], np, TrackLength)
 
 print "===== LMPC terminated"
@@ -560,7 +564,9 @@ if plotFlagLMPC == 1:
     plt.plot(Points0[:,0], Points0[:,1], '--')
     plt.plot(Points1[:,0], Points1[:,1], '-b')
     plt.plot(Points2[:,0], Points2[:,1], '-b')
-    plt.plot(x_globLMPC[:,4], x_globLMPC[:,5], '-r')
+
+    plotIndex = np.where(x_globLMPC[:, 0] != 0)[0]
+    plt.plot(x_globLMPC[plotIndex,4], x_globLMPC[plotIndex,5], '-r')
 
     plt.figure(8)
     plt.subplot(711)
@@ -591,5 +597,13 @@ if plotFlagLMPC == 1:
     for i in range(2, Laps + 2):
         plt.plot(uSS[0:TimeSS[i]-1, 1, i], '-o')
     plt.ylabel('Acc')
+
+    plt.figure(80)
+    mylabel = ["Lap -1", "Lap 0", "Lap 1", "Lap 2", "Lap 3", "Lap 4", "Lap 5", "Lap 6", "Lap 7"]
+    for i in range(2, Laps + 2):
+        plt.plot(np.arange(0, TimeSS[i]), SS[0:TimeSS[i], 0, i], '-o', label=mylabel[i])
+        plt.legend(loc=4)
+    plt.ylabel('vx')
+    plt.xlabel('time')
 
 plt.show()
