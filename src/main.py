@@ -18,10 +18,8 @@ from pathos.multiprocessing import ProcessingPool as Pool
 from polyhedron import Vrep, Hrep
 
 from functools import partial
+p = Pool(4)  # Initialize the pool for multicore
 
-pvx = Pool(4)  # Initialize the pool for multicore
-pvy = Pool(4)  # Initialize the pool for multicore
-pwz = Pool(4)  # Initialize the pool for multicore
 
 solvers.options['show_progress'] = False
 # CHOOSE WHAT TO RUN
@@ -338,7 +336,7 @@ if RunLMPC == 1:
                 startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
 
                 Atv, Btv, Ctv, indexUsed_list = LMPC_EstimateABC(LinPoints, LinInput, N, n, d, SS, uSS, TimeSS, qp, matrix,
-                                                                 PointAndTangent, dt, it)
+                                                                 PointAndTangent, dt, it, partial, p)
                 endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
                 # Atv0, Btv0, Ctv0 = EstimateABC(LinPoints, N, n, d, x_ID, u_ID, qp, matrix, PointAndTangent, dt)
                 # print (Atv0[0]==Atv[0]).all()

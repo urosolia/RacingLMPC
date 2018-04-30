@@ -1,134 +1,151 @@
-def LMPC_EstimateABC(LinPoints, LinInput, N, n, d, SS, uSS, TimeSS, qp, matrix, PointAndTangent, dt, it):
-    import numpy as np
-    from SysModel import Curvature
-    import datetime
+import numpy as np
 
+def LMPC_EstimateABC(LinPoints, LinInput, N, n, d, SS, uSS, TimeSS, qp, matrix, PointAndTangent, dt, it, partial, p):
+    ParallelComputation = 1
     Atv = []; Btv = []; Ctv = []; indexUsed_list = []
 
     usedIt = range(it-2,it)
+    MaxNumPoint = 40  # Need to reason on how these points are selected
+
+    if ParallelComputation == 1:
+        # Parallel Implementation
+        Fun = partial(RegressionAndLinearization,LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
+                       MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt)
+
+        index = np.arange(0, N)  # Create the index vector
+
+        Res = p.map(Fun, index)  # Run the process in parallel
+        ParallelResutl = np.asarray(Res)
 
     for i in range(0, N):
-        MaxNumPoint = 40 # Need to reason on how these points are selected
-        x0 = LinPoints[i, :]
-
-        Ai = np.zeros((n, n))
-        Bi = np.zeros((n, d))
-        Ci = np.zeros((n, 1))
-
-        # Compute Index to use
-        h = 5
-        lamb = 0.0
-        stateFeatures = [0, 1, 2]
-        ConsiderInput = 1
-
-        if ConsiderInput == 1:
-            scaling = np.array([[0.1, 0.0, 0.0, 0.0, 0.0],
-                                [0.0, 1.0, 0.0, 0.0, 0.0],
-                                [0.0, 0.0, 1.0, 0.0, 0.0],
-                                [0.0, 0.0, 0.0, 1.0, 0.0],
-                                [0.0, 0.0, 0.0, 0.0, 1.0]])
-            xLin = np.hstack((LinPoints[i, stateFeatures], LinInput[i, :]))
+        if ParallelComputation == 0:
+           Ai, Bi, Ci, indexSelected = RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
+                                                               MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i)
+           Atv.append(Ai)
+           Btv.append(Bi)
+           Ctv.append(Ci)
+           indexUsed_list.append(indexSelected)
         else:
-            scaling = np.array([[1.0, 0.0, 0.0],
-                                [0.0, 1.0, 0.0],
-                                [0.0, 0.0, 1.0]])
-            xLin = LinPoints[i, stateFeatures]
+           Atv.append(ParallelResutl[i][0])
+           Btv.append(ParallelResutl[i][1])
+           Ctv.append(ParallelResutl[i][2])
+           indexUsed_list.append(ParallelResutl[i][3])
 
-        indexSelected = []
-        K = []
-        for i in usedIt:
-            indexSelected_i, K_i = ComputeIndex(h, SS, uSS, TimeSS, i, xLin, stateFeatures, scaling, MaxNumPoint, ConsiderInput)
-            indexSelected.append(indexSelected_i)
-            K.append(K_i)
-
-        # =========================
-        # ====== Identify vx ======
-        inputFeatures = [1]
-        Q_vx, M_vx= Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, usedIt, np, matrix, lamb, K)
-
-        yIndex = 0
-        b = Compute_b(SS, yIndex, usedIt, matrix, M_vx, indexSelected, K, np)
-        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_vx, b, stateFeatures, inputFeatures, qp)
-
-        # =======================================
-        # ====== Identify Lateral Dynamics ======
-        inputFeatures = [0]
-        Q_lat, M_lat= Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, usedIt, np, matrix, lamb, K)
-
-        yIndex = 1 # vy
-        b = Compute_b(SS, yIndex, usedIt, matrix, M_lat, indexSelected, K, np)
-        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_lat, b, stateFeatures, inputFeatures, qp)
-
-        yIndex = 2 # wz
-        b = Compute_b(SS, yIndex, usedIt, matrix, M_lat, indexSelected, K, np)
-        Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_lat, b, stateFeatures, inputFeatures, qp)
-
-        # ===========================
-        # ===== Linearization =======
-        vx = x0[0]; vy   = x0[1]
-        wz = x0[2]; epsi = x0[3]
-        s  = x0[4]; ey   = x0[5]
-
-        if s<0:
-            print "s is negative, here the state: \n", LinPoints
-
-        startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
-        cur = Curvature(s, PointAndTangent)
-        den = 1 - cur *ey
-        # ===========================
-        # ===== Linearize epsi ======
-        # epsi_{k+1} = epsi + dt * ( wz - (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) * cur )
-        depsi_vx   =     -dt * np.cos(epsi) / den * cur
-        depsi_vy   =      dt * np.sin(epsi) / den * cur
-        depsi_wz   =      dt
-        depsi_epsi =  1 - dt * ( -vx * np.sin(epsi) - vy * np.cos(epsi) ) / den * cur
-        depsi_s    =      0                                                                      # Because cur = constant
-        depsi_ey   =      dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den**2) * cur * (-cur)
-
-        Ai[3, :]   = [depsi_vx, depsi_vy, depsi_wz, depsi_epsi, depsi_s, depsi_ey]
-
-        # ===========================
-        # ===== Linearize s =========
-        # s_{k+1} = s    + dt * ( (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) )
-        ds_vx    =  dt * (np.cos(epsi) / den)
-        ds_vy    = -dt * (np.sin(epsi) / den)
-        ds_wz    =  0
-        ds_epsi  =  dt * (-vx * np.sin(epsi) - vy * np.cos(epsi)) / den
-        ds_s     = 1 #+ Ts * (Vx * cos(epsi) - Vy * sin(epsi)) / (1 - ey * rho) ^ 2 * (-ey * drho);
-        ds_ey    = -dt * ( vx * np.cos(epsi) - vy * np.sin(epsi)) / ( den*2)* (-cur)
-
-        Ai[4, :] = [ds_vx, ds_vy, ds_wz, ds_epsi, ds_s, ds_ey]
-
-        # ===========================
-        # ===== Linearize ey ========
-        # ey_{k+1} = ey + dt * (vx * np.sin(epsi) + vy * np.cos(epsi))
-        dey_vx   = dt * np.sin(epsi)
-        dey_vy   = dt * np.cos(epsi)
-        dey_wz   = 0
-        dey_epsi = dt * ( vx * np.cos(epsi) - vy *np.sin(epsi) )
-        dey_s    = 0
-        dey_ey   = 1
-
-        Ai[5, :] = [dey_vx, dey_vy, dey_wz, dey_epsi, dey_s, dey_ey]
-
-        endTimer = datetime.datetime.now();    deltaTimer_tv = endTimer - startTimer
-        # print "Real Lin Time: ", deltaTimer_tv.total_seconds()
-
-        # Atv1.append(Ai1)
-        # Btv1.append(Bi1)
-        # Ctv1.append(Ci1)
-        Atv.append(Ai)
-        Btv.append(Bi)
-        Ctv.append(Ci)
-        indexUsed_list.append(indexSelected)
-
-    # print "Tot Atv1 ins: ", Atv1
-    # print "Tot Atv is: ", Atv
-    # print "Tot Btv1 is: ", Btv1
-    # print "Tot Btv is: ", Btv
-    # print "Tot Ctv1 is: ", Ctv1
-    # print "Tot Ctv is: ", Ctv
     return Atv, Btv, Ctv, indexUsed_list
+
+def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i):
+    from SysModel import Curvature
+    import datetime
+
+    x0 = LinPoints[i, :]
+
+    Ai = np.zeros((n, n))
+    Bi = np.zeros((n, d))
+    Ci = np.zeros((n, 1))
+
+    # Compute Index to use
+    h = 5
+    lamb = 0.0
+    stateFeatures = [0, 1, 2]
+    ConsiderInput = 1
+
+    if ConsiderInput == 1:
+        scaling = np.array([[0.1, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 1.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 1.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0]])
+        xLin = np.hstack((LinPoints[i, stateFeatures], LinInput[i, :]))
+    else:
+        scaling = np.array([[1.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0],
+                            [0.0, 0.0, 1.0]])
+        xLin = LinPoints[i, stateFeatures]
+
+    indexSelected = []
+    K = []
+    for i in usedIt:
+        indexSelected_i, K_i = ComputeIndex(h, SS, uSS, TimeSS, i, xLin, stateFeatures, scaling, MaxNumPoint,
+                                            ConsiderInput)
+        indexSelected.append(indexSelected_i)
+        K.append(K_i)
+
+    # =========================
+    # ====== Identify vx ======
+    inputFeatures = [1]
+    Q_vx, M_vx = Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, usedIt, np, matrix, lamb, K)
+
+    yIndex = 0
+    b = Compute_b(SS, yIndex, usedIt, matrix, M_vx, indexSelected, K, np)
+    Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_vx, b, stateFeatures,
+                                                                                      inputFeatures, qp)
+
+    # =======================================
+    # ====== Identify Lateral Dynamics ======
+    inputFeatures = [0]
+    Q_lat, M_lat = Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, usedIt, np, matrix, lamb, K)
+
+    yIndex = 1  # vy
+    b = Compute_b(SS, yIndex, usedIt, matrix, M_lat, indexSelected, K, np)
+    Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_lat, b, stateFeatures,
+                                                                                      inputFeatures, qp)
+
+    yIndex = 2  # wz
+    b = Compute_b(SS, yIndex, usedIt, matrix, M_lat, indexSelected, K, np)
+    Ai[yIndex, stateFeatures], Bi[yIndex, inputFeatures], Ci[yIndex] = LMPC_LocLinReg(Q_lat, b, stateFeatures,
+                                                                                      inputFeatures, qp)
+
+    # ===========================
+    # ===== Linearization =======
+    vx = x0[0]; vy = x0[1]
+    wz = x0[2]; epsi = x0[3]
+    s = x0[4]; ey = x0[5]
+
+    if s < 0:
+        print "s is negative, here the state: \n", LinPoints
+
+    startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
+    cur = Curvature(s, PointAndTangent)
+    den = 1 - cur * ey
+    # ===========================
+    # ===== Linearize epsi ======
+    # epsi_{k+1} = epsi + dt * ( wz - (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) * cur )
+    depsi_vx = -dt * np.cos(epsi) / den * cur
+    depsi_vy = dt * np.sin(epsi) / den * cur
+    depsi_wz = dt
+    depsi_epsi = 1 - dt * (-vx * np.sin(epsi) - vy * np.cos(epsi)) / den * cur
+    depsi_s = 0  # Because cur = constant
+    depsi_ey = dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den ** 2) * cur * (-cur)
+
+    Ai[3, :] = [depsi_vx, depsi_vy, depsi_wz, depsi_epsi, depsi_s, depsi_ey]
+
+    # ===========================
+    # ===== Linearize s =========
+    # s_{k+1} = s    + dt * ( (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) )
+    ds_vx = dt * (np.cos(epsi) / den)
+    ds_vy = -dt * (np.sin(epsi) / den)
+    ds_wz = 0
+    ds_epsi = dt * (-vx * np.sin(epsi) - vy * np.cos(epsi)) / den
+    ds_s = 1  # + Ts * (Vx * cos(epsi) - Vy * sin(epsi)) / (1 - ey * rho) ^ 2 * (-ey * drho);
+    ds_ey = -dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den * 2) * (-cur)
+
+    Ai[4, :] = [ds_vx, ds_vy, ds_wz, ds_epsi, ds_s, ds_ey]
+
+    # ===========================
+    # ===== Linearize ey ========
+    # ey_{k+1} = ey + dt * (vx * np.sin(epsi) + vy * np.cos(epsi))
+    dey_vx = dt * np.sin(epsi)
+    dey_vy = dt * np.cos(epsi)
+    dey_wz = 0
+    dey_epsi = dt * (vx * np.cos(epsi) - vy * np.sin(epsi))
+    dey_s = 0
+    dey_ey = 1
+
+    Ai[5, :] = [dey_vx, dey_vy, dey_wz, dey_epsi, dey_s, dey_ey]
+
+    endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
+
+    return Ai, Bi, Ci, indexSelected
 
 def Compute_Q_M(SS, uSS, indexSelected, stateFeatures, inputFeatures, usedIt, np, matrix, lamb, K):
     Counter = 0

@@ -80,7 +80,6 @@ def DynModel(x, x_glob, u, np, dt, PointAndTangent):
         cur_x_next[4] = s    + deltaT * ( (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) )
         cur_x_next[5] = ey   + deltaT * (vx * np.sin(epsi) + vy * np.cos(epsi))
 
-
         # Update the value of the states
         psi  = x_next[3]
         X    = x_next[4]
