@@ -21,6 +21,9 @@ def LMPC(npG, L, npE, E_LMPC, F, b, z0, x0, np, qp, matrix, datetime, la, zSS, x
     Sol, feasible = LMPC_FTOCP(M, q, G, L, E, E_LMPC, F, b, x0, np, qp, matrix)
     zPred, uPred, xPred, lambdPred, slack = LMPC_GetPred(Sol, n,d,N, np)
 
+    if x0[4] > 18.5:
+        np.savetxt('xSS_Points.csv', xSS_Points, delimiter=',', fmt='%f')
+        np.savetxt('Sel_xQfun.csv', Sel_xQfun, delimiter=',', fmt='%f')
     # print SS_Points.shape, lambdPred.shape
     # print "Term Costr \n", np.dot(SS_Points, lambdPred),"\n", xPred[:,-1], "\n", xPred.T
     # print "Here lambda ", lambdPred, lambdPred.shape, np.dot(np.ones(lambdPred.shape[0]), lambdPred)

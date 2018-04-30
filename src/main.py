@@ -237,13 +237,13 @@ print "===== TV-MPC terminated"
 # Initialize
 PlotIndex  = 0
 PlotPred   = 0
-TimeLMPC   = 400                             # Simulation time
+TimeLMPC   = 800                             # Simulation time
 PointsLMPC = int(TimeLMPC / dt)            # Number of points in the simulation
 uLMPC = np.zeros((PointsLMPC, 2))          # Initialize the input vector
 xLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
 zLMPC      = np.zeros((PointsLMPC+1, 6))   # Initialize state vector (In curvilinear abscissas)
 x_globLMPC = np.zeros((PointsLMPC+1, 6))   # Initialize the state vector in absolute reference frame
-Laps       = 5
+Laps       = 10
 
 xLMPC[0,:] = x[0,:]
 zLMPC[0,:] = x[0,:]
@@ -253,7 +253,7 @@ x_globLMPC[0,:] = x_glob[0,:]
 LinPoints = xMPC_tv[0:N+1, :]
 LinInput  = uMPC_tv[0:N, :]
 
-numSS_Points = 30
+numSS_Points = 40
 swifth = N-1
 
 TimeSS = 10000*np.ones(Laps+2)
