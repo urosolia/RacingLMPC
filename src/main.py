@@ -42,10 +42,10 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 0; plotFlag       = 0
-RunMPC     = 0; plotFlagMPC    = 0
-RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 0; animation_stateFlag = 1
+RunPID     = 1; plotFlag       = 0
+RunMPC     = 1; plotFlagMPC    = 0
+RunMPC_tv  = 1; plotFlagMPC_tv = 0
+RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 1
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -70,7 +70,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 6+2              # Total LMPC laps
+Laps       = 5+2              # Total LMPC laps
 
 # Safe Set Parameters
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
