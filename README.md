@@ -1,10 +1,10 @@
 # Learning Model Predictive Control (LMPC) for autonomous racing
 
-The Learning Model Predictive Control (LMPC) is a data-driven control framework developed at UCB in the MPC lab. The framework learns from deta how to improve the performance of a system performing over and over the same task. In this example, we implemented the LMPC for the autonomous racing task where the controller has to drive the vehicle around a track imrpving the lap time.
+The Learning Model Predictive Control (LMPC) is a data-driven control framework developed at UCB in the MPC lab. In this example, we implemented the LMPC for the autonomous. The controller drives several laps of a race track and it learns from experience to improve the lap time.
 
 ### Prerequisites
 
-The packeges need for running the code can be installed using pip
+The packeges needed for running the code can be installed using pip
 
 ```
 pip install cvxopt
@@ -17,9 +17,9 @@ pip install pathos
 The vehicle is modelled using the dynamics signle track bicycle model and the tire forces are modelled using the Pacejka formula.
 
 ### The Path Following
-1) Lap 1: a PID path following contorller is used to drive the vehicle around the track.
-2) Lap 2: the date from lap 1 are used to estimate a LTI model used to design a MPC for path following
-3) Lap 3: the date from lap 1 are used to estimate a LTV model used to design a MPC for path following
+1) Lap 1: a PID path following controller is used to drive the vehicle around the track.
+2) Lap 2: the data from lap 1 are used to estimate a LTI model used to design a MPC for path following
+3) Lap 3: the data from lap 1 are used to estimate a LTV model used to design a MPC for path following
 
 ### The Learning Model Predictive Controller
 The data from the previous laps are used to build a safety set and a terminal cost which are used to initialize the LMPC. Futhermor, the LMPC uses a LTV model identified from data.
