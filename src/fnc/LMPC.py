@@ -88,12 +88,12 @@ class ControllerLMPC():
         map = self.map
 
         # Select Points from SS
-        SS_PointSelectedTot = np.empty((n, 0))
-        Qfun_SelectedTot    = np.empty((0))
+        SS_PointSelectedTot      = np.empty((n, 0))
+        Qfun_SelectedTot         = np.empty((0))
         for jj in range(0, self.numSS_it):
             SS_PointSelected, Qfun_Selected = _SelectPoints(SS, Qfun, it - jj - 1, x0, numSS_Points / self.numSS_it, shift)
             SS_PointSelectedTot =  np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
-            Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected)
+            Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
 
         self.SS_PointSelectedTot = SS_PointSelectedTot
         self.Qfun_SelectedTot    = Qfun_SelectedTot
