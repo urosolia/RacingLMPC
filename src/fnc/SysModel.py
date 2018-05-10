@@ -1,21 +1,102 @@
-def Curvature(s, PointAndTangent):
-    import numpy as np
-    TrackLength = PointAndTangent[-1,3]+PointAndTangent[-1,4]
+import numpy as np
+import pdb
+import datetime
+from Utilities import Curvature
 
-    # In case on a lap after the first one
-    while (s > TrackLength):
-        s = s - TrackLength
+class Simulator():
+    """Vehicle simulator
+    Attributes:
+        Sim: given a Controller object run closed-loop simulation and write the data in the ClosedLoopData object
+    """
+    def __init__(self, map, lap = 0, flagLMPC = 0):
+        """Initialization
+        map: map
+        lap: number of laps to run. If set to 0 then the simulation is completed when ClosedLoopData is full
+        flagLMPC: set to 0 for standart controller. Set to 1 for LMPC --> at iteration j add data to SS^{j-1} (look line 9999)
+        """
+        self.map = map
+        self.laps = lap
+        self.flagLMPC = flagLMPC
 
-    # Given s \in [0, TrackLength] compute the curvature
-    # Compute the segment in which system is evolving
-    index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
+    def Sim(self, ClosedLoopData, Controller, LMPCprediction=0):
+        """Simulate closed-loop system
+        ClosedLoopData: object where the closed-loop data are written
+        Controller: controller used in the closed-loop
+        LMPCprediction: object where the open-loop predictions and safe set are stored
+        """
 
-    i = int(np.where(np.squeeze(index))[0])
-    curvature = PointAndTangent[i, 5]
+        # Assign x = ClosedLoopData.x. IMPORTANT: x and ClosedLoopData.x share the same memory and therefore
+        # if you modofy one is like modifying the other one!
+        x      = ClosedLoopData.x
+        x_glob = ClosedLoopData.x_glob
+        u      = ClosedLoopData.u
 
-    return curvature
+        SimulationTime = 0
+        for i in range(0, ClosedLoopData.Points):
+            Controller.solve(x[i, :])
+            u[i, :] = Controller.uPred[0,:]
 
-def DynModel(x, x_glob, u, np, dt, PointAndTangent):
+            if LMPCprediction != 0:
+                LMPCprediction.PredictedStates[:,:,i, Controller.it]   = Controller.xPred
+                LMPCprediction.PredictedInputs[:, :, i, Controller.it] = Controller.uPred
+                LMPCprediction.SSused[:, :, i, Controller.it]          = Controller.SS_PointSelectedTot
+                LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
+
+            x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
+            SimulationTime = i + 1
+
+            if i <= 5:
+                print("Linearization time: %.4fs Solver time: %.4fs" % (Controller.linearizationTime.total_seconds(), Controller.solverTime.total_seconds()))
+                print "Time: ", i * ClosedLoopData.dt, "Current State and Input: ", x[i, :], u[i, :]
+
+            if Controller.feasible == 0:
+                print "Unfeasible at time ", i*ClosedLoopData.dt
+                print "Cur State: ", x[i, :], "Iteration ", Controller.it
+                break
+
+            if self.flagLMPC == 1:
+                Controller.addPoint(x[i + 1, :], u[i, :], i)
+
+            if (self.laps == 1) and (int(np.floor(x[i+1, 4] / (self.map.TrackLength))))>0:
+                print "Simulation terminated: Lap completed"
+                break
+
+        ClosedLoopData.SimTime = SimulationTime
+        print "Number of laps completed: ", int(np.floor(x[-1, 4] / (self.map.TrackLength)))
+
+class PID:
+    """Create the PID controller used for path following at constant speed
+    Attributes:
+        solve: given x0 computes the control action
+    """
+    def __init__(self, vt):
+        """Initialization
+        Arguments:
+            vt: target velocity
+        """
+        self.vt = vt
+        self.uPred = np.zeros([1,2])
+
+        startTimer = datetime.datetime.now()
+        endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
+        self.solverTime = deltaTimer
+        self.linearizationTime = deltaTimer
+        self.feasible = 1
+
+    def solve(self, x0):
+        """Computes control action
+        Arguments:
+            x0: current state position
+        """
+        vt = self.vt
+        self.uPred[0, 0] = - 0.6 * x0[5] - 0.9 * x0[3] + np.maximum(-0.9, np.min(np.random.randn() * 0.25, 0.9))
+        self.uPred[0, 1] = 1.5 * (vt - x0[0]) + np.maximum(-0.2, np.min(np.random.randn() * 0.10, 0.2))
+# ======================================================================================================================
+# ======================================================================================================================
+# ================================ Internal functions for change of coordinates ========================================
+# ======================================================================================================================
+# ======================================================================================================================
+def _DynModel(x, x_glob, u, np, dt, PointAndTangent):
     # This function computes the system evolution. Note that the discretization is deltaT and therefore is needed that
     # dt <= deltaT and ( dt / deltaT) = integer value
 
@@ -50,8 +131,6 @@ def DynModel(x, x_glob, u, np, dt, PointAndTangent):
     epsi  = x[3]
     s     = x[4]
     ey    = x[5]
-
-
 
     # Initialize counter
     i = 0
@@ -104,8 +183,8 @@ def DynModel(x, x_glob, u, np, dt, PointAndTangent):
     noise_vy = np.maximum(-0.1, np.min(np.random.randn() * 0.01, 0.1))
     noise_wz = np.maximum(-0.05, np.min(np.random.randn() * 0.005, 0.05))
 
-    cur_x_next[0] = cur_x_next[0] + noise_vx
-    cur_x_next[1] = cur_x_next[1] + noise_vy
-    cur_x_next[2] = cur_x_next[2] + noise_wz
+    cur_x_next[0] = cur_x_next[0] + 0.1*noise_vx
+    cur_x_next[1] = cur_x_next[1] + 0.1*noise_vy
+    cur_x_next[2] = cur_x_next[2] + 0.1*noise_wz
 
     return cur_x_next, x_next
