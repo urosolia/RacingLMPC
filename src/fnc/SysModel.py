@@ -33,7 +33,9 @@ class Simulator():
 
         SimulationTime = 0
         for i in range(0, ClosedLoopData.Points):
+
             Controller.solve(x[i, :])
+
             u[i, :] = Controller.uPred[0,:]
 
             if LMPCprediction != 0:

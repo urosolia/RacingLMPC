@@ -24,9 +24,17 @@ The vehicle is modelled using the dynamics signle track bicycle model and the ti
 ### The Learning Model Predictive Controller
 The data from the previous laps are used to build a safety set and a terminal cost which are used to initialize the LMPC. Futhermor, the LMPC uses a LTV model identified from data.
 
-## Reference
+## Results
 
-This code is based on the following work
+The LMPC used forecast to plan the vehicle trajectory looking few seconds into the future. The controller plans a trajectory in order to minimize the lap time, but it is constrained to land in a set of safe states.
+In the animation below we see the closed-loop trajectory (in black) of the vehicle after 5 laps of learning. The LMPC plans an open-loop trajectory (in red) which minimized the lap time and lands in the safety set (in blue).
+
+<img src="https://github.com/urosolia/RacingLMPC/src/ClosedLoop.gif" width="700" />
+
+
+## References
+
+This code is based on the following:
 
 * Ugo Rosolia and Francesco Borrelli. "Learning Model Predictive Control for Iterative Tasks. A Data-Driven Control Framework." In IEEE Transactions on Automatic Control (2017). [PDF](https://ieeexplore.ieee.org/document/8039204/)
 * Ugo Rosolia, Ashwin Carvalho, and Francesco Borrelli. "Autonomous racing using learning model predictive control." In IEEE 2017 American Control Conference (ACC). [PDF](https://ieeexplore.ieee.org/abstract/document/7963748/)

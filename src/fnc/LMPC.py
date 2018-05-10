@@ -19,13 +19,14 @@ class ControllerLMPC():
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
 
-    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, n, d, shift, dt,  map, Laps, TimeLMPC):
+    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt,  map, Laps, TimeLMPC):
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
             numSS_it: number of previois trajectories selected to build SS
             N: horizon length
             Q,R: weight to define cost function h(x,u) = ||x||_Q + ||u||_R
+            dR: weight to define the input rate cost h(x,u) = ||x_{k+1}-x_k||_dR
             n,d: state and input dimensiton
             shift: given the closest point x_t^j to x(t) the controller start selecting the point for SS from x_{t+shift}^j
             map: map
@@ -38,11 +39,14 @@ class ControllerLMPC():
         self.Qslack = Qslack
         self.Q = Q
         self.R = R
+        self.dR = dR
         self.n = n
         self.d = d
         self.shift = shift
         self.dt = dt
         self.map = map
+
+        self.OldInput = np.zeros((1,2))
 
         # Initialize the following quantities to avoid dynamic allocation
         NumPoints = int(TimeLMPC / dt) + 1
@@ -61,7 +65,7 @@ class ControllerLMPC():
         # Build matrices for inequality constraints
         self.F, self.b = _LMPC_BuildMatIneqConst(self)
 
-    def solve(self, x0):
+    def solve(self, x0, uOld = np.zeros([0, 0])):
         """Computes control action
         Arguments:
             x0: current state position
@@ -71,6 +75,7 @@ class ControllerLMPC():
         SS = self.SS;      Qfun = self.Qfun
         uSS = self.uSS;    TimeSS = self.TimeSS
         Q = self.Q;        R = self.R
+        dR =self.dR;       OldInput = self.OldInput
         N = self.N; dt = self.dt
         it           = self.it
         numSS_Points = self.numSS_Points
@@ -101,7 +106,7 @@ class ControllerLMPC():
 
         # Build Terminal cost and Constraint
         G, E = _LMPC_TermConstr(npG, npE, N, n, d, SS_PointSelectedTot)
-        M, q = _LMPC_BuildMatCost(Qfun_SelectedTot, numSS_Points, N, Qslack, Q, R)
+        M, q = _LMPC_BuildMatCost(Qfun_SelectedTot, numSS_Points, N, Qslack, Q, R, dR, OldInput)
 
         # Solve QP
         startTimer = datetime.datetime.now()
@@ -126,6 +131,8 @@ class ControllerLMPC():
             self.LinInput = np.vstack((uPred.T[1:, :], uPred.T[-1, :]))
 
         self.LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
+
+        self.OldInput = uPred.T[0,:]
 
     def addTrajectory(self, ClosedLoopData):
         """update iteration index and construct SS, uSS and Qfun
@@ -189,8 +196,8 @@ class ControllerLMPC():
 # =============================== Internal functions for LMPC reformulation to QP ======================================
 # ======================================================================================================================
 # ======================================================================================================================
-def _LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, Qslack, Q, R):
-
+def _LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
+    n = Q.shape[0]
     P = Q
     vt = 2
 
@@ -198,13 +205,24 @@ def _LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, Qslack, Q, R):
     Mx = linalg.block_diag(*b)
 
     c = [R] * (N)
+
     Mu = linalg.block_diag(*c)
+
+    # Derivative Input Cost
+    OffDiaf = -np.tile(dR, N-1)
+    np.fill_diagonal(Mu[2:], OffDiaf)
+    np.fill_diagonal(Mu[:, 2:], OffDiaf)
+    # np.savetxt('Mu.csv', Mu, delimiter=',', fmt='%f')
 
     M00 = linalg.block_diag(Mx, P, Mu)
     M0 = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), Qslack)
     xtrack = np.array([vt, 0, 0, 0, 0, 0])
     q0 = - 2 * np.dot(np.append(np.tile(xtrack, N + 1), np.zeros(R.shape[0] * N)), M00)
-    # print q0.shape, Sel_Qfun.shape, Q.shape[0], np.zeros(Q.shape[0]).shape
+
+    # Derivative Input
+    q0[n*(N+1):n*(N+1)+2] = -2 * np.dot( uOld, np.diag(dR) )
+
+    # np.savetxt('q0.csv', q0, delimiter=',', fmt='%f')
     q = np.append(np.append(q0, Sel_Qfun), np.zeros(Q.shape[0]))
 
     # np.savetxt('q.csv', q, delimiter=',', fmt='%f')

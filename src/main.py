@@ -33,7 +33,7 @@ from PathFollowingLTIMPC import PathFollowingLTI_MPC
 from Track import Map
 from LMPC import ControllerLMPC
 from Utilities import Regression
-from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states
+from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults
 import numpy as np
 import matplotlib.pyplot as plt
 import pdb
@@ -45,7 +45,7 @@ import pickle
 RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 0; animation_stateFlag = 1
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -70,7 +70,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 5+2              # Total LMPC laps
+Laps       = 6+2              # Total LMPC laps
 
 # Safe Set Parameters
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
@@ -78,9 +78,10 @@ numSS_Points = 32 + N         # Number of points to select from each trajectory 
 shift = 0                     # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
 
 # Tuning Parameters
-Qslack = 50*np.diag([10, 10, 10, 10, 10, 10])         # Cost on the slack variable for the terminal constraint
-Q_LMPC = 0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
-R_LMPC = 5 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
+Qslack  = 50*np.diag([10, 10, 10, 10, 10, 10])          # Cost on the slack variable for the terminal constraint
+Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
+R_LMPC  =  5 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
+dR_LMPC =  1 * np.array([1.0, 1.0])                     # Input rate cost u
 
 # Initialize LMPC simulator
 LMPCSimulator = Simulator(map, 1, 1)
@@ -148,7 +149,7 @@ ClosedLoopLMPC = ClosedLoopData(dt, TimeLMPC, v0)
 LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
 LMPCSimulator = Simulator(map, 1, 1)
 
-LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, n, d, shift, dt, map, Laps, TimeLMPC)
+LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC)
 LMPController.addTrajectory(ClosedLoopDataPID)
 LMPController.addTrajectory(ClosedLoopDataLTV_MPC)
 
@@ -209,5 +210,7 @@ if animation_xyFlag == 1:
 
 if animation_stateFlag == 1:
     animation_states(map, LMPCOpenLoopData, LMPController, 6)
+
+# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
 
 plt.show()
