@@ -27,7 +27,7 @@ The data from the previous laps are used to build a safety set and a terminal co
 ## Results
 
 The LMPC used forecast to plan the vehicle trajectory looking few seconds into the future. This trajectory is planned in order to minimize the lap time, but it is constrained to land in a set of safe states.
-In the animation below we see the closed-loop trajectory (in black) of the vehicle after 5 laps of learning. The LMPC plans an open-loop trajectory (in red) which minimized the lap time and lands in the safety set (in blue).
+In the animation below we see the closed-loop trajectory (in black) of the vehicle after 5 laps of learning. The LMPC plans an open-loop trajectory (in red) which minimizes the lap time and lands in the safety set (in blue).
 
 <p align="center">
 <img src="https://github.com/urosolia/RacingLMPC/blob/master/src/ClosedLoop.gif" width="500" />
