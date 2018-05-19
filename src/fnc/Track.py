@@ -174,12 +174,14 @@ class Map():
 
         return x, y
 
-    def getLocalPosition(self, x, y):
+    def getLocalPosition(self, x, y, psi):
         """coordinate transformation from inertial reference frame (X, Y) to curvilinear reference frame (s, ey)
         (X, Y): position in the inertial reference frame
         """
         PointAndTangent = self.PointAndTangent
         CompletedFlag = 0
+
+
 
         for i in range(0, PointAndTangent.shape[0]):
             if CompletedFlag == 1:
@@ -192,6 +194,8 @@ class Map():
                 xs = PointAndTangent[i - 1, 0]
                 ys = PointAndTangent[i - 1, 1]
 
+                psi_unwrap = np.unwrap([PointAndTangent[i - 1, 2], psi])[1]
+                epsi = psi_unwrap - PointAndTangent[i - 1, 2]
                 # Check if on the segment using angles
                 if (la.norm(np.array([xs, ys]) - np.array([x, y]))) == 0:
                     s  = PointAndTangent[i, 3]
@@ -202,7 +206,6 @@ class Map():
                     s = PointAndTangent[i, 3] + PointAndTangent[i, 4]
                     ey = 0
                     CompletedFlag = 1
-
                 else:
                     if np.abs(computeAngle( [x,y] , [xs, ys], [xf, yf])) <= np.pi/2 and np.abs(computeAngle( [x,y] , [xf, yf], [xs, ys])) <= np.pi/2:
                         v1 = np.array([x,y]) - np.array([xs, ys])
@@ -234,12 +237,16 @@ class Map():
 
                 # Check if on the segment using angles
                 if (la.norm(np.array([xs, ys]) - np.array([x, y]))) == 0:
-                    s = PointAndTangent[i, 3]
                     ey = 0
+                    psi_unwrap = np.unwrap([ang, psi])[1]
+                    epsi = psi_unwrap - ang
+                    s = PointAndTangent[i, 3]
                     CompletedFlag = 1
                 elif (la.norm(np.array([xf, yf]) - np.array([x, y]))) == 0:
                     s = PointAndTangent[i, 3] + PointAndTangent[i, 4]
                     ey = 0
+                    psi_unwrap = np.unwrap([PointAndTangent[i, 2], psi])[1]
+                    epsi = psi_unwrap - PointAndTangent[i, 2]
                     CompletedFlag = 1
                 else:
                     arc1 = PointAndTangent[i, 4] * PointAndTangent[i, 5]
@@ -247,18 +254,26 @@ class Map():
                     if np.sign(arc1) == np.sign(arc2) and np.abs(arc1) >= np.abs(arc2):
                         v = np.array([x, y]) - np.array([CenterX, CenterY])
                         s_local = np.abs(arc2)*np.abs(r)
-                        s = s_local + PointAndTangent[i, 3]
-                        ey = -np.sign(direction) * (la.norm(v) - np.abs(r))
+                        s    = s_local + PointAndTangent[i, 3]
+                        ey   = -np.sign(direction) * (la.norm(v) - np.abs(r))
+                        psi_unwrap = np.unwrap([ang + arc2, psi])[1]
+                        epsi = psi_unwrap - (ang + arc2)
 
                         if np.abs(ey) <= self.width:
                             CompletedFlag = 1
+
+        if epsi>1.0:
+            pdb.set_trace()
+
         if CompletedFlag == 0:
-            s= 10000
-            ey =10000
+            s    = 10000
+            ey   = 10000
+            epsi = 10000
+
             print "Error!! POINT OUT OF THE TRACK!!!! <=================="
             pdb.set_trace()
 
-        return s, ey
+        return s, ey, epsi, CompletedFlag
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -310,7 +325,8 @@ def unityTestChangeOfCoordinates(map, ClosedLoopData):
         xdat = ClosedLoopData.x
         xglobdat = ClosedLoopData.x_glob
 
-        v1 = np.array(map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5]))
+        s, ey, _, _ = map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5], xglobdat[i, 3])
+        v1 = np.array([s, ey])
         v2 = np.array(xdat[i, 4:6])
         v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
         v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])

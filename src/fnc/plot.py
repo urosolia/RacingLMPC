@@ -250,11 +250,13 @@ def animation_states(map, LMPCOpenLoopData, LMPController, it):
         xPred    = LMPCOpenLoopData.PredictedStates[:, :, i, it]
         SSpoints = LMPCOpenLoopData.SSused[:, :, i, it]
 
-        linevx.set_data(xPred[:, 4], xPred[:, 0])
-        linevy.set_data(xPred[:, 4], xPred[:, 1])
-        linewz.set_data(xPred[:, 4], xPred[:, 2])
-        lineepsi.set_data(xPred[:, 4], xPred[:, 3])
-        lineey.set_data(xPred[:, 4], xPred[:, 5])
+        linevx.set_data(xPred[:, 4], xPred[:, 0]);   axvx.set_title(str(xPred[0, 0]))
+        linevy.set_data(xPred[:, 4], xPred[:, 1]);   axvy.set_title(str(xPred[0, 1]))
+        linewz.set_data(xPred[:, 4], xPred[:, 2]);   axwz.set_title(str(xPred[0, 2]))
+        lineepsi.set_data(xPred[:, 4], xPred[:, 3]); axepsi.set_title(str(xPred[0, 3]))
+        lineey.set_data(xPred[:, 4], xPred[:, 5]);   axey.set_title(str(xPred[0, 5]))
+
+        epsiReal = xPred[0, 3]
 
         lineSSvx.set_data(SSpoints[4,:], SSpoints[0,:])
         lineSSvy.set_data(SSpoints[4,:], SSpoints[1,:])
@@ -274,6 +276,14 @@ def animation_states(map, LMPCOpenLoopData, LMPController, it):
                                                                        LMPCOpenLoopData.SSused[5, j, i, it])
 
         line_tr.set_data(xPred, yPred)
+
+
+        vec = np.array([xPred[0, 0], yPred[0, 0]]) - np.array([SS_glob[i, 4, it], SS_glob[i, 5, it]])
+
+        s, ey, epsi, _ = map.getLocalPosition( SS_glob[i, 4, it], SS_glob[i, 5, it], SS_glob[i, 3, it])
+        axtr.set_title(str(s)+" "+str(ey)+" "+str(epsi))
+
+        # axepsi.set_title(str(epsiReal)+" "+str(epsi))
         SSpoints_tr.set_data(SSpoints_x, SSpoints_y)
 
         plt.draw()
