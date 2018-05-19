@@ -30,10 +30,10 @@ from SysModel import Simulator, PID
 from Classes import ClosedLoopData, LMPCprediction
 from PathFollowingLTVMPC import PathFollowingLTV_MPC
 from PathFollowingLTIMPC import PathFollowingLTI_MPC
-from Track import Map
+from Track import Map, unityTestChangeOfCoordinates
 from LMPC import ControllerLMPC
 from Utilities import Regression
-from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults
+from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults, Save_statesAnimation
 import numpy as np
 import matplotlib.pyplot as plt
 import pdb
@@ -42,10 +42,10 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 0; plotFlag       = 0
-RunMPC     = 0; plotFlagMPC    = 0
-RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunPID     = 0; plotFlag       = 1
+RunMPC     = 0; plotFlagMPC    = 1
+RunMPC_tv  = 0; plotFlagMPC_tv = 1
+RunLMPC    = 0; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 1
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -103,6 +103,7 @@ else:
     ClosedLoopDataPID = pickle.load(file_data)
     file_data.close()
 print "===== PID terminated"
+
 # ======================================================================================================================
 # ======================================  LINEAR REGRESSION ============================================================
 # ======================================================================================================================
@@ -206,11 +207,15 @@ if plotFlagLMPC == 1:
     plotClosedLoopLMPC(LMPController, map)
 
 if animation_xyFlag == 1:
-    animation_xy(map, LMPCOpenLoopData, LMPController, 6)
+    animation_xy(map, LMPCOpenLoopData, LMPController, 5)
 
 if animation_stateFlag == 1:
-    animation_states(map, LMPCOpenLoopData, LMPController, 6)
+    animation_states(map, LMPCOpenLoopData, LMPController, 5)
+
+unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
+unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
+unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
 # saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
-
+# Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()
