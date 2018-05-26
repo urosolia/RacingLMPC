@@ -229,7 +229,7 @@ def _LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
 
     M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
 
-    M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0], np.nonzero(M)[1], M.shape)
+    M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0].astype(int), np.nonzero(M)[1].astype(int), M.shape)
     return M_sparse, q
 
 def _LMPC_BuildMatIneqConst(LMPC):
@@ -283,7 +283,7 @@ def _LMPC_BuildMatIneqConst(LMPC):
 
     # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
     b = np.hstack((bxtot, butot, np.zeros(numSS_Points)))
-    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0], np.nonzero(F)[1], F.shape)
+    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
     return F_sparse, b
 
 
@@ -343,8 +343,8 @@ def _LMPC_TermConstr(G, E, N ,n ,d , SS_Points):
     # np.savetxt('G.csv', G_LMPC, delimiter=',', fmt='%f')
     # np.savetxt('E.csv', E_LMPC, delimiter=',', fmt='%f')
 
-    G_LMPC_sparse = spmatrix(G_LMPC[np.nonzero(G_LMPC)], np.nonzero(G_LMPC)[0], np.nonzero(G_LMPC)[1], G_LMPC.shape)
-    E_LMPC_sparse = spmatrix(E_LMPC[np.nonzero(E_LMPC)], np.nonzero(E_LMPC)[0], np.nonzero(E_LMPC)[1], E_LMPC.shape)
+    G_LMPC_sparse = spmatrix(G_LMPC[np.nonzero(G_LMPC)], np.nonzero(G_LMPC)[0].astype(int), np.nonzero(G_LMPC)[1].astype(int), G_LMPC.shape)
+    E_LMPC_sparse = spmatrix(E_LMPC[np.nonzero(E_LMPC)], np.nonzero(E_LMPC)[0].astype(int), np.nonzero(E_LMPC)[1].astype(int), E_LMPC.shape)
 
     return G_LMPC_sparse, E_LMPC_sparse
 
@@ -374,9 +374,9 @@ def _LMPC_BuildMatEqConst(A, B, C, N, n, d):
     G = np.hstack((Gx, Gu))
 
 
-    G_sparse = spmatrix(G[np.nonzero(G)], np.nonzero(G)[0], np.nonzero(G)[1], G.shape)
-    E_sparse = spmatrix(E[np.nonzero(E)], np.nonzero(E)[0], np.nonzero(E)[1], E.shape)
-    L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0], np.nonzero(L)[1], L.shape)
+    G_sparse = spmatrix(G[np.nonzero(G)], np.nonzero(G)[0].astype(int), np.nonzero(G)[1].astype(int), G.shape)
+    E_sparse = spmatrix(E[np.nonzero(E)], np.nonzero(E)[0].astype(int), np.nonzero(E)[1].astype(int), E.shape)
+    L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
 
     return G_sparse, E_sparse, L_sparse, G, E
 

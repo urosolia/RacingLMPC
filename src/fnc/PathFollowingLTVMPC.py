@@ -130,7 +130,7 @@ def _buildMatIneqConst(Controller):
     F = np.vstack((Dummy1, Dummy2))
     b = np.hstack((bxtot, butot))
 
-    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0], np.nonzero(F)[1], F.shape)
+    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
     return F_sparse, b
 
 def _buildMatCost(Controller):
@@ -150,7 +150,7 @@ def _buildMatCost(Controller):
     q = - 2 * np.dot(np.append(np.tile(xtrack, N + 1), np.zeros(R.shape[0] * N)), M0)
     M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
 
-    M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0], np.nonzero(M)[1], M.shape)
+    M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0].astype(int), np.nonzero(M)[1].astype(int), M.shape)
     return M_sparse, q
 
 def _buildMatEqConst(Controller):
@@ -184,9 +184,9 @@ def _buildMatEqConst(Controller):
 
     G = np.hstack((Gx, Gu))
 
-    G_sparse = spmatrix(G[np.nonzero(G)], np.nonzero(G)[0], np.nonzero(G)[1], G.shape)
-    E_sparse = spmatrix(E[np.nonzero(E)], np.nonzero(E)[0], np.nonzero(E)[1], E.shape)
-    L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0], np.nonzero(L)[1], L.shape)
+    G_sparse = spmatrix(G[np.nonzero(G)], np.nonzero(G)[0].astype(int), np.nonzero(G)[1].astype(int), G.shape)
+    E_sparse = spmatrix(E[np.nonzero(E)], np.nonzero(E)[0].astype(int), np.nonzero(E)[1].astype(int), E.shape)
+    L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
 
     return G_sparse, E_sparse, L_sparse
 
