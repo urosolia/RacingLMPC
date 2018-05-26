@@ -50,7 +50,7 @@ class ControllerLMPC():
 
         # Initialize the following quantities to avoid dynamic allocation
         NumPoints = int(TimeLMPC / dt) + 1
-        self.TimeSS  = 10000 * np.ones(Laps)                    # Time at which each j-th iteration is completed
+        self.TimeSS  = 10000 * np.ones(Laps).astype(int)        # Time at which each j-th iteration is completed
         self.SS      = 10000 * np.ones((NumPoints, 6, Laps))    # Sampled Safe SS
         self.uSS     = 10000 * np.ones((NumPoints, 2, Laps))    # Input associated with the points in SS
         self.Qfun    =     0 * np.ones((NumPoints, Laps))       # Qfun: cost-to-go from each point in SS

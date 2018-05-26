@@ -140,7 +140,7 @@ def _buildMatIneqConst(Controller):
     F = np.vstack((Dummy1, Dummy2))
     b = np.hstack((bxtot, butot))
 
-    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0], np.nonzero(F)[1], F.shape)
+    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
     return F_sparse, b
 
 def _buildMatCost(Controller):
