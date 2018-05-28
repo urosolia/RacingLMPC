@@ -73,6 +73,7 @@ TimeLMPC   = 400              # Simulation time
 Laps       = 5+2              # Total LMPC laps
 
 # Safe Set Parameters
+LMPC_Solver = "OSQP"          # Can pick CVX for cvxopt or OSQP
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 32 + N         # Number of points to select from each trajectory to build the safe set
 shift = 0                     # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
@@ -150,7 +151,7 @@ ClosedLoopLMPC = ClosedLoopData(dt, TimeLMPC, v0)
 LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
 LMPCSimulator = Simulator(map, 1, 1)
 
-LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC)
+LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
 LMPController.addTrajectory(ClosedLoopDataPID)
 LMPController.addTrajectory(ClosedLoopDataLTV_MPC)
 

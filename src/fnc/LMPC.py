@@ -3,11 +3,16 @@ import numpy as np
 from cvxopt import spmatrix, matrix, solvers
 from numpy import linalg as la
 from scipy import linalg
+from scipy import sparse
 from cvxopt.solvers import qp
 import datetime
 from functools import partial
 from pathos.multiprocessing import ProcessingPool as Pool
 from Utilities import Curvature
+from numpy import hstack, inf, ones
+from osqp import OSQP
+from scipy.sparse import vstack
+
 solvers.options['show_progress'] = False
 
 class ControllerLMPC():
@@ -19,7 +24,7 @@ class ControllerLMPC():
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
 
-    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt,  map, Laps, TimeLMPC):
+    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt,  map, Laps, TimeLMPC, Solver):
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
@@ -32,6 +37,7 @@ class ControllerLMPC():
             map: map
             Laps: maximum number of laps the controller can run (used to avoid dynamic allocation)
             TimeLMPC: maximum time [s] that an lap can last (used to avoid dynamic allocation)
+            Solver: solver used in the reformulation of the LMPC as QP
         """
         self.numSS_Points = numSS_Points
         self.numSS_it     = numSS_it
@@ -45,6 +51,7 @@ class ControllerLMPC():
         self.shift = shift
         self.dt = dt
         self.map = map
+        self.Solver = Solver
 
         self.OldInput = np.zeros((1,2))
 
@@ -101,25 +108,35 @@ class ControllerLMPC():
         startTimer = datetime.datetime.now()
         Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self)
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
-        _, _, L, npG, npE = _LMPC_BuildMatEqConst(Atv, Btv, Ctv, N, n, d)
+        L, npG, npE = _LMPC_BuildMatEqConst(self, Atv, Btv, Ctv, N, n, d)
         self.linearizationTime = deltaTimer
 
         # Build Terminal cost and Constraint
-        G, E = _LMPC_TermConstr(npG, npE, N, n, d, SS_PointSelectedTot)
-        M, q = _LMPC_BuildMatCost(Qfun_SelectedTot, numSS_Points, N, Qslack, Q, R, dR, OldInput)
+        G, E = _LMPC_TermConstr(self, npG, npE, N, n, d, SS_PointSelectedTot)
+        M, q = _LMPC_BuildMatCost(self, Qfun_SelectedTot, numSS_Points, N, Qslack, Q, R, dR, OldInput)
 
         # Solve QP
         startTimer = datetime.datetime.now()
-        res_cons = qp(M, matrix(q), F, matrix(b), G, E * matrix(x0) + L)
-        if res_cons['status'] == 'optimal':
-            self.feasible = 1
-        else:
-            self.feasible = 0
+
+        if self.Solver == "CVX":
+            res_cons = qp(M, matrix(q), F, matrix(b), G, E * matrix(x0) + L)
+            if res_cons['status'] == 'optimal':
+                feasible = 1
+            else:
+                feasible = 0
+            Solution = np.squeeze(res_cons['x'])     
+
+        elif self.Solver == "OSQP":
+            # Adaptarion for QSQP from https://github.com/alexbuyval/RacingLMPC/
+            res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
+            Solution = res_cons.x
+
+        self.feasible = feasible
+
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.solverTime = deltaTimer
 
         # Extract solution and set linerizations points
-        Solution = np.squeeze(res_cons['x'])
         xPred, uPred, lambd, slack = _LMPC_GetPred(Solution, n, d, N, np)
 
         self.xPred = xPred.T
@@ -196,7 +213,60 @@ class ControllerLMPC():
 # =============================== Internal functions for LMPC reformulation to QP ======================================
 # ======================================================================================================================
 # ======================================================================================================================
-def _LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
+
+def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
+    """
+    Solve a Quadratic Program defined as:
+        minimize
+            (1/2) * x.T * P * x + q.T * x
+        subject to
+            G * x <= h
+            A * x == b
+    using OSQP <https://github.com/oxfordcontrol/osqp>.
+    Parameters
+    ----------
+    P : scipy.sparse.csc_matrix Symmetric quadratic-cost matrix.
+    q : numpy.array Quadratic cost vector.
+    G : scipy.sparse.csc_matrix Linear inequality constraint matrix.
+    h : numpy.array Linear inequality constraint vector.
+    A : scipy.sparse.csc_matrix, optional Linear equality constraint matrix.
+    b : numpy.array, optional Linear equality constraint vector.
+    initvals : numpy.array, optional Warm-start guess vector.
+    Returns
+    -------
+    x : array, shape=(n,)
+        Solution to the QP, if found, otherwise ``None``.
+    Note
+    ----
+    OSQP requires `P` to be symmetric, and won't check for errors otherwise.
+    Check out for this point if you e.g. `get nan values
+    <https://github.com/oxfordcontrol/osqp/issues/10>`_ in your solutions.
+    """
+    osqp = OSQP()
+    if G is not None:
+        l = -inf * ones(len(h))
+        if A is not None:
+            qp_A = vstack([G, A]).tocsc()
+            qp_l = hstack([l, b])
+            qp_u = hstack([h, b])
+        else:  # no equality constraint
+            qp_A = G
+            qp_l = l
+            qp_u = h
+        osqp.setup(P=P, q=q, A=qp_A, l=qp_l, u=qp_u, verbose=False, polish=True)
+    else:
+        osqp.setup(P=P, q=q, A=None, l=None, u=None, verbose=False)
+    if initvals is not None:
+        osqp.warm_start(x=initvals)
+    res = osqp.solve()
+    if res.info.status_val != osqp.constant('OSQP_SOLVED'):
+        print("OSQP exited with status '%s'" % res.info.status)
+    feasible = 0
+    if res.info.status_val == osqp.constant('OSQP_SOLVED') or res.info.status_val == osqp.constant('OSQP_SOLVED_INACCURATE') or  res.info.status_val == osqp.constant('OSQP_MAX_ITER_REACHED'):
+        feasible = 1
+    return res, feasible
+
+def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
     n = Q.shape[0]
     P = Q
     vt = 2
@@ -229,8 +299,13 @@ def _LMPC_BuildMatCost(Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
 
     M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
 
-    M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0].astype(int), np.nonzero(M)[1].astype(int), M.shape)
-    return M_sparse, q
+    if LMPC.Solver == "CVX":
+        M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0].astype(int), np.nonzero(M)[1].astype(int), M.shape)
+        M_return = M_sparse
+    else:
+        M_return = M
+
+    return M_return, q
 
 def _LMPC_BuildMatIneqConst(LMPC):
     N = LMPC.N
@@ -283,8 +358,13 @@ def _LMPC_BuildMatIneqConst(LMPC):
 
     # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
     b = np.hstack((bxtot, butot, np.zeros(numSS_Points)))
-    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
-    return F_sparse, b
+    if LMPC.Solver == "CVX":
+        F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
+        F_return = F_sparse
+    else:
+        F_return = F
+
+    return F_return, b
 
 
 def _SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
@@ -319,7 +399,7 @@ def _ComputeCost(x, u, TrackLength):
     return Cost
 
 
-def _LMPC_TermConstr(G, E, N ,n ,d , SS_Points):
+def _LMPC_TermConstr(LMPC, G, E, N ,n ,d , SS_Points):
     # Update the matrices for the Equality constraint in the LMPC. Now we need an extra row to constraint the terminal point to be equal to a point in SS
     # The equality constraint has now the form: G_LMPC*z = E_LMPC*x0 + TermPoint.
     # Note that the vector TermPoint is updated to constraint the predicted trajectory into a point in SS. This is done in the FTOCP_LMPC function
@@ -343,12 +423,18 @@ def _LMPC_TermConstr(G, E, N ,n ,d , SS_Points):
     # np.savetxt('G.csv', G_LMPC, delimiter=',', fmt='%f')
     # np.savetxt('E.csv', E_LMPC, delimiter=',', fmt='%f')
 
-    G_LMPC_sparse = spmatrix(G_LMPC[np.nonzero(G_LMPC)], np.nonzero(G_LMPC)[0].astype(int), np.nonzero(G_LMPC)[1].astype(int), G_LMPC.shape)
-    E_LMPC_sparse = spmatrix(E_LMPC[np.nonzero(E_LMPC)], np.nonzero(E_LMPC)[0].astype(int), np.nonzero(E_LMPC)[1].astype(int), E_LMPC.shape)
+    if LMPC.Solver == "CVX":
+        G_LMPC_sparse = spmatrix(G_LMPC[np.nonzero(G_LMPC)], np.nonzero(G_LMPC)[0].astype(int), np.nonzero(G_LMPC)[1].astype(int), G_LMPC.shape)
+        E_LMPC_sparse = spmatrix(E_LMPC[np.nonzero(E_LMPC)], np.nonzero(E_LMPC)[0].astype(int), np.nonzero(E_LMPC)[1].astype(int), E_LMPC.shape)
+        G_LMPC_return = G_LMPC_sparse
+        E_LMPC_return = E_LMPC_sparse
+    else:
+        G_LMPC_return = G_LMPC
+        E_LMPC_return = E_LMPC
 
-    return G_LMPC_sparse, E_LMPC_sparse
+    return G_LMPC_return, E_LMPC_return
 
-def _LMPC_BuildMatEqConst(A, B, C, N, n, d):
+def _LMPC_BuildMatEqConst(LMPC, A, B, C, N, n, d):
     # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
     # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
     # stucks the predicted trajectory x_{k|t} \forall k = t, \ldots, t+N+1 over the horizon and
@@ -374,11 +460,13 @@ def _LMPC_BuildMatEqConst(A, B, C, N, n, d):
     G = np.hstack((Gx, Gu))
 
 
-    G_sparse = spmatrix(G[np.nonzero(G)], np.nonzero(G)[0].astype(int), np.nonzero(G)[1].astype(int), G.shape)
-    E_sparse = spmatrix(E[np.nonzero(E)], np.nonzero(E)[0].astype(int), np.nonzero(E)[1].astype(int), E.shape)
-    L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
+    if LMPC.Solver == "CVX":
+        L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
+        L_return = L_sparse
+    else:
+        L_return = L
 
-    return G_sparse, E_sparse, L_sparse, G, E
+    return L_return, G, E
 
 def _LMPC_GetPred(Solution,n,d,N, np):
     xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n*(N+1))]),(N+1,n))))
