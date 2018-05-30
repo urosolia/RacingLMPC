@@ -6,7 +6,7 @@ import matplotlib.patches as patches
 import pdb
 
 def plotTrajectory(map, x, x_glob, u):
-    Points = np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4]))
+    Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
     Points1 = np.zeros((Points, 2))
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
@@ -52,7 +52,7 @@ def plotClosedLoopLMPC(LMPController, map):
     uSS     = LMPController.uSS
 
     TotNumberIt = LMPController.it
-    Points = np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4]))
+    Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
     Points1 = np.zeros((Points, 2))
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
@@ -61,7 +61,7 @@ def plotClosedLoopLMPC(LMPController, map):
         Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
-    plt.figure()
+    plt.figure(1)
     plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
     plt.plot(Points0[:, 0], Points0[:, 1], '--')
     plt.plot(Points1[:, 0], Points1[:, 1], '-b')
@@ -70,7 +70,7 @@ def plotClosedLoopLMPC(LMPController, map):
     for i in range(2, TotNumberIt):
         plt.plot(SS_glob[0:TimeSS[i], 4, i], SS_glob[0:TimeSS[i], 5, i], '-r')
 
-    plt.figure()
+    plt.figure(2)
     plt.subplot(711)
     for i in range(2, TotNumberIt):
         plt.plot(SS[0:TimeSS[i], 4, i], SS[0:TimeSS[i], 0, i], '-o')
@@ -107,7 +107,7 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
     SS = LMPController.SS
     uSS = LMPController.uSS
 
-    Points = np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4]))
+    Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
     Points1 = np.zeros((Points, 2))
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
@@ -116,7 +116,7 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
         Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
-    plt.figure()
+    plt.figure(200)
     plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
     plt.plot(Points0[:, 0], Points0[:, 1], '--')
     plt.plot(Points1[:, 0], Points1[:, 1], '-b')
@@ -182,7 +182,7 @@ def animation_states(map, LMPCOpenLoopData, LMPController, it):
     uSS = LMPController.uSS
 
     xdata = []; ydata = []
-    fig = plt.figure()
+    fig = plt.figure(100)
 
     axvx = fig.add_subplot(3, 2, 1)
     plt.plot(SS[0:TimeSS[it], 4, it], SS[0:TimeSS[it], 0, it], '-ok', label="Closed-loop trajectory")
@@ -295,7 +295,7 @@ def saveGif_xyResults(map, LMPCOpenLoopData, LMPController, it):
     SS = LMPController.SS
     uSS = LMPController.uSS
 
-    Points = np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4]))
+    Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
     Points1 = np.zeros((Points, 2))
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
@@ -304,7 +304,7 @@ def saveGif_xyResults(map, LMPCOpenLoopData, LMPController, it):
         Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
-    fig = plt.figure()
+    fig = plt.figure(101)
     plt.ylim((-5, 1.5))
     fig.set_tight_layout(True)
     plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')

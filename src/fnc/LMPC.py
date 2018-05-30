@@ -11,6 +11,7 @@ from pathos.multiprocessing import ProcessingPool as Pool
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
+#from osqp import OSQP
 
 solvers.options['show_progress'] = False
 
@@ -50,10 +51,7 @@ class ControllerLMPC():
         self.shift = shift
         self.dt = dt
         self.map = map
-        self.Solver = Solver
-
-        if Solver == "OSQP":
-            from osqp import OSQP
+        self.Solver = Solver            
 
         self.OldInput = np.zeros((1,2))
 
