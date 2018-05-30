@@ -57,7 +57,7 @@ class Simulator():
                 break
 
             if self.flagLMPC == 1:
-                Controller.addPoint(x[i + 1, :], u[i, :], i)
+                Controller.addPoint(x[i, :], u[i, :], i)
 
             if (self.laps == 1) and (int(np.floor(x[i+1, 4] / (self.map.TrackLength))))>0:
                 print "Simulation terminated: Lap completed"
