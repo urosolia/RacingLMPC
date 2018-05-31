@@ -262,7 +262,7 @@ def _EstimateABC(Controller):
         s  = x0[4]; ey   = x0[5]
 
         if s<0:
-            print "s is negative, here the state: \n", LinPoints
+            print("s is negative, here the state: \n", LinPoints)
 
         cur = Curvature(s, PointAndTangent)
         den = 1 - cur *ey
@@ -315,7 +315,7 @@ def LocLinReg(h, x, u, x0, yIndex, stateFeatures, inputFeatures, scaling, qp, ma
     oneVec = np.ones( (x.shape[0]-1, 1) )
     x0Vec = (np.dot( np.array([x0[stateFeatures]]).T, oneVec.T )).T
     diff  = np.dot(( x[0:-1, stateFeatures] - x0Vec ), scaling)
-    # print 'x0Vec \n',x0Vec
+    # print('x0Vec \n',x0Vec)
     norm = la.norm(diff, 1, axis=1)
     indexTot =  np.squeeze(np.where(norm < h))
     if (indexTot.shape[0] >= MaxNumPoint):

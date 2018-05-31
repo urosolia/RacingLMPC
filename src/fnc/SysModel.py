@@ -49,22 +49,22 @@ class Simulator():
 
             if i <= 5:
                 print("Linearization time: %.4fs Solver time: %.4fs" % (Controller.linearizationTime.total_seconds(), Controller.solverTime.total_seconds()))
-                print "Time: ", i * ClosedLoopData.dt, "Current State and Input: ", x[i, :], u[i, :]
+                print("Time: ", i * ClosedLoopData.dt, "Current State and Input: ", x[i, :], u[i, :])
 
             if Controller.feasible == 0:
-                print "Unfeasible at time ", i*ClosedLoopData.dt
-                print "Cur State: ", x[i, :], "Iteration ", Controller.it
+                print("Unfeasible at time ", i*ClosedLoopData.dt)
+                print("Cur State: ", x[i, :], "Iteration ", Controller.it)
                 break
 
             if self.flagLMPC == 1:
                 Controller.addPoint(x[i, :], u[i, :], i)
 
             if (self.laps == 1) and (int(np.floor(x[i+1, 4] / (self.map.TrackLength))))>0:
-                print "Simulation terminated: Lap completed"
+                print("Simulation terminated: Lap completed")
                 break
 
         ClosedLoopData.SimTime = SimulationTime
-        print "Number of laps completed: ", int(np.floor(x[-1, 4] / (self.map.TrackLength)))
+        print("Number of laps completed: ", int(np.floor(x[-1, 4] / (self.map.TrackLength))))
 
 class PID:
     """Create the PID controller used for path following at constant speed
@@ -91,8 +91,8 @@ class PID:
             x0: current state position
         """
         vt = self.vt
-        self.uPred[0, 0] = - 0.6 * x0[5] - 0.9 * x0[3] + np.maximum(-0.9, np.min(np.random.randn() * 0.25, 0.9))
-        self.uPred[0, 1] = 1.5 * (vt - x0[0]) + np.maximum(-0.2, np.min(np.random.randn() * 0.10, 0.2))
+        self.uPred[0, 0] = - 0.6 * x0[5] - 0.9 * x0[3] + np.maximum(-0.9, np.minimum(np.random.randn() * 0.25, 0.9))
+        self.uPred[0, 1] = 1.5 * (vt - x0[0]) + np.maximum(-0.2, np.minimum(np.random.randn() * 0.10, 0.2))
 # ======================================================================================================================
 # ======================================================================================================================
 # ================================ Internal functions for change of coordinates ========================================
@@ -174,16 +174,16 @@ def _DynModel(x, x_glob, u, np, dt, PointAndTangent):
         ey   = cur_x_next[5]
 
         if (s < 0):
-            print "Start Point: ", x, " Input: ", u
-            print "x_next: ", x_next
+            print("Start Point: ", x, " Input: ", u)
+            print("x_next: ", x_next)
 
         # Increment counter
         i = i+1
 
     # Noises
-    noise_vx = np.maximum(-0.05, np.min(np.random.randn() * 0.01, 0.05))
-    noise_vy = np.maximum(-0.1, np.min(np.random.randn() * 0.01, 0.1))
-    noise_wz = np.maximum(-0.05, np.min(np.random.randn() * 0.005, 0.05))
+    noise_vx = np.maximum(-0.05, np.minimum(np.random.randn() * 0.01, 0.05))
+    noise_vy = np.maximum(-0.1, np.minimum(np.random.randn() * 0.01, 0.1))
+    noise_wz = np.maximum(-0.05, np.minimum(np.random.randn() * 0.005, 0.05))
 
     cur_x_next[0] = cur_x_next[0] + 0.1*noise_vx
     cur_x_next[1] = cur_x_next[1] + 0.1*noise_vy

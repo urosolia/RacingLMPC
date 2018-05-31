@@ -90,7 +90,7 @@ LMPCSimulator = Simulator(map, 1, 1)
 # ======================================================================================================================
 # ======================================= PID path following ===========================================================
 # ======================================================================================================================
-print "Starting PID"
+print("Starting PID")
 if RunPID == 1:
     ClosedLoopDataPID = ClosedLoopData(dt, Time , v0)
     PIDController = PID(vt)
@@ -103,12 +103,12 @@ else:
     file_data = open(sys.path[0]+'/data/ClosedLoopDataPID.obj', 'rb')
     ClosedLoopDataPID = pickle.load(file_data)
     file_data.close()
-print "===== PID terminated"
+print("===== PID terminated")
 
 # ======================================================================================================================
 # ======================================  LINEAR REGRESSION ============================================================
 # ======================================================================================================================
-print "Starting MPC"
+print("Starting MPC")
 lamb = 0.0000001
 A, B, Error = Regression(ClosedLoopDataPID.x, ClosedLoopDataPID.u, lamb)
 
@@ -117,36 +117,36 @@ if RunMPC == 1:
     Controller_PathFollowingLTI_MPC = PathFollowingLTI_MPC(A, B, Q, R, N, vt)
     simulator.Sim(ClosedLoopDataLTI_MPC, Controller_PathFollowingLTI_MPC)
 
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'w')
+    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'wb')
     pickle.dump(ClosedLoopDataLTI_MPC, file_data)
     file_data.close()
 else:
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'r')
+    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'rb')
     ClosedLoopDataLTI_MPC = pickle.load(file_data)
     file_data.close()
-print "===== MPC terminated"
+print("===== MPC terminated")
 
 # ======================================================================================================================
 # ===================================  LOCAL LINEAR REGRESSION =========================================================
 # ======================================================================================================================
-print "Starting TV-MPC"
+print("Starting TV-MPC")
 if RunMPC_tv == 1:
     ClosedLoopDataLTV_MPC = ClosedLoopData(dt, TimeMPC_tv, v0)
     Controller_PathFollowingLTV_MPC = PathFollowingLTV_MPC(Q, R, N, vt, n, d, ClosedLoopDataPID.x, ClosedLoopDataPID.u, dt, map)
     simulator.Sim(ClosedLoopDataLTV_MPC, Controller_PathFollowingLTV_MPC)
 
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'w')
+    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'wb')
     pickle.dump(ClosedLoopDataLTV_MPC, file_data)
     file_data.close()
 else:
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'r')
+    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'rb')
     ClosedLoopDataLTV_MPC = pickle.load(file_data)
     file_data.close()
-print "===== TV-MPC terminated"
+print("===== TV-MPC terminated")
 # ======================================================================================================================
 # ==============================  LMPC w\ LOCAL LINEAR REGRESSION ======================================================
 # ======================================================================================================================
-print "Starting LMPC"
+print("Starting LMPC")
 ClosedLoopLMPC = ClosedLoopData(dt, TimeLMPC, v0)
 LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
 LMPCSimulator = Simulator(map, 1, 1)
@@ -186,15 +186,15 @@ else:
     LMPCOpenLoopData  = pickle.load(file_data)
     file_data.close()
 
-print "===== LMPC terminated"
+print("===== LMPC terminated")
 # ======================================================================================================================
 # ========================================= PLOT TRACK =================================================================
 # ======================================================================================================================
 for i in range(0, LMPController.it):
-    print "Lap time at iteration ", i, " is ", LMPController.Qfun[0, i]*dt, "s"
+    print("Lap time at iteration ", i, " is ", LMPController.Qfun[0, i]*dt, "s")
 
 
-print "===== Start Plotting"
+print("===== Start Plotting")
 if plotFlag == 1:
     plotTrajectory(map, ClosedLoopDataPID.x, ClosedLoopDataPID.x_glob, ClosedLoopDataPID.u)
 

@@ -376,11 +376,11 @@ def _SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
     MinNorm = np.argmin(norm)
 
     if (MinNorm + shift >= 0):
-        SS_Points = x[shift + MinNorm:shift + MinNorm + numSS_Points, :].T
-        Sel_Qfun = Qfun[shift + MinNorm:shift + MinNorm + numSS_Points, it]
+        SS_Points = x[int(shift + MinNorm):int(shift + MinNorm + numSS_Points), :].T
+        Sel_Qfun = Qfun[int(shift + MinNorm):int(shift + MinNorm + numSS_Points), it]
     else:
-        SS_Points = x[MinNorm:MinNorm + numSS_Points, :].T
-        Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it]
+        SS_Points = x[int(MinNorm):int(MinNorm + numSS_Points), :].T
+        Sel_Qfun = Qfun[int(MinNorm):int(MinNorm + numSS_Points), it]
 
     return SS_Points, Sel_Qfun
 
@@ -594,7 +594,7 @@ def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, Max
     s  = x0[4]; ey   = x0[5]
 
     if s < 0:
-        print "s is negative, here the state: \n", LinPoints
+        print("s is negative, here the state: \n", LinPoints)
 
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
     cur = Curvature(s, PointAndTangent)
@@ -685,7 +685,7 @@ def LMPC_LocLinReg(Q, b, stateFeatures, inputFeatures, qp):
 
     endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
 
-    # print "Non removable time: ", deltaTimer_tv.total_seconds()
+    # print("Non removable time: ", deltaTimer_tv.total_seconds())
     Result = np.squeeze(np.array(res_cons['x']))
     A = Result[0:len(stateFeatures)]
     B = Result[len(stateFeatures):(len(stateFeatures)+len(inputFeatures))]
