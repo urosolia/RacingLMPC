@@ -67,9 +67,11 @@ class ControllerLMPC():
         self.it      = 0
 
         # Initialize pool for parallel computing used in the internal function _LMPC_EstimateABC
+        # TODO this parameter should be tunable
         self.p = Pool(4)
 
         # Build matrices for inequality constraints
+        # TODO: region-sensitive
         self.F, self.b = _LMPC_BuildMatIneqConst(self)
 
     def solve(self, x0, uOld = np.zeros([0, 0])):
@@ -77,6 +79,7 @@ class ControllerLMPC():
         Arguments:
             x0: current state position
         """
+        # TODO: F, b depend on x0 by region
         n = self.n;        d = self.d
         F = self.F;        b = self.b
         SS = self.SS;      Qfun = self.Qfun
@@ -90,6 +93,8 @@ class ControllerLMPC():
         Qslack       = self.Qslack
         p = self.p
 
+        # TODO error checking for self.LinPoints initialized with addTrajectory
+        # TODO replace LinPoints with more general data subset selection
         LinPoints = self.LinPoints
         LinInput  = self.LinInput
         map = self.map
@@ -104,7 +109,9 @@ class ControllerLMPC():
 
         self.SS_PointSelectedTot = SS_PointSelectedTot
         self.Qfun_SelectedTot    = Qfun_SelectedTot
+        
         # Run System ID
+        # TODO: flexibility for PWA for both estimation and equality constraint
         startTimer = datetime.datetime.now()
         Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self)
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
@@ -480,7 +487,11 @@ def _LMPC_GetPred(Solution,n,d,N, np):
 # ========================= Internal functions for Local Regression and Linearization ==================================
 # ======================================================================================================================
 # ======================================================================================================================
+
+# TODO: the following functions aren't actually internal to the object, but they maybe should be
+
 def _LMPC_EstimateABC(ControllerLMPC):
+    # TODO: similar function but for PWA estimation
     LinPoints       = ControllerLMPC.LinPoints
     LinInput        = ControllerLMPC.LinInput
     N               = ControllerLMPC.N
