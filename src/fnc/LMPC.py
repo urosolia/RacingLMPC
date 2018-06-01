@@ -86,7 +86,7 @@ class AbstractControllerLMPC(ABC):
         SS_PointSelectedTot      = np.empty((self.n, 0))
         Qfun_SelectedTot         = np.empty((0))
         for jj in range(0, self.numSS_it):
-            SS_PointSelected, Qfun_Selected = _SelectPoints(self.SS, self.Qfun, self.it - jj - 1, x0, self.numSS_Points / self.numSS_it, self.shift)
+            SS_PointSelected, Qfun_Selected = SelectPoints(self.SS, self.Qfun, self.it - jj - 1, x0, self.numSS_Points / self.numSS_it, self.shift)
             SS_PointSelectedTot =  np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
             Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
 
@@ -95,7 +95,7 @@ class AbstractControllerLMPC(ABC):
 
         # Get the matrices for defining the QP
         # this method will be defined in inheriting classes
-        L, G, E, M, q, F, b = self.getQP()
+        L, G, E, M, q, F, b = self.getQP(x0)
         
         # Solve QP
         startTimer = datetime.datetime.now()
@@ -115,7 +115,7 @@ class AbstractControllerLMPC(ABC):
         self.solverTime = deltaTimer
 
         # Extract solution and set linearization points
-        xPred, uPred, lambd, slack = _LMPC_GetPred(Solution, self.n, self.d, self.N)
+        xPred, uPred, lambd, slack = LMPC_GetPred(Solution, self.n, self.d, self.N)
         self.xPred = xPred.T
         if self.N == 1:
             self.uPred    = np.array([[uPred[0], uPred[1]]])
@@ -140,7 +140,7 @@ class AbstractControllerLMPC(ABC):
         self.SS[0:(end_it + 1), :, it] = ClosedLoopData.x[0:(end_it + 1), :]
         self.SS_glob[0:(end_it + 1), :, it] = ClosedLoopData.x_glob[0:(end_it + 1), :]
         self.uSS[0:end_it, :, it]      = ClosedLoopData.u[0:(end_it), :]
-        self.Qfun[0:(end_it + 1), it]  = _ComputeCost(ClosedLoopData.x[0:(end_it + 1), :],
+        self.Qfun[0:(end_it + 1), it]  = ComputeCost(ClosedLoopData.x[0:(end_it + 1), :],
                                                               ClosedLoopData.u[0:(end_it), :], self.track_map.TrackLength)
         for i in np.arange(0, self.Qfun.shape[0]):
             if self.Qfun[i, it] == 0:
@@ -196,28 +196,73 @@ class ControllerLMPC(AbstractControllerLMPC):
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
     def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
-        super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
         # Build matrices for inequality constraints
-        self.F, self.b = _LMPC_BuildMatIneqConst(self)
+        self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
+        super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+        
 
-    def getQP(self):
+    def getQP(self, x0):
         # Run System ID
         startTimer = datetime.datetime.now()
-        Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self)
+        Atv, Btv, Ctv, _ = self._EstimateABC()
         deltaTimer = datetime.datetime.now() - startTimer
-        L, npG, npE = _LMPC_BuildMatEqConst(self, Atv, Btv, Ctv)
+        L, npG, npE = BuildMatEqConst_TV(self.Solver, Atv, Btv, Ctv)
         self.linearizationTime = deltaTimer
 
         # Build Terminal cost and Constraint
-        G, E = _LMPC_TermConstr(self, npG, npE, self.SS_PointSelectedTot)
-        M, q = _LMPC_BuildMatCost(self, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+        G, E = LMPC_TermConstr(self.Solver, self.N, self.n, self.d, npG, npE, self.SS_PointSelectedTot)
+        M, q = LMPC_BuildMatCost(self.Solver, self.N, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
         return L, G, E, M, q, self.F, self.b
 
+    def _EstimateABC(self):
+        LinPoints       = self.LinPoints
+        LinInput        = self.LinInput
+        N               = self.N
+        n               = self.n
+        d               = self.d
+        SS              = self.SS
+        uSS             = self.uSS
+        TimeSS          = self.TimeSS
+        PointAndTangent = self.track_map.PointAndTangent
+        dt              = self.dt
+        it              = self.it
+        p               = self.p
+
+        ParallelComputation = 0 # TODO
+        Atv = []; Btv = []; Ctv = []; indexUsed_list = []
+
+        usedIt = range(it-2,it)
+        MaxNumPoint = 40  # TODO Need to reason on how these points are selected
+
+        if ParallelComputation == 1:
+            # Parallel Implementation
+            Fun = partial(RegressionAndLinearization, LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
+                           MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt)
+
+            index = np.arange(0, N)  # Create the index vector
+
+            Res = p.map(Fun, index)  # Run the process in parallel
+            ParallelResutl = np.asarray(Res)
+
+        for i in range(0, N):
+            if ParallelComputation == 0:
+               Ai, Bi, Ci, indexSelected = RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
+                                                                   MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i)
+               Atv.append(Ai); Btv.append(Bi); Ctv.append(Ci)
+               indexUsed_list.append(indexSelected)
+            else:
+               Atv.append(ParallelResutl[i][0])
+               Btv.append(ParallelResutl[i][1])
+               Ctv.append(ParallelResutl[i][2])
+               indexUsed_list.append(ParallelResutl[i][3])
+
+        return Atv, Btv, Ctv, indexUsed_list
+
 
 
 # ======================================================================================================================
 # ======================================================================================================================
-# =============================== Internal functions for LMPC reformulation to QP ======================================
+# =============================== Utility functions for LMPC reformulation to QP =======================================
 # ======================================================================================================================
 # ======================================================================================================================
 
@@ -273,8 +318,7 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
         feasible = 1
     return res, feasible
 
-def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
-    N = LMPC.N
+def LMPC_BuildMatCost(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
     n = Q.shape[0]
     P = Q
     vt = 2
@@ -307,7 +351,7 @@ def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
 
     M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
 
-    if LMPC.Solver == "CVX":
+    if Solver == "CVX":
         M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0].astype(int), np.nonzero(M)[1].astype(int), M.shape)
         M_return = M_sparse
     else:
@@ -315,11 +359,8 @@ def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
 
     return M_return, q
 
-def _LMPC_BuildMatIneqConst(LMPC):
-    N = LMPC.N
-    n = LMPC.n
-    numSS_Points = LMPC.numSS_Points
-    # Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
+def LMPC_BuildMatIneqConst(N, n, numSS_Points, solver):
+    # Build the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
     Fx = np.array([[1., 0., 0., 0., 0., 0.],
                    [0., 0., 0., 0., 0., 1.],
                    [0., 0., 0., 0., 0., -1.]])
@@ -328,7 +369,7 @@ def _LMPC_BuildMatIneqConst(LMPC):
                    [0.8],  # max ey
                    [0.8]])  # max ey
 
-    # Buil the matrices for the input constraint in each region. In the region i we want Fx[i]x <= bx[b]
+    # Build the matrices for the input constraint in each region. In the region i we want Fx[i]x <= bx[b]
     Fu = np.array([[1., 0.],
                    [-1., 0.],
                    [0., 1.],
@@ -366,7 +407,7 @@ def _LMPC_BuildMatIneqConst(LMPC):
 
     # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
     b = np.hstack((bxtot, butot, np.zeros(numSS_Points)))
-    if LMPC.Solver == "CVX":
+    if solver == "CVX":
         F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
         F_return = F_sparse
     else:
@@ -375,7 +416,7 @@ def _LMPC_BuildMatIneqConst(LMPC):
     return F_return, b
 
 
-def _SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
+def SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
     # selects the closest point in the safe set to x0
     # returns a subset of the safe set which contains a range of points ahead of this point
     x = SS[:, :, it]
@@ -395,7 +436,7 @@ def _SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
 
     return SS_Points, Sel_Qfun
 
-def _ComputeCost(x, u, TrackLength):
+def ComputeCost(x, u, TrackLength):
     Cost = 10000 * np.ones((x.shape[0]))  # The cost has the same elements of the vector x --> time +1
     # Now compute the cost moving backwards in a Dynamic Programming (DP) fashion.
     # We start from the last element of the vector x and we sum the running cost
@@ -410,11 +451,10 @@ def _ComputeCost(x, u, TrackLength):
     return Cost
 
 
-def _LMPC_TermConstr(LMPC, G, E, SS_Points):
+def LMPC_TermConstr(Solver, N, n, d, G, E, SS_Points):
     # Update the matrices for the Equality constraint in the LMPC. Now we need an extra row to constraint the terminal point to be equal to a point in SS
     # The equality constraint has now the form: G_LMPC*z = E_LMPC*x0 + TermPoint.
     # Note that the vector TermPoint is updated to constraint the predicted trajectory into a point in SS. This is done in the FTOCP_LMPC function
-    N = LMPC.N; n = LMPC.n; d = LMPC.d
 
     TermCons = np.zeros((n, (N + 1) * n + N * d))
     TermCons[:, N * n:(N + 1) * n] = np.eye(n)
@@ -435,7 +475,7 @@ def _LMPC_TermConstr(LMPC, G, E, SS_Points):
     # np.savetxt('G.csv', G_LMPC, delimiter=',', fmt='%f')
     # np.savetxt('E.csv', E_LMPC, delimiter=',', fmt='%f')
 
-    if LMPC.Solver == "CVX":
+    if Solver == "CVX":
         G_LMPC_sparse = spmatrix(G_LMPC[np.nonzero(G_LMPC)], np.nonzero(G_LMPC)[0].astype(int), np.nonzero(G_LMPC)[1].astype(int), G_LMPC.shape)
         E_LMPC_sparse = spmatrix(E_LMPC[np.nonzero(E_LMPC)], np.nonzero(E_LMPC)[0].astype(int), np.nonzero(E_LMPC)[1].astype(int), E_LMPC.shape)
         G_LMPC_return = G_LMPC_sparse
@@ -446,12 +486,13 @@ def _LMPC_TermConstr(LMPC, G, E, SS_Points):
 
     return G_LMPC_return, E_LMPC_return
 
-def _LMPC_BuildMatEqConst(LMPC, A, B, C):
+def BuildMatEqConst_TV(Solver, A, B, C):
     # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
     # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
     # stucks the predicted trajectory x_{k|t} \forall k = t, \ldots, t+N+1 over the horizon and
     # the predicte input u_{k|t} \forall k = t, \ldots, t+N over the horizon
-    N = LMPC.N; n = LMPC.n; d = LMPC.d
+    N = len(A)
+    n, d = B[0].shape
     Gx = np.eye(n * (N + 1))
     Gu = np.zeros((n * (N + 1), d * (N)))
 
@@ -473,7 +514,7 @@ def _LMPC_BuildMatEqConst(LMPC, A, B, C):
     G = np.hstack((Gx, Gu))
 
 
-    if LMPC.Solver == "CVX":
+    if Solver == "CVX":
         L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
         L_return = L_sparse
     else:
@@ -481,7 +522,7 @@ def _LMPC_BuildMatEqConst(LMPC, A, B, C):
 
     return L_return, G, E
 
-def _LMPC_GetPred(Solution,n,d,N):
+def LMPC_GetPred(Solution,n,d,N):
     # logic to decompose the QP solution
     xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n*(N+1))]),(N+1,n))))
     uPred = np.squeeze(np.transpose(np.reshape((Solution[n*(N+1)+np.arange(d*N)]),(N, d))))
@@ -491,62 +532,12 @@ def _LMPC_GetPred(Solution,n,d,N):
 
 # ======================================================================================================================
 # ======================================================================================================================
-# ========================= Internal functions for Local Regression and Linearization ==================================
+# ========================= Utility functions for Local Regression and Linearization ===================================
 # ======================================================================================================================
 # ======================================================================================================================
 
-# TODO: the following functions aren't actually internal to the object, but they maybe should be
-
-def _LMPC_EstimateABC(ControllerLMPC):
-    # TODO: similar function but for PWA estimation
-    LinPoints       = ControllerLMPC.LinPoints
-    LinInput        = ControllerLMPC.LinInput
-    N               = ControllerLMPC.N
-    n               = ControllerLMPC.n
-    d               = ControllerLMPC.d
-    SS              = ControllerLMPC.SS
-    uSS             = ControllerLMPC.uSS
-    TimeSS          = ControllerLMPC.TimeSS
-    PointAndTangent = ControllerLMPC.track_map.PointAndTangent
-    dt              = ControllerLMPC.dt
-    it              = ControllerLMPC.it
-    p               = ControllerLMPC.p
-
-    ParallelComputation = 0
-    Atv = []; Btv = []; Ctv = []; indexUsed_list = []
-
-    usedIt = range(it-2,it)
-    MaxNumPoint = 40  # Need to reason on how these points are selected
-
-    if ParallelComputation == 1:
-        # Parallel Implementation
-        Fun = partial(RegressionAndLinearization,LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
-                       MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt)
-
-        index = np.arange(0, N)  # Create the index vector
-
-        Res = p.map(Fun, index)  # Run the process in parallel
-        ParallelResutl = np.asarray(Res)
-
-    for i in range(0, N):
-        if ParallelComputation == 0:
-           Ai, Bi, Ci, indexSelected = RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
-                                                               MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i)
-           Atv.append(Ai)
-           Btv.append(Bi)
-           Ctv.append(Ci)
-           indexUsed_list.append(indexSelected)
-        else:
-           Atv.append(ParallelResutl[i][0])
-           Btv.append(ParallelResutl[i][1])
-           Ctv.append(ParallelResutl[i][2])
-           indexUsed_list.append(ParallelResutl[i][3])
-
-    return Atv, Btv, Ctv, indexUsed_list
 
 def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i):
-
-
     x0 = LinPoints[i, :]
 
     Ai = np.zeros((n, n))
