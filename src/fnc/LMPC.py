@@ -13,9 +13,12 @@ from numpy import hstack, inf, ones
 from scipy.sparse import vstack
 #from osqp import OSQP
 
+from abc import ABC, abstractmethod
+
+
 solvers.options['show_progress'] = False
 
-class ControllerLMPC():
+class AbstractControllerLMPC(ABC):
     """Create the LMPC
     Attributes:
         solve: given x0 computes the control action
@@ -24,7 +27,7 @@ class ControllerLMPC():
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
 
-    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt,  map, Laps, TimeLMPC, Solver):
+    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
@@ -34,7 +37,7 @@ class ControllerLMPC():
             dR: weight to define the input rate cost h(x,u) = ||x_{k+1}-x_k||_dR
             n,d: state and input dimensiton
             shift: given the closest point x_t^j to x(t) the controller start selecting the point for SS from x_{t+shift}^j
-            map: map
+            track_map: track_map
             Laps: maximum number of laps the controller can run (used to avoid dynamic allocation)
             TimeLMPC: maximum time [s] that an lap can last (used to avoid dynamic allocation)
             Solver: solver used in the reformulation of the LMPC as QP
@@ -50,18 +53,20 @@ class ControllerLMPC():
         self.d = d
         self.shift = shift
         self.dt = dt
-        self.map = map
+        self.track_map = track_map
         self.Solver = Solver            
 
-        self.OldInput = np.zeros((1,2))
+        self.OldInput = np.zeros((1,d))
 
         # Initialize the following quantities to avoid dynamic allocation
+        # TODO: is there a more graceful way to do this in python?
         NumPoints = int(TimeLMPC / dt) + 1
         self.TimeSS  = 10000 * np.ones(Laps).astype(int)        # Time at which each j-th iteration is completed
-        self.SS      = 10000 * np.ones((NumPoints, 6, Laps))    # Sampled Safe SS
-        self.uSS     = 10000 * np.ones((NumPoints, 2, Laps))    # Input associated with the points in SS
+        self.SS      = 10000 * np.ones((NumPoints, n, Laps))    # Sampled Safe SS
+        self.uSS     = 10000 * np.ones((NumPoints, d, Laps))    # Input associated with the points in SS
         self.Qfun    =     0 * np.ones((NumPoints, Laps))       # Qfun: cost-to-go from each point in SS
-        self.SS_glob = 10000 * np.ones((NumPoints, 6, Laps))    # SS in global (X-Y) used for plotting
+        # TODO replace with after-the-fact mapping?
+        self.SS_glob = 10000 * np.ones((NumPoints, n, Laps))    # SS in global (X-Y) used for plotting
 
         # Initialize the controller iteration
         self.it      = 0
@@ -70,61 +75,30 @@ class ControllerLMPC():
         # TODO this parameter should be tunable
         self.p = Pool(4)
 
-        # Build matrices for inequality constraints
-        # TODO: region-sensitive
-        self.F, self.b = _LMPC_BuildMatIneqConst(self)
-
-    def solve(self, x0, uOld = np.zeros([0, 0])):
+    def solve(self, x0, uOld=np.zeros([0, 0])):
         """Computes control action
         Arguments:
             x0: current state position
         """
-        # TODO: F, b depend on x0 by region
-        n = self.n;        d = self.d
-        F = self.F;        b = self.b
-        SS = self.SS;      Qfun = self.Qfun
-        uSS = self.uSS;    TimeSS = self.TimeSS
-        Q = self.Q;        R = self.R
-        dR =self.dR;       OldInput = self.OldInput
-        N = self.N; dt = self.dt
-        it           = self.it
-        numSS_Points = self.numSS_Points
-        shift       = self.shift
-        Qslack       = self.Qslack
-        p = self.p
 
-        # TODO error checking for self.LinPoints initialized with addTrajectory
-        # TODO replace LinPoints with more general data subset selection
-        LinPoints = self.LinPoints
-        LinInput  = self.LinInput
-        map = self.map
-
-        # Select Points from SS
-        SS_PointSelectedTot      = np.empty((n, 0))
+        # Select Points from Safe Set
+        # a subset of nearby points are chosen from past iterations
+        SS_PointSelectedTot      = np.empty((self.n, 0))
         Qfun_SelectedTot         = np.empty((0))
         for jj in range(0, self.numSS_it):
-            SS_PointSelected, Qfun_Selected = _SelectPoints(SS, Qfun, it - jj - 1, x0, numSS_Points / self.numSS_it, shift)
+            SS_PointSelected, Qfun_Selected = _SelectPoints(self.SS, self.Qfun, self.it - jj - 1, x0, self.numSS_Points / self.numSS_it, self.shift)
             SS_PointSelectedTot =  np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
             Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
 
         self.SS_PointSelectedTot = SS_PointSelectedTot
         self.Qfun_SelectedTot    = Qfun_SelectedTot
+
+        # Get the matrices for defining the QP
+        # this method will be defined in inheriting classes
+        L, G, E, M, q, F, b = self.getQP()
         
-        # Run System ID
-        # TODO: flexibility for PWA for both estimation and equality constraint
-        startTimer = datetime.datetime.now()
-        Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self)
-        endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
-        L, npG, npE = _LMPC_BuildMatEqConst(self, Atv, Btv, Ctv, N, n, d)
-        self.linearizationTime = deltaTimer
-
-        # Build Terminal cost and Constraint
-        G, E = _LMPC_TermConstr(self, npG, npE, N, n, d, SS_PointSelectedTot)
-        M, q = _LMPC_BuildMatCost(self, Qfun_SelectedTot, numSS_Points, N, Qslack, Q, R, dR, OldInput)
-
         # Solve QP
         startTimer = datetime.datetime.now()
-
         if self.Solver == "CVX":
             res_cons = qp(M, matrix(q), F, matrix(b), G, E * matrix(x0) + L)
             if res_cons['status'] == 'optimal':
@@ -132,20 +106,16 @@ class ControllerLMPC():
             else:
                 feasible = 0
             Solution = np.squeeze(res_cons['x'])     
-
         elif self.Solver == "OSQP":
-            # Adaptarion for QSQP from https://github.com/alexbuyval/RacingLMPC/
+            # Adaptation for QSQP from https://github.com/alexbuyval/RacingLMPC/
             res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
             Solution = res_cons.x
-
+        deltaTimer = datetime.datetime.now() - startTimer
         self.feasible = feasible
-
-        endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.solverTime = deltaTimer
 
-        # Extract solution and set linerizations points
-        xPred, uPred, lambd, slack = _LMPC_GetPred(Solution, n, d, N, np)
-
+        # Extract solution and set linearization points
+        xPred, uPred, lambd, slack = _LMPC_GetPred(Solution, self.n, self.d, self.N)
         self.xPred = xPred.T
         if self.N == 1:
             self.uPred    = np.array([[uPred[0], uPred[1]]])
@@ -153,10 +123,10 @@ class ControllerLMPC():
         else:
             self.uPred = uPred.T
             self.LinInput = np.vstack((uPred.T[1:, :], uPred.T[-1, :]))
-
-        self.LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
-
         self.OldInput = uPred.T[0,:]
+        # TODO: make this more general
+        self.LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
+        
 
     def addTrajectory(self, ClosedLoopData):
         """update iteration index and construct SS, uSS and Qfun
@@ -165,17 +135,19 @@ class ControllerLMPC():
         """
         it = self.it
 
-        self.TimeSS[it] = ClosedLoopData.SimTime
-        self.SS[0:(self.TimeSS[it] + 1), :, it] = ClosedLoopData.x[0:(self.TimeSS[it] + 1), :]
-        self.SS_glob[0:(self.TimeSS[it] + 1), :, it] = ClosedLoopData.x_glob[0:(self.TimeSS[it] + 1), :]
-        self.uSS[0:self.TimeSS[it], :, it]      = ClosedLoopData.u[0:(self.TimeSS[it]), :]
-        self.Qfun[0:(self.TimeSS[it] + 1), it]  = _ComputeCost(ClosedLoopData.x[0:(self.TimeSS[it] + 1), :],
-                                                              ClosedLoopData.u[0:(self.TimeSS[it]), :], self.map.TrackLength)
+        end_it = ClosedLoopData.SimTime
+        self.TimeSS[it] = end_it
+        self.SS[0:(end_it + 1), :, it] = ClosedLoopData.x[0:(end_it + 1), :]
+        self.SS_glob[0:(end_it + 1), :, it] = ClosedLoopData.x_glob[0:(end_it + 1), :]
+        self.uSS[0:end_it, :, it]      = ClosedLoopData.u[0:(end_it), :]
+        self.Qfun[0:(end_it + 1), it]  = _ComputeCost(ClosedLoopData.x[0:(end_it + 1), :],
+                                                              ClosedLoopData.u[0:(end_it), :], self.track_map.TrackLength)
         for i in np.arange(0, self.Qfun.shape[0]):
             if self.Qfun[i, it] == 0:
                 self.Qfun[i, it] = self.Qfun[i - 1, it] - 1
 
         if self.it == 0:
+            # TODO: made this more general
             self.LinPoints = self.SS[1:self.N + 2, :, it]
             self.LinInput  = self.uSS[1:self.N + 1, :, it]
 
@@ -189,7 +161,7 @@ class ControllerLMPC():
             i: at the j-th iteration i is the time at which (x,u) are recorded
         """
         Counter = self.TimeSS[self.it - 1]
-        self.SS[Counter + i + 1, :, self.it - 1] = x + np.array([0, 0, 0, 0, self.map.TrackLength, 0])
+        self.SS[Counter + i + 1, :, self.it - 1] = x + np.array([0, 0, 0, 0, self.track_map.TrackLength, 0])
         self.uSS[Counter + i + 1, :, self.it - 1] = u
         if self.Qfun[Counter + i + 1, self.it - 1] == 0:
             self.Qfun[Counter + i + 1, self.it - 1] = self.Qfun[Counter + i, self.it - 1] - 1
@@ -214,6 +186,34 @@ class ControllerLMPC():
 
         self.LinPoints = LinPoints
         self.LinInput  = LinInput
+
+class ControllerLMPC(AbstractControllerLMPC):
+    """Create the LMPC
+    Attributes:
+        solve: given x0 computes the control action
+        addTrajectory: given a ClosedLoopData object adds the trajectory to SS, Qfun, uSS and updates the iteration index
+        addPoint: this function allows to add the closed loop data at iteration j to the SS of iteration (j-1)
+        update: this function can be used to set SS, Qfun, uSS and the iteration index.
+    """
+    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
+        super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+        # Build matrices for inequality constraints
+        self.F, self.b = _LMPC_BuildMatIneqConst(self)
+
+    def getQP(self):
+        # Run System ID
+        startTimer = datetime.datetime.now()
+        Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self)
+        deltaTimer = datetime.datetime.now() - startTimer
+        L, npG, npE = _LMPC_BuildMatEqConst(self, Atv, Btv, Ctv)
+        self.linearizationTime = deltaTimer
+
+        # Build Terminal cost and Constraint
+        G, E = _LMPC_TermConstr(self, npG, npE, self.SS_PointSelectedTot)
+        M, q = _LMPC_BuildMatCost(self, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+        return L, G, E, M, q, self.F, self.b
+
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -273,7 +273,8 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
         feasible = 1
     return res, feasible
 
-def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
+def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
+    N = LMPC.N
     n = Q.shape[0]
     P = Q
     vt = 2
@@ -375,6 +376,8 @@ def _LMPC_BuildMatIneqConst(LMPC):
 
 
 def _SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
+    # selects the closest point in the safe set to x0
+    # returns a subset of the safe set which contains a range of points ahead of this point
     x = SS[:, :, it]
     oneVec = np.ones((x.shape[0], 1))
     x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
@@ -383,6 +386,7 @@ def _SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
     MinNorm = np.argmin(norm)
 
     if (MinNorm + shift >= 0):
+        # TODO: what if shift + MinNorm + numSS_Points is greater than the points in the safe set?
         SS_Points = x[int(shift + MinNorm):int(shift + MinNorm + numSS_Points), :].T
         Sel_Qfun = Qfun[int(shift + MinNorm):int(shift + MinNorm + numSS_Points), it]
     else:
@@ -406,10 +410,11 @@ def _ComputeCost(x, u, TrackLength):
     return Cost
 
 
-def _LMPC_TermConstr(LMPC, G, E, N ,n ,d , SS_Points):
+def _LMPC_TermConstr(LMPC, G, E, SS_Points):
     # Update the matrices for the Equality constraint in the LMPC. Now we need an extra row to constraint the terminal point to be equal to a point in SS
     # The equality constraint has now the form: G_LMPC*z = E_LMPC*x0 + TermPoint.
     # Note that the vector TermPoint is updated to constraint the predicted trajectory into a point in SS. This is done in the FTOCP_LMPC function
+    N = LMPC.N; n = LMPC.n; d = LMPC.d
 
     TermCons = np.zeros((n, (N + 1) * n + N * d))
     TermCons[:, N * n:(N + 1) * n] = np.eye(n)
@@ -441,11 +446,12 @@ def _LMPC_TermConstr(LMPC, G, E, N ,n ,d , SS_Points):
 
     return G_LMPC_return, E_LMPC_return
 
-def _LMPC_BuildMatEqConst(LMPC, A, B, C, N, n, d):
+def _LMPC_BuildMatEqConst(LMPC, A, B, C):
     # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
     # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
     # stucks the predicted trajectory x_{k|t} \forall k = t, \ldots, t+N+1 over the horizon and
     # the predicte input u_{k|t} \forall k = t, \ldots, t+N over the horizon
+    N = LMPC.N; n = LMPC.n; d = LMPC.d
     Gx = np.eye(n * (N + 1))
     Gu = np.zeros((n * (N + 1), d * (N)))
 
@@ -475,7 +481,8 @@ def _LMPC_BuildMatEqConst(LMPC, A, B, C, N, n, d):
 
     return L_return, G, E
 
-def _LMPC_GetPred(Solution,n,d,N, np):
+def _LMPC_GetPred(Solution,n,d,N):
+    # logic to decompose the QP solution
     xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n*(N+1))]),(N+1,n))))
     uPred = np.squeeze(np.transpose(np.reshape((Solution[n*(N+1)+np.arange(d*N)]),(N, d))))
     lambd = Solution[n*(N+1)+d*N:Solution.shape[0]-n]
@@ -500,7 +507,7 @@ def _LMPC_EstimateABC(ControllerLMPC):
     SS              = ControllerLMPC.SS
     uSS             = ControllerLMPC.uSS
     TimeSS          = ControllerLMPC.TimeSS
-    PointAndTangent = ControllerLMPC.map.PointAndTangent
+    PointAndTangent = ControllerLMPC.track_map.PointAndTangent
     dt              = ControllerLMPC.dt
     it              = ControllerLMPC.it
     p               = ControllerLMPC.p
@@ -647,7 +654,7 @@ def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, Max
 
     Ai[5, :] = [dey_vx, dey_vy, dey_wz, dey_epsi, dey_s, dey_ey]
 
-    endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
+    deltaTimer_tv = datetime.datetime.now() - startTimer
 
     return Ai, Bi, Ci, indexSelected
 
@@ -694,7 +701,7 @@ def LMPC_LocLinReg(Q, b, stateFeatures, inputFeatures, qp):
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
     res_cons = qp(Q, b) # This is ordered as [A B C]
 
-    endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
+    deltaTimer_tv = datetime.datetime.now() - startTimer
 
     # print("Non removable time: ", deltaTimer_tv.total_seconds())
     Result = np.squeeze(np.array(res_cons['x']))
