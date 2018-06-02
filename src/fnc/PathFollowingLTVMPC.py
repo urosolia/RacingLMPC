@@ -276,31 +276,33 @@ def _EstimateABC(Controller):
         depsi_s    =      0                                                                      # Because cur = constant
         depsi_ey   =    - dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den**2) * cur * (-cur)
 
-        Ai[3, :]   = [depsi_vx, depsi_vy, depsi_wz, depsi_epsi, depsi_s, depsi_ey]
-
+        Ai[3, :] = [depsi_vx, depsi_vy, depsi_wz, depsi_epsi, depsi_s, depsi_ey]
+        Ci[3] = epsi + dt * (wz - (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) * cur) - np.dot(Ai[3, :], x0)
         # ===========================
         # ===== Linearize s =========
         # s_{k+1} = s    + dt * ( (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) )
-        ds_vx    =  dt * (np.cos(epsi) / den)
-        ds_vy    = -dt * (np.sin(epsi) / den)
-        ds_wz    =  0
-        ds_epsi  =  dt * (-vx * np.sin(epsi) - vy * np.cos(epsi)) / den
-        ds_s     = 1 #+ Ts * (Vx * cos(epsi) - Vy * sin(epsi)) / (1 - ey * rho) ^ 2 * (-ey * drho);
-        ds_ey    =  dt * ( vx * np.cos(epsi) - vy * np.sin(epsi)) / (( den )**2)* (-cur)
+        ds_vx = dt * (np.cos(epsi) / den)
+        ds_vy = -dt * (np.sin(epsi) / den)
+        ds_wz = 0
+        ds_epsi = dt * (-vx * np.sin(epsi) - vy * np.cos(epsi)) / den
+        ds_s = 1  # + Ts * (Vx * cos(epsi) - Vy * sin(epsi)) / (1 - ey * rho) ^ 2 * (-ey * drho);
+        ds_ey = -dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den * 2) * (-cur)
 
         Ai[4, :] = [ds_vx, ds_vy, ds_wz, ds_epsi, ds_s, ds_ey]
+        Ci[4] = s + dt * ((vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey)) - np.dot(Ai[4, :], x0)
 
         # ===========================
         # ===== Linearize ey ========
         # ey_{k+1} = ey + dt * (vx * np.sin(epsi) + vy * np.cos(epsi))
-        dey_vx   = dt * np.sin(epsi)
-        dey_vy   = dt * np.cos(epsi)
-        dey_wz   = 0
-        dey_epsi = dt * ( vx * np.cos(epsi) - vy *np.sin(epsi) )
-        dey_s    = 0
-        dey_ey   = 1
+        dey_vx = dt * np.sin(epsi)
+        dey_vy = dt * np.cos(epsi)
+        dey_wz = 0
+        dey_epsi = dt * (vx * np.cos(epsi) - vy * np.sin(epsi))
+        dey_s = 0
+        dey_ey = 1
 
         Ai[5, :] = [dey_vx, dey_vy, dey_wz, dey_epsi, dey_s, dey_ey]
+        Ci[5] = ey + dt * (vx * np.sin(epsi) + vy * np.cos(epsi)) - np.dot(Ai[5, :], x0)
 
         Atv.append(Ai)
         Btv.append(Bi)
