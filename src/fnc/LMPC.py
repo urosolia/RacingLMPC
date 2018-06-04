@@ -95,7 +95,7 @@ class AbstractControllerLMPC(ABC):
 
         # Get the matrices for defining the QP
         # this method will be defined in inheriting classes
-        L, G, E, M, q, F, b = self.getQP(x0)
+        L, G, E, M, q, F, b = self._getQP(x0)
         
         # Solve QP
         startTimer = datetime.datetime.now()
@@ -123,6 +123,9 @@ class AbstractControllerLMPC(ABC):
         else:
             self.uPred = uPred.T
             self.LinInput = np.vstack((uPred.T[1:, :], uPred.T[-1, :]))
+        # TODO: this is a temporary hack to store piecewise affine predictions
+        if self.pwac is not None:
+            self.xPred = xPred.T # replace xPred with pwa one step prediction using x0 and uPred[1]
         self.OldInput = uPred.T[0,:]
         # TODO: make this more general
         self.LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
@@ -187,6 +190,85 @@ class AbstractControllerLMPC(ABC):
         self.LinPoints = LinPoints
         self.LinInput  = LinInput
 
+class PWAControllerLMPC(AbstractControllerLMPC):
+    """
+    Piecewise affine controller
+    For now, uses LTV LMPC control, but stores predictions from a piecewise affine model
+    """
+
+        def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
+        # Build matrices for inequality constraints
+        self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
+        self.n_clusters = n_clusters
+        super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+        
+
+    def _getQP(self, x0):
+        # Run System ID
+        startTimer = datetime.datetime.now()
+        Atv, Btv, Ctv, _ = self._EstimateABC()
+        deltaTimer = datetime.datetime.now() - startTimer
+        L, npG, npE = BuildMatEqConst_TV(self.Solver, Atv, Btv, Ctv)
+        self.linearizationTime = deltaTimer
+
+        # Build Terminal cost and Constraint
+        G, E = LMPC_TermConstr(self.Solver, self.N, self.n, self.d, npG, npE, self.SS_PointSelectedTot)
+        M, q = LMPC_BuildMatCost(self.Solver, self.N, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+        return L, G, E, M, q, self.F, self.b
+
+    def _EstimateABC(self):
+        LinPoints       = self.LinPoints
+        LinInput        = self.LinInput
+        N               = self.N
+        n               = self.n
+        d               = self.d
+        SS              = self.SS
+        uSS             = self.uSS
+        TimeSS          = self.TimeSS
+        PointAndTangent = self.track_map.PointAndTangent
+        dt              = self.dt
+        it              = self.it
+        p               = self.p
+
+        ParallelComputation = 0 # TODO
+        Atv = []; Btv = []; Ctv = []; indexUsed_list = []
+
+        usedIt = range(it-2,it)
+        MaxNumPoint = 40  # TODO Need to reason on how these points are selected
+
+        if ParallelComputation == 1:
+            # Parallel Implementation
+            Fun = partial(RegressionAndLinearization, LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
+                           MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt)
+
+            index = np.arange(0, N)  # Create the index vector
+
+            Res = p.map(Fun, index)  # Run the process in parallel
+            ParallelResutl = np.asarray(Res)
+
+        for i in range(0, N):
+            if ParallelComputation == 0:
+               Ai, Bi, Ci, indexSelected = RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
+                                                                   MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i)
+               Atv.append(Ai); Btv.append(Bi); Ctv.append(Ci)
+               indexUsed_list.append(indexSelected)
+            else:
+               Atv.append(ParallelResutl[i][0])
+               Btv.append(ParallelResutl[i][1])
+               Ctv.append(ParallelResutl[i][2])
+               indexUsed_list.append(ParallelResutl[i][3])
+
+        return Atv, Btv, Ctv, indexUsed_list
+
+    def _estimate_pwa():
+        # construct z and y from full safe set
+        if self.clustering is None:
+            self.clustering = pwac.ClusterPWA(z, y, self.n_clusters, z_cutoff=self.n)
+        else:
+            # add new data (if any) to self.clustering
+        # (re)estimate the pwa model
+        # define a function for one step prediction
+
 class ControllerLMPC(AbstractControllerLMPC):
     """Create the LMPC
     Attributes:
@@ -201,7 +283,7 @@ class ControllerLMPC(AbstractControllerLMPC):
         super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
         
 
-    def getQP(self, x0):
+    def _getQP(self, x0):
         # Run System ID
         startTimer = datetime.datetime.now()
         Atv, Btv, Ctv, _ = self._EstimateABC()

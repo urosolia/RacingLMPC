@@ -222,7 +222,7 @@ def animation_states(map, LMPCOpenLoopData, LMPController, it):
     plt.ylabel("ey")
     plt.xlabel("s")
 
-    Points = np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4]))
+    Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
     Points1 = np.zeros((Points, 2))
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))

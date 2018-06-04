@@ -228,26 +228,20 @@ plt.show()
 it=5
 onestep_errors = []
 onestep_norm_errors = []
-onestep_pos_errors = []
 for i in range(1, int(LMPController.TimeSS[it])):
     current_state = LMPController.SS[i, :, it]
     current_pos = LMPController.SS[i, 4:6, it]
     predicted_trajectory = LMPCOpenLoopData.PredictedStates[:, :, i-1, it]
-    predicted_state = predicted_trajectory[0,:]
-    predicted_pos = LMPCOpenLoopData.PredictedStates[0, 4:6, i-1, it]
+    predicted_state = predicted_trajectory[1,:]
     onestep_errors.append(predicted_state-current_state)
     onestep_norm_errors.append(np.linalg.norm(predicted_state-current_state))
-    onestep_pos_errors.append(np.linalg.norm(predicted_pos-current_pos))
-
-plt.figure();
-plt.plot(onestep_norm_errors, label='state prediction errors');
-plt.plot(onestep_pos_errors, label='position prediction errors');
-plt.legend();
 
 plt.figure();
 onestep_errors = np.array(onestep_errors)
 state_names = ['vx', 'vy', 'wz', 'epsi', 's', 'ey']
 for state in range(onestep_errors.shape[1]):
+    if state == 0:
+        plt.title('One Step Prediction Error')
     plt.subplot(onestep_errors.shape[1], 1, state+1)
     plt.plot(onestep_errors[:,state])
     plt.ylabel(state_names[state])
