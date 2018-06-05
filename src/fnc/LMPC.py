@@ -168,6 +168,10 @@ class AbstractControllerLMPC(ABC):
         self.uSS[Counter + i + 1, :, self.it - 1] = u
         if self.Qfun[Counter + i + 1, self.it - 1] == 0:
             self.Qfun[Counter + i + 1, self.it - 1] = self.Qfun[Counter + i, self.it - 1] - 1
+        # TODO: this is a temporary hack to store piecewise affine predictions
+        # won't work for more than one LMPC lap
+        if self.pwac is not None:
+            self._estimate_pwa(x, u)
 
     def update(self, SS, uSS, Qfun, TimeSS, it, LinPoints, LinInput):
         """update controller parameters. This function is useful to transfer information among LMPC controller
@@ -196,7 +200,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
     For now, uses LTV LMPC control, but stores predictions from a piecewise affine model
     """
 
-        def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
+    def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         # Build matrices for inequality constraints
         self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
         self.n_clusters = n_clusters
@@ -258,16 +262,40 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                Ctv.append(ParallelResutl[i][2])
                indexUsed_list.append(ParallelResutl[i][3])
 
+        self._estimate_pwa()
+
         return Atv, Btv, Ctv, indexUsed_list
 
-    def _estimate_pwa():
-        # construct z and y from full safe set
+    def _estimate_pwa(self, x=None, u=None):
         if self.clustering is None:
-            self.clustering = pwac.ClusterPWA(z, y, self.n_clusters, z_cutoff=self.n)
+            # construct z and y from past laps
+            zs = []; ys = []
+            for it in range(self.it-1)
+                states = self.SS[:int(self.TimeSS[it]), :, it]
+                inputs = self.uSS[:int(self.TimeSS[it]), :, it]
+                zs.append(np.hstack([states[:-1], inputs[:-1]]))
+                ys.append(states[1:])
+            zs = np.array(zs); ys = np.array(ys)
+            self.clustering = pwac.ClusterPWA.from_num_clusters(zs, ys, 
+                                    self.n_clusters, z_cutoff=self.n)
         else:
-            # add new data (if any) to self.clustering
-        # (re)estimate the pwa model
+            pass # do nothing
+            # construct new z and y 
+            # self.clustering.add_data_update(zs, ys, full_update=False)
+        if self.clustering is None:
+            self.clustering.fit_clusters() # verbose=verbose)
+            self.clustering.determine_polytopic_regions()
+            self.F_region, self.b_region = pwac.getRegionMatrices(self.clustering.region_fns)
         # define a function for one step prediction
+
+    def _one_step_prediction(self, x, u):
+        assert self.clustering is not None
+        z = np.hstack([x, u])
+        for region in len(self.F_region):
+            if self.F_region[region].dot(x) <= b_region[region]:
+                return self.clustering.thetas[region].T.dot(np.hstack([z, 1]))
+        
+
 
 class ControllerLMPC(AbstractControllerLMPC):
     """Create the LMPC
