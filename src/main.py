@@ -45,7 +45,7 @@ import pickle
 RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -73,16 +73,16 @@ TimeLMPC   = 400              # Simulation time
 Laps       = 5+2              # Total LMPC laps
 
 # Safe Set Parameters
-LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
+LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 32 + N         # Number of points to select from each trajectory to build the safe set
 shift = 0                     # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
 
 # Tuning Parameters
-Qslack  = 50*np.diag([10, 10, 10, 10, 10, 10])          # Cost on the slack variable for the terminal constraint
+Qslack  = 5*np.diag([10, 1, 1, 1, 10, 1])          # Cost on the slack variable for the terminal constraint
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
-R_LMPC  =  5 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
-dR_LMPC =  1 * np.array([1.0, 1.0])                     # Input rate cost u
+R_LMPC  =  2 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
+dR_LMPC =  0 * np.array([1.0, 1.0])                     # Input rate cost u
 
 # Initialize LMPC simulator
 LMPCSimulator = Simulator(map, 1, 1)

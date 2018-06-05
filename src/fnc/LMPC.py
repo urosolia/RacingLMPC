@@ -11,14 +11,16 @@ from pathos.multiprocessing import ProcessingPool as Pool
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
-#from osqp import OSQP
+from osqp import OSQP
 
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
+import sys
 
 
 solvers.options['show_progress'] = False
 
-class AbstractControllerLMPC(ABC):
+class AbstractControllerLMPC:
+    __metaclass__ = ABCMeta
     """Create the LMPC
     Attributes:
         solve: given x0 computes the control action
@@ -55,7 +57,7 @@ class AbstractControllerLMPC(ABC):
         self.dt = dt
         self.track_map = track_map
         self.Solver = Solver            
-
+        self.clustering = None
         self.OldInput = np.zeros((1,d))
 
         # Initialize the following quantities to avoid dynamic allocation
@@ -124,7 +126,7 @@ class AbstractControllerLMPC(ABC):
             self.uPred = uPred.T
             self.LinInput = np.vstack((uPred.T[1:, :], uPred.T[-1, :]))
         # TODO: this is a temporary hack to store piecewise affine predictions
-        if self.pwac is not None:
+        if self.clustering is not None:
             self.xPred = xPred.T # replace xPred with pwa one step prediction using x0 and uPred[1]
         self.OldInput = uPred.T[0,:]
         # TODO: make this more general
@@ -170,7 +172,7 @@ class AbstractControllerLMPC(ABC):
             self.Qfun[Counter + i + 1, self.it - 1] = self.Qfun[Counter + i, self.it - 1] - 1
         # TODO: this is a temporary hack to store piecewise affine predictions
         # won't work for more than one LMPC lap
-        if self.pwac is not None:
+        if self.clustering is not None:
             self._estimate_pwa(x, u)
 
     def update(self, SS, uSS, Qfun, TimeSS, it, LinPoints, LinInput):
@@ -200,13 +202,19 @@ class PWAControllerLMPC(AbstractControllerLMPC):
     For now, uses LTV LMPC control, but stores predictions from a piecewise affine model
     """
 
-    def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
+    def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+                 n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         # Build matrices for inequality constraints
         self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
         self.n_clusters = n_clusters
-        super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        
-
+        # python 2/3 compatibility
+        if sys.version_info.major == 3:
+            super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+                             n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+        else:
+            super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+                                              n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+    
     def _getQP(self, x0):
         # Run System ID
         startTimer = datetime.datetime.now()
@@ -305,11 +313,17 @@ class ControllerLMPC(AbstractControllerLMPC):
         addPoint: this function allows to add the closed loop data at iteration j to the SS of iteration (j-1)
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
-    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
+    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+                 n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         # Build matrices for inequality constraints
         self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
-        super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        
+        if sys.version_info.major == 3:
+            super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+                             n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+        else:
+            super(ControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+                                              n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+    
 
     def _getQP(self, x0):
         # Run System ID
@@ -730,6 +744,7 @@ def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, Max
     depsi_ey = dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den ** 2) * cur * (-cur)
 
     Ai[3, :] = [depsi_vx, depsi_vy, depsi_wz, depsi_epsi, depsi_s, depsi_ey]
+    Ci[3] = epsi + dt * ( wz - (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) * cur ) - np.dot(Ai[3, :], x0)
 
     # ===========================
     # ===== Linearize s =========
@@ -742,6 +757,7 @@ def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, Max
     ds_ey = -dt * (vx * np.cos(epsi) - vy * np.sin(epsi)) / (den * 2) * (-cur)
 
     Ai[4, :] = [ds_vx, ds_vy, ds_wz, ds_epsi, ds_s, ds_ey]
+    Ci[4] = s    + dt * ( (vx * np.cos(epsi) - vy * np.sin(epsi)) / (1 - cur * ey) ) - np.dot(Ai[4, :], x0)
 
     # ===========================
     # ===== Linearize ey ========
@@ -754,6 +770,7 @@ def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, Max
     dey_ey = 1
 
     Ai[5, :] = [dey_vx, dey_vy, dey_wz, dey_epsi, dey_s, dey_ey]
+    Ci[5] = ey + dt * (vx * np.sin(epsi) + vy * np.cos(epsi)) - np.dot(Ai[5, :], x0)
 
     deltaTimer_tv = datetime.datetime.now() - startTimer
 
