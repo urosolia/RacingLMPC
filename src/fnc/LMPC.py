@@ -270,7 +270,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         if self.clustering is None:
             # construct z and y from past laps
             zs = []; ys = []
-            for it in range(self.it-1)
+            for it in range(self.it-1):
                 states = self.SS[:int(self.TimeSS[it]), :, it]
                 inputs = self.uSS[:int(self.TimeSS[it]), :, it]
                 zs.append(np.hstack([states[:-1], inputs[:-1]]))
