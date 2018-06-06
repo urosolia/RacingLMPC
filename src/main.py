@@ -15,7 +15,7 @@
 #     Efficient Approach for Linear System." IFAC-PapersOnLine 50.1 (2017).
 #
 # Attibution Information: Code developed by Ugo Rosolia
-# (for clarifiactions and suggestions please write to ugo.rosolia@berkeley.edu).
+# (for clarifications and suggestions please write to ugo.rosolia@berkeley.edu).
 #
 # Code description: Simulation of the Learning Model Predictive Controller (LMPC). The main file runs:
 # 1) A PID path following controller
@@ -45,7 +45,7 @@ import pickle
 RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -217,7 +217,7 @@ unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
 unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
+saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()
 
