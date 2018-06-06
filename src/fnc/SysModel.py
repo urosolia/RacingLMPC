@@ -39,7 +39,7 @@ class Simulator():
             u[i, :] = Controller.uPred[0,:]
 
             if LMPCprediction != 0:
-                LMPCprediction.PredictedStates[:,:,i, Controller.it]   = Controller.xPred
+                LMPCprediction.PredictedStates[:, :, i, Controller.it]   = Controller.xPred
                 LMPCprediction.PredictedInputs[:, :, i, Controller.it] = Controller.uPred
                 LMPCprediction.SSused[:, :, i, Controller.it]          = Controller.SS_PointSelectedTot
                 LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
