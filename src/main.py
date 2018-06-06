@@ -81,8 +81,8 @@ shift = 0                     # Given the closed point, x_t^j, to the x(t) selec
 # Tuning Parameters
 Qslack  =  5 * np.diag([10, 1, 1, 1, 10, 1])          # Cost on the slack variable for the terminal constraint
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
-R_LMPC  =  2 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
-dR_LMPC =  0 * np.array([1.0, 1.0])                     # Input rate cost u
+R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
+dR_LMPC = 10 * np.array([1.0, 1.0])                     # Input rate cost u
 
 # Initialize LMPC simulator
 LMPCSimulator = Simulator(map, 1, 1)
@@ -217,6 +217,6 @@ unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
 unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
+saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()

@@ -274,9 +274,12 @@ def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
     b = [Q] * (N)
     Mx = linalg.block_diag(*b)
 
-    c = [R] * (N)
+    c = [R + 2 * np.diag(dR)] * (N) # Need to add dR for the derivative input cost
 
     Mu = linalg.block_diag(*c)
+    # Need to condider that the last input appears just once in the difference
+    Mu[Mu.shape[0] - 1, Mu.shape[1] - 1] = Mu[Mu.shape[0] - 1, Mu.shape[1] - 1] - dR[1]
+    Mu[Mu.shape[0] - 2, Mu.shape[1] - 2] = Mu[Mu.shape[0] - 2, Mu.shape[1] - 2] - dR[0]
 
     # Derivative Input Cost
     OffDiaf = -np.tile(dR, N-1)

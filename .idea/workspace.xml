@@ -2,12 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b82c504b-cebe-4b95-a526-6942af548f40" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataLTI_MPC.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataLTI_MPC.obj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataLTV_MPC.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataLTV_MPC.obj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataPID.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataPID.obj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/LMPController.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/LMPController.obj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/fnc/LMPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/LMPC.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -25,8 +22,8 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="36">
-              <caret line="47" column="14" selection-start-line="47" selection-start-column="14" selection-end-line="47" selection-end-column="14" />
+            <state relative-caret-position="230">
+              <caret line="220" column="32" lean-forward="true" selection-start-line="220" selection-start-column="32" selection-end-line="220" selection-end-column="32" />
             </state>
           </provider>
         </entry>
@@ -55,8 +52,8 @@
       <file leaf-file-name="LMPC.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="465">
-              <caret line="638" column="84" selection-start-line="638" selection-start-column="84" selection-end-line="638" selection-end-column="84" />
+            <state relative-caret-position="197">
+              <caret line="279" column="60" selection-start-line="279" selection-start-column="60" selection-end-line="279" selection-end-column="60" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -72,7 +69,7 @@
       <file leaf-file-name="PathFollowingLTIMPC.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="385">
+            <state relative-caret-position="2370">
               <caret line="162" column="100" selection-start-line="162" selection-start-column="100" selection-end-line="162" selection-end-column="100" />
               <folding>
                 <element signature="e#0#24#0" expanded="true" />
@@ -84,8 +81,8 @@
       <file leaf-file-name="PathFollowingLTVMPC.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="469">
-              <caret line="304" column="88" selection-start-line="304" selection-start-column="88" selection-end-line="304" selection-end-column="88" />
+            <state relative-caret-position="2745">
+              <caret line="188" column="100" selection-start-line="188" selection-start-column="100" selection-end-line="188" selection-end-column="100" />
               <folding>
                 <element signature="e#0#24#0" expanded="true" />
               </folding>
@@ -180,8 +177,8 @@
         <option value="$PROJECT_DIR$/src/fnc/plot.py" />
         <option value="$PROJECT_DIR$/src/fnc/Track.py" />
         <option value="$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py" />
-        <option value="$PROJECT_DIR$/src/fnc/LMPC.py" />
         <option value="$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py" />
+        <option value="$PROJECT_DIR$/src/fnc/LMPC.py" />
         <option value="$PROJECT_DIR$/src/main.py" />
       </list>
     </option>
@@ -197,6 +194,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -219,7 +217,6 @@
           <select />
         </subPane>
       </pane>
-      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -288,27 +285,27 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="185" y="155" width="1255" height="741" extended-state="0" />
+    <frame x="-1658" y="-118" width="1440" height="873" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.48809522" visible="true" weight="0.0072933547" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.48809522" visible="true" weight="0.006342495" />
       <window_info anchor="bottom" id="TODO" order="6" weight="0.32904884" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.48453608" />
       <window_info anchor="bottom" id="Version Control" order="7" weight="0.32904884" />
       <window_info anchor="bottom" id="Python Console" order="7" weight="0.32714137" />
-      <window_info anchor="bottom" id="Run" order="2" weight="0.4704969" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Terminal" order="7" weight="0.32860824" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.39046392" />
       <window_info id="Favorites" order="2" sideWeight="0.5119048" side_tool="true" weight="0.17477097" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.39057592" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.40111732" />
+      <window_info anchor="bottom" id="Version Control" order="7" weight="0.32904884" />
       <window_info content_ui="combo" id="Project" order="0" sideWeight="0.48809522" visible="true" weight="0.0068153655" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="bottom" id="TODO" order="6" weight="0.32904884" />
-      <window_info anchor="bottom" id="Version Control" order="7" weight="0.32904884" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.40111732" />
       <window_info anchor="bottom" id="Inspection Results" order="11" weight="0.32943678" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.39057592" />
       <window_info anchor="bottom" id="Messages" order="7" />
@@ -324,21 +321,21 @@
     <layout-to-restore>
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.15021199" />
       <window_info id="Structure" order="1" weight="0.25" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.3693599" />
-      <window_info anchor="bottom" id="Python Console" order="9" />
-      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.39581153" />
       <window_info anchor="bottom" id="Terminal" order="10" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
-      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
-      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Python Console" order="9" />
     </layout-to-restore>
   </component>
   <component name="VcsContentAnnotationSettings">
@@ -622,7 +619,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="385">
+        <state relative-caret-position="2370">
           <caret line="162" column="100" selection-start-line="162" selection-start-column="100" selection-end-line="162" selection-end-column="100" />
           <folding>
             <element signature="e#0#24#0" expanded="true" />
@@ -632,8 +629,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="465">
-          <caret line="638" column="84" selection-start-line="638" selection-start-column="84" selection-end-line="638" selection-end-column="84" />
+        <state relative-caret-position="197">
+          <caret line="279" column="60" selection-start-line="279" selection-start-column="60" selection-end-line="279" selection-end-column="60" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
@@ -642,8 +639,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="469">
-          <caret line="304" column="88" selection-start-line="304" selection-start-column="88" selection-end-line="304" selection-end-column="88" />
+        <state relative-caret-position="2745">
+          <caret line="188" column="100" selection-start-line="188" selection-start-column="100" selection-end-line="188" selection-end-column="100" />
           <folding>
             <element signature="e#0#24#0" expanded="true" />
           </folding>
@@ -652,8 +649,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="36">
-          <caret line="47" column="14" selection-start-line="47" selection-start-column="14" selection-end-line="47" selection-end-column="14" />
+        <state relative-caret-position="230">
+          <caret line="220" column="32" lean-forward="true" selection-start-line="220" selection-start-column="32" selection-end-line="220" selection-end-column="32" />
         </state>
       </provider>
     </entry>
