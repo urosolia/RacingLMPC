@@ -11,7 +11,7 @@ from pathos.multiprocessing import ProcessingPool as Pool
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
-from osqp import OSQP
+#from osqp import OSQP
 
 from abc import ABCMeta, abstractmethod
 import sys
@@ -444,9 +444,12 @@ def LMPC_BuildMatCost(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld)
     b = [Q] * (N)
     Mx = linalg.block_diag(*b)
 
-    c = [R] * (N)
+    c = [R + 2*np.diag(dR)] * (N)
 
     Mu = linalg.block_diag(*c)
+    # Need to condider that the last input appears just onece in the difference
+    Mu[Mu.shape[0] - 1, Mu.shape[1] - 1] = Mu[Mu.shape[0] - 1, Mu.shape[1] - 1] - dR[1]
+    Mu[Mu.shape[0] - 2, Mu.shape[1] - 2] = Mu[Mu.shape[0] - 2, Mu.shape[1] - 2] - dR[0]
 
     # Derivative Input Cost
     OffDiaf = -np.tile(dR, N-1)
