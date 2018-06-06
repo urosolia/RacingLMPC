@@ -11,7 +11,7 @@ from pathos.multiprocessing import ProcessingPool as Pool
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
-from osqp import OSQP
+#from osqp import OSQP
 
 from abc import ABCMeta, abstractmethod
 import sys
@@ -450,7 +450,7 @@ def LMPC_BuildMatCost(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld)
     b = [Q] * (N)
     Mx = linalg.block_diag(*b)
 
-    c = [R] * (N)
+    c = [R + np.diag(dR)] * (N)
 
     Mu = linalg.block_diag(*c)
 
