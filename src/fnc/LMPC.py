@@ -15,6 +15,8 @@ from osqp import OSQP
 
 from abc import ABCMeta, abstractmethod
 import sys
+sys.path.append('../../SwitchSysLMPC/src')
+import pwa_cluster as pwac
 
 
 solvers.options['show_progress'] = False
@@ -208,11 +210,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
         self.n_clusters = n_clusters
         # python 2/3 compatibility
-        if sys.version_info.major == 3:
-            super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
-                             n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        else:
-            super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+        super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
     
     def _getQP(self, x0):
@@ -317,11 +315,7 @@ class ControllerLMPC(AbstractControllerLMPC):
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         # Build matrices for inequality constraints
         self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
-        if sys.version_info.major == 3:
-            super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
-                             n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        else:
-            super(ControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+        super(ControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
     
 
