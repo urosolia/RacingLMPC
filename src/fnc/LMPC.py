@@ -14,9 +14,9 @@ from scipy.sparse import vstack
 from osqp import OSQP
 
 from abc import ABCMeta, abstractmethod
-# import sys
-# sys.path.append('../../SwitchSysLMPC/src')
-# import pwa_cluster as pwac
+import sys
+sys.path.append('../../SwitchSysLMPC/src')
+import pwa_cluster as pwac
 
 
 solvers.options['show_progress'] = False
@@ -64,6 +64,8 @@ class AbstractControllerLMPC:
 
         # Initialize the following quantities to avoid dynamic allocation
         # TODO: is there a more graceful way to do this in python?
+        # changing things to nan is better, but numerical values
+        # seem to be implicitly used in computations
         NumPoints = int(TimeLMPC / dt) + 1
         self.TimeSS  = 10000 * np.ones(Laps).astype(int)        # Time at which each j-th iteration is completed
         self.SS      = 10000 * np.ones((NumPoints, n, Laps))    # Sampled Safe SS
@@ -288,10 +290,26 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 zs.append(np.hstack([states[:-1], inputs[:-1]]))
                 ys.append(states[1:])
             zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
+
+            # use greedy method to fit PWA model
             self.clustering = pwac.ClusterPWA.from_num_clusters(zs, ys, 
                                     self.n_clusters, z_cutoff=self.n)
             self.clustering.fit_clusters(verbose=verbose)
+            # TODO this method takes a long time to runs
             # self.clustering.determine_polytopic_regions(verbose=verbose)
+
+            # label the regions of the points in the safe set
+            self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
+            j = 0 # data position counter
+            for it in range(self.it-1):
+                for i in range(self.TimeSS[it]-1):
+                    self.SS_regions[i, it] = self.clustering.cluster_labels[j]
+                    j += 1
+            # to access SS in certain region,
+            # region_indices[i] = np.where(self.SS_regions == i)
+            # SS_i = SS[region_indices[i], :, :]
+            # TODO check if faster to store region_indices
+        # TODO when new trajectories are added, should trigger reestimation
 
 
 
@@ -553,6 +571,7 @@ def ComputeCost(x, u, TrackLength):
     Cost = 10000 * np.ones((x.shape[0]))  # The cost has the same elements of the vector x --> time +1
     # Now compute the cost moving backwards in a Dynamic Programming (DP) fashion.
     # We start from the last element of the vector x and we sum the running cost
+    # TODO why this form of cost?
     for i in range(0, x.shape[0]):
         if (i == 0):  # Note that for i = 0 --> pick the latest element of the vector x
             Cost[x.shape[0] - 1 - i] = 0
