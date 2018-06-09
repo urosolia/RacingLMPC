@@ -87,6 +87,8 @@ class AbstractControllerLMPC:
             x0: current state position
         """
 
+        # TODO: possible iteration of several QPs here for PWA
+
         # Select Points from Safe Set
         # a subset of nearby points are chosen from past iterations
         SS_PointSelectedTot      = np.empty((self.n, 0))
@@ -212,29 +214,36 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
     def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
-        # Build matrices for inequality constraints
-        self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
         self.n_clusters = n_clusters
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
     
     def _getQP(self, x0):
-        # Run System ID
-        startTimer = datetime.datetime.now()
-        Atv, Btv, Ctv, _ = self._EstimateABC()
-        deltaTimer = datetime.datetime.now() - startTimer
-        L, npG, npE = BuildMatEqConst_TV(self.Solver, Atv, Btv, Ctv)
-        self.linearizationTime = deltaTimer
-
         # PWA System ID
         self._estimate_pwa(verbose=True)
+        As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.p)
 
+        # TODO regions for candidate trajectories
+        # need to add logic for selection
+        # for now this is hard coded
+        SSind = closestSSidx(SS[:,:,it-1], x0)
+        select_reg = self.SS_regions[SSind:(SSind+N+1), it-1]
+
+        L, npG, npE = BuildMatEqConst_PWA(self.Solver, As, Bs, ds, self.N, select_reg)
+
+        # [_, _, _, G_LMPC_sparse, E_LMPC_sparse] = BuildMatEqConst_LMPC(G_FTOCP, E_FTOCP, N, n, d,
+        #                                                                              np, spmatrix)  # Add the terminal constraint
+        # [_, b, F_sparse] = BuildMatIneqConst( F_region, b_region, SelectRegNew)
+
+        stackedF, stackedb = LMPC_BuildMatIneqConst_PWA(self.N, Solver, F_region, 
+                                                        b_region, select_reg)
 
         # Build Terminal cost and Constraint
+        # TODO replace with PWA (single SS final constraint)
         G, E = LMPC_TermConstr(self.Solver, self.N, self.n, self.d, npG, npE, self.SS_PointSelectedTot)
         M, q = LMPC_BuildMatCost(self.Solver, self.N, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
-        return L, G, E, M, q, self.F, self.b
+        return L, G, E, M, q, stackedF, stackedb
 
     def _EstimateABC(self):
         LinPoints       = self.LinPoints
@@ -324,7 +333,7 @@ class ControllerLMPC(AbstractControllerLMPC):
     def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         # Build matrices for inequality constraints
-        self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
+        self.stackedF, self.stackedb = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
         super(ControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
     
@@ -340,7 +349,7 @@ class ControllerLMPC(AbstractControllerLMPC):
         # Build Terminal cost and Constraint
         G, E = LMPC_TermConstr(self.Solver, self.N, self.n, self.d, npG, npE, self.SS_PointSelectedTot)
         M, q = LMPC_BuildMatCost(self.Solver, self.N, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
-        return L, G, E, M, q, self.F, self.b
+        return L, G, E, M, q, self.stackedF, self.stackedb
 
     def _EstimateABC(self):
         LinPoints       = self.LinPoints
@@ -490,7 +499,7 @@ def LMPC_BuildMatCost(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld)
 
     return M_return, q
 
-def LMPC_BuildMatIneqConst(N, n, numSS_Points, solver):
+def getRacingFb():
     # Build the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
     Fx = np.array([[1., 0., 0., 0., 0., 0.],
                    [0., 0., 0., 0., 0., 1.],
@@ -510,6 +519,10 @@ def LMPC_BuildMatIneqConst(N, n, numSS_Points, solver):
                    [0.5],  # Max Steering
                    [1.],  # Max Acceleration
                    [1.]])  # Max Acceleration
+    return Fx, bx, Fu, bu
+
+def LMPC_BuildMatIneqConst(N, n, numSS_Points, solver):
+    Fx, bx, Fu, bu =  getRacingFb()  
 
     # Now stuck the constraint matrices to express them in the form Fz<=b. Note that z collects states and inputs
     # Let's start by computing the submatrix of F relates with the state
@@ -546,16 +559,44 @@ def LMPC_BuildMatIneqConst(N, n, numSS_Points, solver):
 
     return F_return, b
 
+def LMPC_BuildMatIneqConst_PWA(N, Solver, F_region, b_region, SelectReg):
+    Fx, bx, Fu, bu =  getRacingFb() 
+
+    # Now stuck the constraint matrices to express them in the form Fz<=b. Note that z collects states and inputs
+    # Let's start by computing the submatrix of F relates with the state
+    MatFx = np.empty((0, 0))
+    bxtot  = np.empty(0)
+
+    for i in range(0, N): # No need to constraint also the terminal point --> go up to N
+        MatFx = linalg.block_diag(MatFx, Fx[int(SelectReg[i])])
+        bxtot  = np.append(bxtot, bx[int(SelectReg[i])])
+
+    NoTerminalConstr = np.zeros((np.shape(MatFx)[0], n))  # No need to constraint also the terminal point
+    Fxtot = np.hstack((MatFx, NoTerminalConstr))
+
+
+    # Let's start by computing the submatrix of F relates with the input
+    rep_b = [Fu[0]] * (N)
+    Futot = linalg.block_diag(*rep_b)
+    butot = np.tile(np.squeeze(bu[0]), N)
+
+    # Let's stack all together
+    rFxtot, cFxtot = np.shape(Fxtot)
+    rFutot, cFutot = np.shape(Futot)
+    Dummy1 = np.hstack( (Fxtot                    , np.zeros((rFxtot,cFutot))))
+    Dummy2 = np.hstack( (np.zeros((rFutot,cFxtot)), Futot))
+    F = np.vstack( ( Dummy1, Dummy2) )
+    b = np.hstack((bxtot, butot))
+
+    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0], np.nonzero(F)[1], F.shape)
+
+    return F, b, F_sparse
+
 
 def SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
     # selects the closest point in the safe set to x0
     # returns a subset of the safe set which contains a range of points ahead of this point
-    x = SS[:, :, it]
-    oneVec = np.ones((x.shape[0], 1))
-    x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
-    diff = x - x0Vec
-    norm = la.norm(diff, 1, axis=1)
-    MinNorm = np.argmin(norm)
+    MinNorm = closestSSidx(SS[:, :, it], x0)
 
     if (MinNorm + shift >= 0):
         # TODO: what if shift + MinNorm + numSS_Points is greater than the points in the safe set?
@@ -566,6 +607,13 @@ def SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
         Sel_Qfun = Qfun[int(MinNorm):int(MinNorm + numSS_Points), it]
 
     return SS_Points, Sel_Qfun
+
+def closestSSidx(x, x0):
+    oneVec = np.ones((x.shape[0], 1))
+    x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
+    diff = x - x0Vec
+    norm = la.norm(diff, 1, axis=1)
+    return np.argmin(norm)
 
 def ComputeCost(x, u, TrackLength):
     Cost = 10000 * np.ones((x.shape[0]))  # The cost has the same elements of the vector x --> time +1
@@ -649,6 +697,39 @@ def BuildMatEqConst_TV(Solver, A, B, C):
     if Solver == "CVX":
         L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
         L_return = L_sparse
+    else:
+        L_return = L
+
+    return L_return, G, E
+
+def BuildMatEqConst_PWA(Solver, As, Bs, ds, N, SelectedRegions):
+    # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
+    # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
+    # stucks the predicted trajectory x_{k|t} \forall k = t, \ldots, t+N+1 over the horizon and
+    # the predicte input u_{k|t} \forall k = t, \ldots, t+N over the horizon
+    n, d = Bs[0].shape
+    Gx = np.eye(n * (N + 1))
+    Gu = np.zeros((n * (N + 1), d * (N)))
+
+    E = np.zeros((n * (N + 1), n))
+    E[np.arange(n)] = np.eye(n)
+
+    # TODO what exactly is this
+    L = np.zeros((n * (N + 1) + n + 1, 1)) # n+1 for the terminal constraint
+    L[-1] = 1 # Summmation of lamba must add up to 1
+
+    for i in range(0, N):
+        ind1 = n + i * n + np.arange(n)
+        ind2x = i * n + np.arange(n)
+        Gx[np.ix_(ind1, ind2x)] = -As[int(SelectedRegions[i])]
+
+        ind2u = i * d + np.arange(d)
+        Gu[np.ix_(ind1, ind2u)] = -Bs[int(SelectedRegions[i])]
+
+        L[ind1, :]              =  Cs[int(SelectedRegions[i])]
+
+    if Solver == "CVX":
+        L_return = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
     else:
         L_return = L
 
