@@ -104,6 +104,7 @@ class AbstractControllerLMPC:
         # Get the matrices for defining the QP
         # this method will be defined in inheriting classes
         L, G, E, M, q, F, b = self._getQP(x0)
+        print(L.shape, G.shape, E.shape, M.shape, q.shape, F.shape, b.shape)
         
         # Solve QP
         startTimer = datetime.datetime.now()
@@ -222,27 +223,26 @@ class PWAControllerLMPC(AbstractControllerLMPC):
     def _getQP(self, x0):
         # PWA System ID
         self._estimate_pwa(verbose=True)
-        As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.p)
 
         # TODO regions for candidate trajectories
         # need to add logic for selection
         # for now this is hard coded
-        SSind = closestSSidx(SS[:,:,it-1], x0)
-        select_reg = self.SS_regions[SSind:(SSind+N+1), it-1]
+        SSind = closestSSidx(self.SS[:,:,self.it-2], x0)
+        select_reg = self.SS_regions[SSind:(SSind+self.N+1), self.it-2]
+
+        # equality constraints from dynamics
+        As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
 
         L, npG, npE = BuildMatEqConst_PWA(self.Solver, As, Bs, ds, self.N, select_reg)
 
-        # [_, _, _, G_LMPC_sparse, E_LMPC_sparse] = BuildMatEqConst_LMPC(G_FTOCP, E_FTOCP, N, n, d,
-        #                                                                              np, spmatrix)  # Add the terminal constraint
-        # [_, b, F_sparse] = BuildMatIneqConst( F_region, b_region, SelectRegNew)
-
-        stackedF, stackedb = LMPC_BuildMatIneqConst_PWA(self.N, Solver, F_region, 
-                                                        b_region, select_reg)
-
+        # inequality constraints from regions
+        F_region, b_region = self.clustering.get_region_matrices()
+        stackedF, stackedb = LMPC_BuildMatIneqConst_PWA(self.N, self.Solver, F_region, 
+                                                        b_region, select_reg, self.numSS_Points)
         # Build Terminal cost and Constraint
-        # TODO replace with PWA (single SS final constraint)
-        G, E = LMPC_TermConstr(self.Solver, self.N, self.n, self.d, npG, npE, self.SS_PointSelectedTot)
-        M, q = LMPC_BuildMatCost(self.Solver, self.N, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+        G, E, _ = LMPC_TermConstr_PWA(self.Solver, npG, npE, self.N, self.n, self.d)
+        # TODO need to change??
+        M, q = LMPC_BuildMatCost(self.Solver, self.N, self.Qfun_SelectedTot, 0, np.array([]), self.Q, self.R, self.dR, self.OldInput)
         return L, G, E, M, q, stackedF, stackedb
 
     def _EstimateABC(self):
@@ -300,12 +300,25 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 ys.append(states[1:])
             zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
 
-            # use greedy method to fit PWA model
-            self.clustering = pwac.ClusterPWA.from_num_clusters(zs, ys, 
+            # to make testing run faster
+            try:
+                data = np.load('cluster_labels.npz')
+            except FileNotFoundError:
+                # use greedy method to fit PWA model
+                self.clustering = pwac.ClusterPWA.from_num_clusters(zs, ys, 
                                     self.n_clusters, z_cutoff=self.n)
-            self.clustering.fit_clusters(verbose=verbose)
-            # TODO this method takes a long time to runs
-            # self.clustering.determine_polytopic_regions(verbose=verbose)
+                self.clustering.fit_clusters(verbose=verbose)
+            
+                # TODO this method takes a long time to runs
+                self.clustering.determine_polytopic_regions(verbose=verbose)
+            else:
+                self.clustering = pwac.ClusterPWA.from_labels(zs, ys, 
+                               data['labels'], z_cutoff=self.n)
+                self.clustering.region_fns = data['region_fns']
+            
+
+            np.savez('cluster_labels', labels=self.clustering.cluster_labels,
+                                       region_fns=self.clustering.region_fns)
 
             # label the regions of the points in the safe set
             self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
@@ -552,15 +565,15 @@ def LMPC_BuildMatIneqConst(N, n, numSS_Points, solver):
     # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
     b = np.hstack((bxtot, butot, np.zeros(numSS_Points)))
     if solver == "CVX":
-        F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
-        F_return = F_sparse
+        F_return = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
     else:
         F_return = F
 
     return F_return, b
 
-def LMPC_BuildMatIneqConst_PWA(N, Solver, F_region, b_region, SelectReg):
+def LMPC_BuildMatIneqConst_PWA(N, solver, F_region, b_region, SelectReg, numSS_Points):
     Fx, bx, Fu, bu =  getRacingFb() 
+    n = F_region[0].shape[1]
 
     # Now stuck the constraint matrices to express them in the form Fz<=b. Note that z collects states and inputs
     # Let's start by computing the submatrix of F relates with the state
@@ -568,17 +581,19 @@ def LMPC_BuildMatIneqConst_PWA(N, Solver, F_region, b_region, SelectReg):
     bxtot  = np.empty(0)
 
     for i in range(0, N): # No need to constraint also the terminal point --> go up to N
-        MatFx = linalg.block_diag(MatFx, Fx[int(SelectReg[i])])
-        bxtot  = np.append(bxtot, bx[int(SelectReg[i])])
+        Fxreg = np.vstack([Fx, F_region[int(SelectReg[i])]])
+        bxreg = np.vstack([bx, np.expand_dims(b_region[int(SelectReg[i])], 1)])
+        MatFx = linalg.block_diag(MatFx, Fxreg)
+        bxtot  = np.append(bxtot, bxreg)
 
     NoTerminalConstr = np.zeros((np.shape(MatFx)[0], n))  # No need to constraint also the terminal point
     Fxtot = np.hstack((MatFx, NoTerminalConstr))
 
 
-    # Let's start by computing the submatrix of F relates with the input
-    rep_b = [Fu[0]] * (N)
+    # computing the submatrix of F relates with the input
+    rep_b = [Fu] * (N)
     Futot = linalg.block_diag(*rep_b)
-    butot = np.tile(np.squeeze(bu[0]), N)
+    butot = np.tile(np.squeeze(bu), N)
 
     # Let's stack all together
     rFxtot, cFxtot = np.shape(Fxtot)
@@ -586,17 +601,26 @@ def LMPC_BuildMatIneqConst_PWA(N, Solver, F_region, b_region, SelectReg):
     Dummy1 = np.hstack( (Fxtot                    , np.zeros((rFxtot,cFutot))))
     Dummy2 = np.hstack( (np.zeros((rFutot,cFxtot)), Futot))
     F = np.vstack( ( Dummy1, Dummy2) )
+
+    # TODO not quite right
+    #Fslack = np.zeros((FDummy.shape[0], numSS_Points+n))
+    #F = np.hstack((FDummy, Fslack))
+
     b = np.hstack((bxtot, butot))
 
-    F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0], np.nonzero(F)[1], F.shape)
+    if solver == "CVX":
+        F_return = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
+    else:
+        F_return = F
 
-    return F, b, F_sparse
+    return F_return, b
 
 
 def SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
     # selects the closest point in the safe set to x0
     # returns a subset of the safe set which contains a range of points ahead of this point
-    MinNorm = closestSSidx(SS[:, :, it], x0)
+    x = SS[:, :, it]
+    MinNorm = closestSSidx(x, x0)
 
     if (MinNorm + shift >= 0):
         # TODO: what if shift + MinNorm + numSS_Points is greater than the points in the safe set?
@@ -666,6 +690,34 @@ def LMPC_TermConstr(Solver, N, n, d, G, E, SS_Points):
 
     return G_LMPC_return, E_LMPC_return
 
+def LMPC_TermConstr_PWA(Solver, G, E, N, n, d):
+    # Update the matrices for the Equality constraint in the LMPC. Now we need an extra row to constraint the terminal point to be equal to a point in SS
+    # The equality constraint has now the form: G_LMPC*z = E_LMPC*x0 + TermPoint.
+    # Note that the vector TermPoint is updated to constraint the predicted trajectory into a point in SS. This is done in the FTOCP_LMPC function
+
+    TermCons = np.zeros((n, (N + 1) * n + N * d))
+    TermCons[:, N * n:(N + 1) * n] = np.eye(n)
+
+    # todo: add slack? actually constrain final point?
+    G_LMPC0 = np.vstack((G, TermCons))
+    G_ConHull = np.zeros((1, G_LMPC0.shape[1]))
+    G_LMPC = np.vstack((G_LMPC0, G_ConHull))
+
+    E_LMPC = np.vstack((E, np.zeros((n+1, n))))
+
+    # TODO this termpoint can be mutated in a useful way?
+    TermPoint = np.zeros((np.shape(E_LMPC)[0])) 
+
+    if Solver == "CVX":
+        G_LMPC_return = spmatrix(G_LMPC[np.nonzero(G_LMPC)], np.nonzero(G_LMPC)[0].astype(int), np.nonzero(G_LMPC)[1].astype(int), G_LMPC.shape)
+        E_LMPC_return = spmatrix(E_LMPC[np.nonzero(E_LMPC)], np.nonzero(E_LMPC)[0].astype(int), np.nonzero(E_LMPC)[1].astype(int), E_LMPC.shape)
+    else:
+        G_LMPC_return = G_LMPC
+        E_LMPC_return = E_LMPC
+
+    return G_LMPC_return, E_LMPC_return, TermPoint
+
+
 def BuildMatEqConst_TV(Solver, A, B, C):
     # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
     # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
@@ -725,8 +777,9 @@ def BuildMatEqConst_PWA(Solver, As, Bs, ds, N, SelectedRegions):
 
         ind2u = i * d + np.arange(d)
         Gu[np.ix_(ind1, ind2u)] = -Bs[int(SelectedRegions[i])]
-
-        L[ind1, :]              =  Cs[int(SelectedRegions[i])]
+        L[ind1, :]              =  ds[int(SelectedRegions[i])].reshape(n,1)
+    
+    G = np.hstack((Gx, Gu))
 
     if Solver == "CVX":
         L_return = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
