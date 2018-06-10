@@ -432,10 +432,13 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
         feasible = 1
     return res, feasible
 
-def LMPC_BuildMatCost_PWA(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
+def MPC_MatCost(N, Q, R, dR):
+    '''
+    builds repeated cost matrices for finite horizon MPC
+    TODO allow for time-varying Q,R
+    '''
     n = Q.shape[0]
     P = Q # TODO this should be final cost related to xf? Sel_Qfun
-    vt = 2
 
     b = [Q] * (N)
     Mx = linalg.block_diag(*b)
@@ -451,7 +454,14 @@ def LMPC_BuildMatCost_PWA(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, u
     OffDiaf = -np.tile(dR, N-1)
     np.fill_diagonal(Mu[2:], OffDiaf)
     np.fill_diagonal(Mu[:, 2:], OffDiaf)
+    return Mx, P, Mu
 
+def LMPC_BuildMatCost_PWA(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
+    n = Q.shape[0]
+    vt = 2
+
+    Mx, P, Mu = MPC_MatCost(N, Q, R, dR)
+    
     M00 = linalg.block_diag(Mx, P, Mu)
     M0 = linalg.block_diag(M00, Qslack)
 
@@ -480,30 +490,15 @@ def LMPC_BuildMatCost_PWA(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, u
 
 def LMPC_BuildMatCost(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
     n = Q.shape[0]
-    P = Q
     vt = 2
 
-    b = [Q] * (N)
-    Mx = linalg.block_diag(*b)
-
-    c = [R + 2*np.diag(dR)] * (N)
-
-    Mu = linalg.block_diag(*c)
-    # Need to condider that the last input appears just onece in the difference
-    Mu[Mu.shape[0] - 1, Mu.shape[1] - 1] = Mu[Mu.shape[0] - 1, Mu.shape[1] - 1] - dR[1]
-    Mu[Mu.shape[0] - 2, Mu.shape[1] - 2] = Mu[Mu.shape[0] - 2, Mu.shape[1] - 2] - dR[0]
-
-    # Derivative Input Cost
-    OffDiaf = -np.tile(dR, N-1)
-    np.fill_diagonal(Mu[2:], OffDiaf)
-    np.fill_diagonal(Mu[:, 2:], OffDiaf)
-    # np.savetxt('Mu.csv', Mu, delimiter=',', fmt='%f')
-
+    Mx, P, Mu = MPC_MatCost(N, Q, R, dR)
+    
     M00 = linalg.block_diag(Mx, P, Mu)
     M0 = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), Qslack)
     xtrack = np.array([vt, 0, 0, 0, 0, 0])
-    q0 = - 2 * np.dot(np.append(np.tile(xtrack, N + 1), np.zeros(R.shape[0] * N)), M00)
-
+    q00 = - 2 * np.dot(np.tile(xtrack, N + 1), linalg.block_diag(Mx, P) )
+    q0 = np.append(q00, np.zeros(R.shape[0] * N))
     # Derivative Input
     q0[n*(N+1):n*(N+1)+2] = -2 * np.dot( uOld, np.diag(dR) )
 
