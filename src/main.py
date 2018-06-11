@@ -76,7 +76,7 @@ TimeLMPC   = 400              # Simulation time
 Laps       = 5+2              # Total LMPC laps
 
 # Safe Set Parameter
-LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
+LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 32 + N         # Number of points to select from each trajectory to build the safe set
 shift = 0                     # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j

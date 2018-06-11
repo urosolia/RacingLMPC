@@ -108,7 +108,9 @@ class AbstractControllerLMPC:
         # Solve QP
         startTimer = datetime.datetime.now()
         if self.Solver == "CVX":
-            res_cons = qp(M, matrix(q), F, matrix(b), G, E * matrix(x0) + L)
+            res_cons = qp(convert_sparse_cvx(M), matrix(q), convert_sparse_cvx(F), 
+                          matrix(b), convert_sparse_cvx(G), 
+                          convert_sparse_cvx(E) * matrix(x0) + convert_sparse_cvx(L))
             if res_cons['status'] == 'optimal':
                 feasible = 1
             else:
@@ -240,17 +242,15 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         # equality constraints from dynamics
         # including x0 and xf
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
-        L, G, E1, E2 = BuildMatEqConst_PWA(self.Solver, As, Bs, ds, self.N, select_reg)
+        L, G, E1, E2 = BuildMatEqConst_PWA(As, Bs, ds, self.N, select_reg)
         Lterm = L + np.expand_dims(E2.dot(terminal_point),1)
 
         # inequality constraints from regions
         F_region, b_region = self.clustering.get_region_matrices()
-        stackedF, stackedb = LMPC_BuildMatIneqConst_PWA(self.N, self.Solver, F_region, 
+        stackedF, stackedb = LMPC_BuildMatIneqConst_PWA(self.N, F_region, 
                                                         b_region, select_reg, self.numSS_Points)
-        # TODO need to change??
-        M, q = LMPC_BuildMatCost_PWA(self.Solver, self.N, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+        M, q = LMPC_BuildMatCost(self.N, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
 
-        # TODO keep as numpy and switch to sparse cvx later
         return Lterm, G, E1, M, q, stackedF, stackedb
 
     def _estimate_pwa(self, x=None, u=None, verbose=False):
@@ -310,7 +310,7 @@ class ControllerLMPC(AbstractControllerLMPC):
     def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         # Build matrices for inequality constraints
-        self.stackedF, self.stackedb = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
+        self.stackedF, self.stackedb = LMPC_BuildMatIneqConst(N, n, numSS_Points)
         super(ControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
     
@@ -320,12 +320,11 @@ class ControllerLMPC(AbstractControllerLMPC):
         startTimer = datetime.datetime.now()
         Atv, Btv, Ctv, _ = self._EstimateABC()
         deltaTimer = datetime.datetime.now() - startTimer
-        L, npG, npE = BuildMatEqConst_TV(self.Solver, Atv, Btv, Ctv)
+        L, G, E = BuildMatEqConst_TV(Atv, Btv, Ctv, self.SS_PointSelectedTot)
         self.linearizationTime = deltaTimer
 
-        # Build Terminal cost and Constraint
-        G, E = LMPC_TermConstr(self.Solver, self.N, self.n, self.d, npG, npE, self.SS_PointSelectedTot)
-        M, q = LMPC_BuildMatCost(self.Solver, self.N, self.Qfun_SelectedTot, self.numSS_Points, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+        M, q = LMPC_BuildMatCost(self.N, self.Qslack, self.Q, self.R, self.dR, self.OldInput,
+                                 self.Qfun_SelectedTot, self.numSS_Points)
         return L, G, E, M, q, self.stackedF, self.stackedb
 
     def _EstimateABC(self):
@@ -432,6 +431,9 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
         feasible = 1
     return res, feasible
 
+def convert_sparse_cvx(A):
+    return spmatrix(A[np.nonzero(A)], np.nonzero(A)[0].astype(int), np.nonzero(A)[1].astype(int), A.shape)
+
 def MPC_MatCost(N, Q, R, dR):
     '''
     builds repeated cost matrices for finite horizon MPC
@@ -456,66 +458,26 @@ def MPC_MatCost(N, Q, R, dR):
     np.fill_diagonal(Mu[:, 2:], OffDiaf)
     return Mx, P, Mu
 
-def LMPC_BuildMatCost_PWA(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
+def LMPC_BuildMatCost(N, Qslack, Q, R, dR, uOld, Sel_Qfun=[], numSS_Points=0):
+    '''
+    Builds costs matrices M,q for the cost
+    1/2 z^T M z + q^T M
+    '''
     n = Q.shape[0]
+    d = R.shape[0]
     vt = 2
 
     Mx, P, Mu = MPC_MatCost(N, Q, R, dR)
+    M = 2 * linalg.block_diag(Mx, P, Mu, 
+                   np.zeros((numSS_Points, numSS_Points)), Qslack)
     
-    M00 = linalg.block_diag(Mx, P, Mu)
-    M0 = linalg.block_diag(M00, Qslack)
-
-    # TODO what exactly is this
     xtrack = np.array([vt, 0, 0, 0, 0, 0])
     q00 = - 2 * np.dot(np.tile(xtrack, N + 1), linalg.block_diag(Mx, P) )
-    q0 = np.append(q00, np.zeros(R.shape[0] * N))
+    q0 = np.append(q00, np.zeros(d * N))
     # Derivative Input
     q0[n*(N+1):n*(N+1)+2] = -2 * np.dot( uOld, np.diag(dR) )
-
-    # np.savetxt('q0.csv', q0, delimiter=',', fmt='%f')
-    q = np.append(q0, np.zeros(Q.shape[0]))
-
-    # np.savetxt('q.csv', q, delimiter=',', fmt='%f')
-
-    M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
-
-    # TODO get rid of this
-    if Solver == "CVX":
-        M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0].astype(int), np.nonzero(M)[1].astype(int), M.shape)
-        M_return = M_sparse
-    else:
-        M_return = M
-
-    return M_return, q
-
-def LMPC_BuildMatCost(Solver, N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
-    n = Q.shape[0]
-    vt = 2
-
-    Mx, P, Mu = MPC_MatCost(N, Q, R, dR)
-    
-    M00 = linalg.block_diag(Mx, P, Mu)
-    M0 = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), Qslack)
-    xtrack = np.array([vt, 0, 0, 0, 0, 0])
-    q00 = - 2 * np.dot(np.tile(xtrack, N + 1), linalg.block_diag(Mx, P) )
-    q0 = np.append(q00, np.zeros(R.shape[0] * N))
-    # Derivative Input
-    q0[n*(N+1):n*(N+1)+2] = -2 * np.dot( uOld, np.diag(dR) )
-
-    # np.savetxt('q0.csv', q0, delimiter=',', fmt='%f')
-    q = np.append(np.append(q0, Sel_Qfun), np.zeros(Q.shape[0]))
-
-    # np.savetxt('q.csv', q, delimiter=',', fmt='%f')
-
-    M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
-
-    if Solver == "CVX":
-        M_sparse = spmatrix(M[np.nonzero(M)], np.nonzero(M)[0].astype(int), np.nonzero(M)[1].astype(int), M.shape)
-        M_return = M_sparse
-    else:
-        M_return = M
-
-    return M_return, q
+    q = np.append(np.append(q0, Sel_Qfun), np.zeros(n))
+    return M, q
 
 def getRacingFb():
     # Build the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
@@ -539,7 +501,7 @@ def getRacingFb():
                    [1.]])  # Max Acceleration
     return Fx, bx, Fu, bu
 
-def LMPC_BuildMatIneqConst(N, n, numSS_Points, solver):
+def LMPC_BuildMatIneqConst(N, n, numSS_Points):
     Fx, bx, Fu, bu =  getRacingFb()  
 
     # Now stuck the constraint matrices to express them in the form Fz<=b. Note that z collects states and inputs
@@ -569,14 +531,9 @@ def LMPC_BuildMatIneqConst(N, n, numSS_Points, solver):
 
     # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
     b = np.hstack((bxtot, butot, np.zeros(numSS_Points)))
-    if solver == "CVX":
-        F_return = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
-    else:
-        F_return = F
+    return F, b
 
-    return F_return, b
-
-def LMPC_BuildMatIneqConst_PWA(N, solver, F_region, b_region, SelectReg, numSS_Points):
+def LMPC_BuildMatIneqConst_PWA(N, F_region, b_region, SelectReg, numSS_Points):
     Fx, bx, Fu, bu =  getRacingFb() 
     n = F_region[0].shape[1]
 
@@ -612,13 +569,7 @@ def LMPC_BuildMatIneqConst_PWA(N, solver, F_region, b_region, SelectReg, numSS_P
     F = np.hstack((FDummy, Fslack))
     b = np.hstack((bxtot, butot))
 
-    # TODO change this, not at this stage
-    if solver == "CVX":
-        F_return = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
-    else:
-        F_return = F
-
-    return F_return, b
+    return F, b
 
 
 def SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
@@ -660,86 +611,17 @@ def ComputeCost(x, u, TrackLength):
     return Cost
 
 
-def LMPC_TermConstr(Solver, N, n, d, G, E, SS_Points):
-    # Update the matrices for the Equality constraint in the LMPC. Now we need an extra row to constraint the terminal point to be equal to a point in SS
-    # The equality constraint has now the form: G_LMPC*z = E_LMPC*x0 + TermPoint.
-    # Note that the vector TermPoint is updated to constraint the predicted trajectory into a point in SS. This is done in the FTOCP_LMPC function
-
-    # write out the matrix/derivation
-    TermCons = np.zeros((n, (N + 1) * n + N * d))
-    TermCons[:, N * n:(N + 1) * n] = np.eye(n)
-
-    G_enlarged = np.vstack((G, TermCons))
-
-    G_lambda = np.zeros(( G_enlarged.shape[0], SS_Points.shape[1] + n))
-    G_lambda[G_enlarged.shape[0] - n:G_enlarged.shape[0], :] = np.hstack((-SS_Points, np.eye(n)))
-
-    G_LMPC0 = np.hstack((G_enlarged, G_lambda))
-    G_ConHull = np.zeros((1, G_LMPC0.shape[1]))
-    G_ConHull[-1, G_ConHull.shape[1]-SS_Points.shape[1]-n:G_ConHull.shape[1]-n] = np.ones((1,SS_Points.shape[1]))
-
-    G_LMPC = np.vstack((G_LMPC0, G_ConHull))
-
-    E_LMPC = np.vstack((E, np.zeros((n + 1, n))))
-
-    # np.savetxt('G.csv', G_LMPC, delimiter=',', fmt='%f')
-    # np.savetxt('E.csv', E_LMPC, delimiter=',', fmt='%f')
-
-    if Solver == "CVX":
-        G_LMPC_sparse = spmatrix(G_LMPC[np.nonzero(G_LMPC)], np.nonzero(G_LMPC)[0].astype(int), np.nonzero(G_LMPC)[1].astype(int), G_LMPC.shape)
-        E_LMPC_sparse = spmatrix(E_LMPC[np.nonzero(E_LMPC)], np.nonzero(E_LMPC)[0].astype(int), np.nonzero(E_LMPC)[1].astype(int), E_LMPC.shape)
-        G_LMPC_return = G_LMPC_sparse
-        E_LMPC_return = E_LMPC_sparse
-    else:
-        G_LMPC_return = G_LMPC
-        E_LMPC_return = E_LMPC
-
-    return G_LMPC_return, E_LMPC_return
-
-def BuildMatEqConst_TV(Solver, A, B, C):
-    # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
-    # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
-    # stucks the predicted trajectory x_{k|t} \forall k = t, \ldots, t+N+1 over the horizon and
-    # the predicte input u_{k|t} \forall k = t, \ldots, t+N over the horizon
-
-    # TODO write out the math of the dynamics
-    N = len(A)
-    n, d = B[0].shape
-    Gx = np.eye(n * (N + 1))
-    Gu = np.zeros((n * (N + 1), d * (N)))
-
-    E = np.zeros((n * (N + 1), n))
-    E[np.arange(n)] = np.eye(n)
-
-    L = np.zeros((n * (N + 1) + n + 1, 1)) # n+1 for the terminal constraint
-    L[-1] = 1 # Summmation of lamba must add up to 1
-
-    for i in range(0, N):
-        ind1 = n + i * n + np.arange(n)
-        ind2x = i * n + np.arange(n)
-        ind2u = i * d + np.arange(d)
-
-        Gx[np.ix_(ind1, ind2x)] = -A[i]
-        Gu[np.ix_(ind1, ind2u)] = -B[i]
-        L[ind1, :]              =  C[i]
-
-    G = np.hstack((Gx, Gu))
 
 
-    if Solver == "CVX":
-        L_sparse = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
-        L_return = L_sparse
-    else:
-        L_return = L
+def dynamicsEqConstr(Afun, Bfun, Cfun, N):
+    '''
+    Returns equality constraints of the form
+    diagstack(Gx, Gu) z = E * x0 + L
+    for possibly time-varying dynamics returned
+    by indexing functions Afun, Bfun, Cfun
+    '''
+    n, d = Bfun(0).shape
 
-    return L_return, G, E
-
-def BuildMatEqConst_PWA(Solver, As, Bs, ds, N, SelectedRegions):
-    # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
-    # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
-    # stucks the predicted trajectory x_{k|t} \forall k = t, \ldots, t+N+1 over the horizon and
-    # the predicte input u_{k|t} \forall k = t, \ldots, t+N over the horizon
-    n, d = Bs[0].shape
     Gx = np.eye(n * (N + 1))
     Gu = np.zeros((n * (N + 1), d * (N)))
 
@@ -748,16 +630,64 @@ def BuildMatEqConst_PWA(Solver, As, Bs, ds, N, SelectedRegions):
     for i in range(0, N):
         ind1 = n + i * n + np.arange(n)
         ind2x = i * n + np.arange(n)
-        Gx[np.ix_(ind1, ind2x)] = -As[int(SelectedRegions[i])]
-
         ind2u = i * d + np.arange(d)
-        Gu[np.ix_(ind1, ind2u)] = -Bs[int(SelectedRegions[i])]
-        L[ind1, :]              =  ds[int(SelectedRegions[i])].reshape(n,1)
+
+        Gx[np.ix_(ind1, ind2x)] = -Afun(i)
+        Gu[np.ix_(ind1, ind2u)] = -Bfun(i)
+        L[ind1, :]   =  Cfun(i)
+
+    E = np.zeros((n * (N + 1), n))
+    E[np.arange(n)] = np.eye(n)
+
+    return Gx, Gu, L, E
+
+
+def BuildMatEqConst_TV(A, B, C, SS_Points):
+    N = len(A)
+    n, d = B[0].shape
+
+    Afun = lambda i: A[i]
+    Bfun = lambda i: B[i]
+    Cfun = lambda i: C[i]
+
+    Gx, Gu, L1, E = dynamicsEqConstr(Afun, Bfun, Cfun, N)
+
+    G = np.hstack((Gx, Gu))
+
+    # for terminal constraint lambda
+    L = np.vstack((L1, [1]))
+
+    # extra row to constraint the terminal point to be equal to a point in SS
+    TermCons = np.zeros((n, (N + 1) * n + N * d))
+    TermCons[:, N * n:(N + 1) * n] = np.eye(n)
+    G_enlarged = np.vstack((G, TermCons))
+
+    G_lambda = np.zeros(( G_enlarged.shape[0], SS_Points.shape[1] + n))
+    G_lambda[G_enlarged.shape[0] - n:G_enlarged.shape[0], :] = np.hstack((-SS_Points, np.eye(n)))
+    G_LMPC0 = np.hstack((G_enlarged, G_lambda))
+    G_ConHull = np.zeros((1, G_LMPC0.shape[1]))
+    G_ConHull[-1, G_ConHull.shape[1]-SS_Points.shape[1]-n:G_ConHull.shape[1]-n] = np.ones((1,SS_Points.shape[1]))
+
+    G_LMPC = np.vstack((G_LMPC0, G_ConHull))
+
+    E_LMPC = np.vstack((E, np.zeros((n + 1, n))))
+
+    return L, G_LMPC, E_LMPC
+
+
+def BuildMatEqConst_PWA(As, Bs, ds, N, SelectedRegions):
+    n, d = Bs[0].shape
+    Afun = lambda i: As[int(SelectedRegions[i])]
+    Bfun = lambda i: Bs[int(SelectedRegions[i])]
+    Cfun = lambda i: ds[int(SelectedRegions[i])].reshape(n,1)
+
+    Gx, Gu, L, E = dynamicsEqConstr(Afun, Bfun, Cfun, N)
 
     
     G0 = np.hstack((Gx, Gu, np.zeros([n*(N+1),n]))) # zeros for slack
     Gterm = np.zeros([n, G0.shape[1]])  # constraint on x_{N+1}
-    Gterm[:,n*N:n*(N+1)] = np.eye(n)
+    Gterm[:,n*N:n*(N+1)] = np.eye(n) # constraint on x_{N+1}
+    Gterm[:,-n:] = np.eye(n) # slack on x_{N+1}
     G = np.vstack([G0,Gterm])
 
 
@@ -765,28 +695,23 @@ def BuildMatEqConst_PWA(Solver, As, Bs, ds, N, SelectedRegions):
     E1[np.arange(n)] = np.eye(n) # x0 constraint
 
     E2 = np.zeros((n * (N + 1) + n, n))  # + n for terminal constraint
-    E2[-n:] = np.eye(n) #terminal point constraint
+    E2[-n:] = np.eye(n) # terminal point constraint
 
-    if Solver == "CVX":
-        L_return = spmatrix(L[np.nonzero(L)], np.nonzero(L)[0].astype(int), np.nonzero(L)[1].astype(int), L.shape)
-        G_return = spmatrix(G[np.nonzero(G)], np.nonzero(G)[0].astype(int), np.nonzero(G)[1].astype(int), G.shape)
-        E1_return = spmatrix(E1[np.nonzero(E1)], np.nonzero(E1)[0].astype(int), np.nonzero(E1)[1].astype(int), E1.shape)
-        E2_return = spmatrix(E2[np.nonzero(E2)], np.nonzero(E2)[0].astype(int), np.nonzero(E2)[1].astype(int), E2.shape)
-    else:
-        L_return = L
-        G_return = G
-        E1_return = E1
-        E2_return = E2
 
-    return L_return, G_return, E1_return, E2_return
+    return L, G, E1, E2
 
 def LMPC_GetPred(Solution,n,d,N):
     # logic to decompose the QP solution
     xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n*(N+1))]),(N+1,n))))
     uPred = np.squeeze(np.transpose(np.reshape((Solution[n*(N+1)+np.arange(d*N)]),(N, d))))
-    lambd = Solution[n*(N+1)+d*N:Solution.shape[0]-n]
+    if Solution.shape[0] > n*(N+1)+d*N+n: # extra variables are SS lambdas
+        lambd = Solution[n*(N+1)+d*N:Solution.shape[0]-n]
+    else:
+        lambd = None
     slack = Solution[Solution.shape[0]-n:]
     return xPred, uPred, lambd, slack
+
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -944,9 +869,6 @@ def Compute_b(SS, yIndex, usedIt, matrix, M, indexSelected, K, np):
     return b
 
 def LMPC_LocLinReg(Q, b, stateFeatures, inputFeatures, qp):
-    import numpy as np
-    from numpy import linalg as la
-    import datetime
 
     # K = np.ones(len(index))
 
@@ -964,11 +886,6 @@ def LMPC_LocLinReg(Q, b, stateFeatures, inputFeatures, qp):
     return A, B, C
 
 def ComputeIndex(h, SS, uSS, TimeSS, it, x0, stateFeatures, scaling, MaxNumPoint, ConsiderInput):
-    import numpy as np
-    from numpy import linalg as la
-    import datetime
-
-
 
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
 
