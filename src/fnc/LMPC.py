@@ -24,7 +24,7 @@ class ControllerLMPC():
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
 
-    def __init__(self, numSS_Points, numSS_it, N, Qslack, Q, R, dR, n, d, shift, dt,  map, Laps, TimeLMPC, Solver):
+    def __init__(self, numSS_Points, numSS_it, N, Qslack, Qlane, Q, R, dR, n, d, shift, dt,  map, Laps, TimeLMPC, Solver):
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
@@ -43,6 +43,7 @@ class ControllerLMPC():
         self.numSS_it     = numSS_it
         self.N = N
         self.Qslack = Qslack
+        self.Qlane = Qlane
         self.Q = Q
         self.R = R
         self.dR = dR
@@ -270,6 +271,7 @@ def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
     n = Q.shape[0]
     P = Q
     vt = 2
+    Qlane = LMPC.Qlane
 
     b = [Q] * (N)
     Mx = linalg.block_diag(*b)
@@ -288,15 +290,23 @@ def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
     # np.savetxt('Mu.csv', Mu, delimiter=',', fmt='%f')
 
     M00 = linalg.block_diag(Mx, P, Mu)
-    M0 = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), Qslack)
+    quadLaneSlack = Qlane[0] * np.eye(2*LMPC.N)
+    M0 = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), Qslack, quadLaneSlack)
+    # np.savetxt('M0.csv', M0, delimiter=',', fmt='%f')
+
     xtrack = np.array([vt, 0, 0, 0, 0, 0])
     q0 = - 2 * np.dot(np.append(np.tile(xtrack, N + 1), np.zeros(R.shape[0] * N)), M00)
+
+
+
 
     # Derivative Input
     q0[n*(N+1):n*(N+1)+2] = -2 * np.dot( uOld, np.diag(dR) )
 
     # np.savetxt('q0.csv', q0, delimiter=',', fmt='%f')
-    q = np.append(np.append(q0, Sel_Qfun), np.zeros(Q.shape[0]))
+    linLaneSlack = Qlane[1] * np.ones(2*LMPC.N)
+
+    q = np.append(np.append(np.append(q0, Sel_Qfun), np.zeros(Q.shape[0])), linLaneSlack)
 
     # np.savetxt('q.csv', q, delimiter=',', fmt='%f')
 
@@ -315,13 +325,11 @@ def _LMPC_BuildMatIneqConst(LMPC):
     n = LMPC.n
     numSS_Points = LMPC.numSS_Points
     # Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
-    Fx = np.array([[1., 0., 0., 0., 0., 0.],
-                   [0., 0., 0., 0., 0., 1.],
+    Fx = np.array([[0., 0., 0., 0., 0., 1.],
                    [0., 0., 0., 0., 0., -1.]])
 
-    bx = np.array([[3.],  # vx max
-                   [0.8],  # max ey
-                   [0.8]])  # max ey
+    bx = np.array([[0.4],  # max ey
+                   [0.4]])  # max ey
 
     # Buil the matrices for the input constraint in each region. In the region i we want Fx[i]x <= bx[b]
     Fu = np.array([[1., 0.],
@@ -333,6 +341,8 @@ def _LMPC_BuildMatIneqConst(LMPC):
                    [0.5],  # Max Steering
                    [1.],  # Max Acceleration
                    [1.]])  # Max Acceleration
+
+
 
     # Now stuck the constraint matrices to express them in the form Fz<=b. Note that z collects states and inputs
     # Let's start by computing the submatrix of F relates with the state
@@ -357,7 +367,21 @@ def _LMPC_BuildMatIneqConst(LMPC):
     I = -np.eye(numSS_Points)
     FDummy2 = linalg.block_diag(FDummy, I)
     Fslack = np.zeros((FDummy2.shape[0], n))
-    F = np.hstack((FDummy2, Fslack))
+    F_hard = np.hstack((FDummy2, Fslack))
+
+    LaneSlack = np.zeros((F_hard.shape[0], 2*N))
+    colIndex = range(2*N)
+    rowIndex = []
+    for i in range(0, N):
+        rowIndex.append(i*Fx.shape[0] +0) # Slack on second element of Fx
+        rowIndex.append(i*Fx.shape[0] +1) # Slack on third element of Fx
+    LaneSlack[rowIndex, colIndex] = 1.0
+
+    F = np.hstack((F_hard, LaneSlack))
+    # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
+    # pdb.set_trace()
+
+
 
     # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
     b = np.hstack((bxtot, butot, np.zeros(numSS_Points)))
@@ -419,7 +443,11 @@ def _LMPC_TermConstr(LMPC, G, E, N ,n ,d , SS_Points):
     G_ConHull = np.zeros((1, G_LMPC0.shape[1]))
     G_ConHull[-1, G_ConHull.shape[1]-SS_Points.shape[1]-n:G_ConHull.shape[1]-n] = np.ones((1,SS_Points.shape[1]))
 
-    G_LMPC = np.vstack((G_LMPC0, G_ConHull))
+
+    G_LMPC_hard = np.vstack((G_LMPC0, G_ConHull))
+
+    SlackLane = np.zeros((G_LMPC_hard.shape[0], 2*N))
+    G_LMPC = np.hstack((G_LMPC_hard, SlackLane))
 
     E_LMPC = np.vstack((E, np.zeros((n + 1, n))))
 

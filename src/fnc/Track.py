@@ -12,6 +12,7 @@ class Map():
         width: track width
         Modify the vector spec to change the geometry of the track
         """
+        self.slack = 0.15
         self.width = width
         spec = np.array([[60 * 0.03, 0],
                          [80 * 0.03, -80 * 0.03 * 2 / np.pi],
@@ -214,7 +215,7 @@ class Map():
                         s       = s_local + PointAndTangent[i, 3]
                         ey      = la.norm(v1) * np.sin(angle)
 
-                        if np.abs(ey)<= self.width:
+                        if np.abs(ey)<= self.width + self.slack:
                             CompletedFlag = 1
 
             else:
@@ -259,7 +260,7 @@ class Map():
                         psi_unwrap = np.unwrap([ang + arc2, psi])[1]
                         epsi = psi_unwrap - (ang + arc2)
 
-                        if np.abs(ey) <= self.width:
+                        if np.abs(ey) <= self.width + self.slack:
                             CompletedFlag = 1
 
         if epsi>1.0:

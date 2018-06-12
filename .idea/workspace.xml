@@ -2,7 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b82c504b-cebe-4b95-a526-6942af548f40" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ClosedLoop.gif" beforeDir="false" afterPath="$PROJECT_DIR$/src/ClosedLoop.gif" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/LMPController.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/LMPController.obj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fnc/LMPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/LMPC.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fnc/Track.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/Track.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -16,11 +20,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="main.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="15">
-              <caret line="47" column="14" selection-start-line="47" selection-start-column="14" selection-end-line="47" selection-end-column="14" />
+            <state relative-caret-position="121">
+              <caret line="47" column="56" selection-start-line="47" selection-start-column="56" selection-end-line="47" selection-end-column="56" />
             </state>
           </provider>
         </entry>
@@ -46,11 +50,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="LMPC.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="LMPC.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="839">
-              <caret line="279" column="60" selection-start-line="279" selection-start-column="60" selection-end-line="279" selection-end-column="60" />
+            <state relative-caret-position="105">
+              <caret line="331" column="23" selection-start-line="331" selection-start-column="23" selection-end-line="331" selection-end-column="23" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -90,8 +94,8 @@
       <file leaf-file-name="Track.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/Track.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="4890">
-              <caret line="328" column="29" selection-start-line="328" selection-start-column="29" selection-end-line="328" selection-end-column="29" />
+            <state relative-caret-position="162">
+              <caret line="11" column="13" selection-start-line="11" selection-start-column="8" selection-end-line="11" selection-end-column="13" />
               <folding>
                 <element signature="e#0#18#0" expanded="true" />
               </folding>
@@ -122,8 +126,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>feasible</find>
-      <find>TotNumberIt</find>
       <find>N</find>
       <find>Sel_Qfun</find>
       <find>SS_Points</find>
@@ -149,9 +151,11 @@
       <find>fnc</find>
       <find>sys</find>
       <find>LMPC</find>
-      <find>_LMPC_BuildMatCost</find>
       <find>Mu</find>
       <find>pdb</find>
+      <find>width</find>
+      <find>ControllerLMPC</find>
+      <find>_LMPC_BuildMatCost</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -172,19 +176,19 @@
         <option value="$PROJECT_DIR$/src/fnc/SysModel.py" />
         <option value="$PROJECT_DIR$/README.md" />
         <option value="$PROJECT_DIR$/src/fnc/plot.py" />
-        <option value="$PROJECT_DIR$/src/fnc/Track.py" />
         <option value="$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py" />
         <option value="$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py" />
         <option value="$PROJECT_DIR$/src/fnc/LMPC.py" />
+        <option value="$PROJECT_DIR$/src/fnc/Track.py" />
         <option value="$PROJECT_DIR$/src/main.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="96" />
-    <option name="y" value="23" />
-    <option name="width" value="1255" />
-    <option name="height" value="741" />
+    <option name="x" value="-1675" />
+    <option name="y" value="-150" />
+    <option name="width" value="1653" />
+    <option name="height" value="1040" />
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
@@ -282,13 +286,13 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="96" y="23" width="1255" height="741" extended-state="0" />
+    <frame x="-1675" y="-150" width="1653" height="1040" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.48809522" visible="true" weight="0.006482982" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.48809522" visible="true" weight="0.004901961" />
       <window_info anchor="bottom" id="TODO" order="6" weight="0.32904884" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
-      <window_info anchor="bottom" id="Run" order="2" weight="0.40111732" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.40084836" />
       <window_info anchor="bottom" id="Version Control" order="7" weight="0.32904884" />
       <window_info anchor="bottom" id="Python Console" order="7" weight="0.32714137" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -308,21 +312,21 @@
     <layout-to-restore>
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.15021199" />
       <window_info id="Structure" order="1" weight="0.25" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.3693599" />
-      <window_info anchor="bottom" id="Python Console" order="9" />
-      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.39581153" />
       <window_info anchor="bottom" id="Terminal" order="10" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
-      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
-      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Python Console" order="9" />
     </layout-to-restore>
   </component>
   <component name="VcsContentAnnotationSettings">
@@ -344,16 +348,6 @@
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/src/fnc/SysModel.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="555">
-          <caret line="37" column="9" selection-start-line="37" selection-start-column="4" selection-end-line="37" selection-end-column="9" />
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/Track.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="630">
@@ -587,16 +581,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/Track.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4890">
-          <caret line="328" column="29" selection-start-line="328" selection-start-column="29" selection-end-line="328" selection-end-column="29" />
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/Library/Caches/PyCharmCE2018.1/python_stubs/-1087867587/__builtin__.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="257">
@@ -624,20 +608,37 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main.py">
+    <entry file="file:///System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/numpy/lib/function_base.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="15">
-          <caret line="47" column="14" selection-start-line="47" selection-start-column="14" selection-end-line="47" selection-end-column="14" />
+        <state relative-caret-position="432">
+          <caret line="3542" selection-start-line="3542" selection-end-line="3542" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fnc/Track.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="162">
+          <caret line="11" column="13" selection-start-line="11" selection-start-column="8" selection-end-line="11" selection-end-column="13" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="839">
-          <caret line="279" column="60" selection-start-line="279" selection-start-column="60" selection-end-line="279" selection-end-column="60" />
+        <state relative-caret-position="105">
+          <caret line="331" column="23" selection-start-line="331" selection-start-column="23" selection-end-line="331" selection-end-column="23" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="121">
+          <caret line="47" column="56" selection-start-line="47" selection-start-column="56" selection-end-line="47" selection-end-column="56" />
         </state>
       </provider>
     </entry>
