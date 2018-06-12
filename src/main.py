@@ -45,7 +45,7 @@ import pickle
 RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 0; animation_stateFlag = 0
+RunLMPC    = 0; plotFlagLMPC   = 1; animation_xyFlag = 0; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
