@@ -135,7 +135,7 @@ class AbstractControllerLMPC:
             if cost < best_cost:
                 best_cost = cost
                 best_solution = Solution
-                best_ind = i
+                best_ind = i=
                 self.feasible = feasible
 
         deltaTimer = datetime.datetime.now() - startTimer
@@ -256,7 +256,6 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         # get dynamics
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
-
         # TODO can we do this?
         SSind = closest_idx(self.SS[:,:,self.it-2], x0)
         select_reg_0 = self.SS_regions[SSind:(SSind+self.N+1), self.it-2]
