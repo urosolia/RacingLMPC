@@ -135,7 +135,7 @@ class AbstractControllerLMPC:
             if cost < best_cost:
                 best_cost = cost
                 best_solution = Solution
-                best_ind = i=
+                # best_ind = i=
                 self.feasible = feasible
 
         deltaTimer = datetime.datetime.now() - startTimer
