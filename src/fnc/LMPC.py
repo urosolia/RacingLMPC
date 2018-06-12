@@ -103,29 +103,51 @@ class AbstractControllerLMPC:
 
         # Get the matrices for defining the QP
         # this method will be defined in inheriting classes
-        L, G, E, M, q, F, b = self._getQP(x0)
         
-        # Solve QP
+        qp_params = self._getQP(x0)
+        best_cost = np.inf
+        best_solution = np.empty((0,0))
         startTimer = datetime.datetime.now()
-        if self.Solver == "CVX":
-            res_cons = qp(convert_sparse_cvx(M), matrix(q), convert_sparse_cvx(F), 
-                          matrix(b), convert_sparse_cvx(G), 
-                          convert_sparse_cvx(E) * matrix(x0) + convert_sparse_cvx(L))
-            if res_cons['status'] == 'optimal':
-                feasible = 1
-            else:
-                feasible = 0
-            Solution = np.squeeze(res_cons['x'])     
-        elif self.Solver == "OSQP":
-            # Adaptation for QSQP from https://github.com/alexbuyval/RacingLMPC/
-            res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
-            Solution = res_cons.x
+        # TODO make this parallel
+        for i, qp_param in enumerate(qp_params):
+            L, G, E, M, q, F, b = qp_param
+            # Solve QP
+            if self.Solver == "CVX":
+                res_cons = qp(convert_sparse_cvx(M), matrix(q), convert_sparse_cvx(F), 
+                              matrix(b), convert_sparse_cvx(G), 
+                              convert_sparse_cvx(E) * matrix(x0) + convert_sparse_cvx(L))
+                if res_cons['status'] == 'optimal':
+                    feasible = 1
+                    cost = res_cons['primal objective']
+                else:
+                    feasible = 0
+                    cost = np.inf
+                Solution = np.squeeze(res_cons['x'])     
+            elif self.Solver == "OSQP":
+                # Adaptation for QSQP from https://github.com/alexbuyval/RacingLMPC/
+                res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
+                Solution = res_cons.x
+                # TODO is this right
+                cost = res_cons.info.obj_val if feasible else np.inf
+
+            # TODO: must add terminal cost for LMPC
+            
+            if cost < best_cost:
+                best_cost = cost
+                best_solution = Solution
+                best_ind = i
+                self.feasible = feasible
+
         deltaTimer = datetime.datetime.now() - startTimer
-        self.feasible = feasible
         self.solverTime = deltaTimer
 
+        # TODO
+        # self.SSind += best_ind + 1
+
+        # TODO throw infeasibility error?
+
         # Extract solution and set linearization points
-        xPred, uPred, _, slack = LMPC_GetPred(Solution, self.n, self.d, self.N)
+        xPred, uPred, _, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
         self.xPred = xPred.T
         if self.N == 1:
             self.uPred    = np.array([[uPred[0], uPred[1]]])
@@ -219,10 +241,11 @@ class PWAControllerLMPC(AbstractControllerLMPC):
     def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
+        # self.SSind = N
+        self.numTermPts = 1
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-    
     def _getQP(self, x0):
         # PWA System ID
         self._estimate_pwa(verbose=True)
@@ -231,27 +254,42 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         deltaTimer = datetime.datetime.now() - startTimer
         self.linearizationTime = deltaTimer
 
-
-        # TODO regions for candidate trajectories
-        # and need to add logic for region selection
-        # for now this is hard coded
-        SSind = closest_idx(self.SS[:,:,self.it-2], x0)
-        select_reg = self.SS_regions[SSind:(SSind+self.N+1), self.it-2]
-        terminal_point = self.SS[SSind+self.N+1,:,self.it-2]
-
-        # equality constraints from dynamics
-        # including x0 and xf
+        # get dynamics
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
-        L, G, E1, E2 = BuildMatEqConst_PWA(As, Bs, ds, self.N, select_reg)
-        Lterm = L + np.expand_dims(E2.dot(terminal_point),1)
 
-        # inequality constraints from regions
-        F_region, b_region = self.clustering.get_region_matrices()
-        stackedF, stackedb = LMPC_BuildMatIneqConst(self.N, F_region=F_region, 
-                                                    b_region=b_region, SelectReg=select_reg)
-        M, q = LMPC_BuildMatCost(self.N, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+        # TODO can we do this?
+        SSind = closest_idx(self.SS[:,:,self.it-2], x0)
+        select_reg_0 = self.SS_regions[SSind:(SSind+self.N+1), self.it-2]
+        select_reg = select_reg_0
+        
+        qp_mat_list = []
 
-        return Lterm, G, E1, M, q, stackedF, stackedb
+        for i in range(self.numTermPts):
+            terminal_point = self.SS[SSind+self.N+1+i,:,self.it-2]
+            if SSind+self.N+1+i > self.TimeSS[self.it-2] or self.SS_regions[SSind+self.N+1+i, self.it-2] == select_reg_0[-1]:
+                select_reg = select_reg_0
+                
+            elif self.SS_regions[SSind+self.N+1+i] != select_reg_0[-1]:
+                # TODO: isn't this all LastIdea is doing?
+                select_reg = self.SS_regions[SSind+i:(SSind+self.N+1+i), self.it-2]
+
+            # TODO when there is no need to recompute matrices
+            # L, G, E1, E2, stackedF, stackedb, M, q = full_mat_list[-1]
+            # Lterm = L + np.expand_dims(E2.dot(terminal_point),1)
+            # qp_mat_list.append((Lterm, G, E1, M, q, stackedF, stackedb))
+
+            # equality constraints from dynamics 
+            L, G, E1, E2 = BuildMatEqConst_PWA(As, Bs, ds, self.N, select_reg)
+            Lterm = L + np.expand_dims(E2.dot(terminal_point),1)
+            # inequality constraints from regions
+            F_region, b_region = self.clustering.get_region_matrices()
+            stackedF, stackedb = LMPC_BuildMatIneqConst(self.N, F_region=F_region, 
+                                                            b_region=b_region, SelectReg=select_reg)
+            M, q = LMPC_BuildMatCost(self.N, self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+
+            qp_mat_list.append((Lterm, G, E1, M, q, stackedF, stackedb))
+
+        return qp_mat_list
 
     def _estimate_pwa(self, x=None, u=None, verbose=False):
         if self.clustering is None:
@@ -326,7 +364,7 @@ class ControllerLMPC(AbstractControllerLMPC):
 
         M, q = LMPC_BuildMatCost(self.N, self.Qslack, self.Q, self.R, self.dR, self.OldInput,
                                  self.Qfun_SelectedTot, self.numSS_Points)
-        return L, G, E, M, q, self.stackedF, self.stackedb
+        return [(L, G, E, M, q, self.stackedF, self.stackedb)]
 
     def _EstimateABC(self):
         LinPoints       = self.LinPoints
@@ -498,6 +536,7 @@ def LMPC_BuildMatCost(N, Qslack, Q, R, dR, uOld, Sel_Qfun=[], numSS_Points=0):
     Sel_Qfun, numSS_Points are optional arguments to be included
     if the QP includes the convex hull of SS points.
     '''
+    # TODO, additional cost for LMPC? affine term.
     n = Q.shape[0]
     d = R.shape[0]
     vt = 2
