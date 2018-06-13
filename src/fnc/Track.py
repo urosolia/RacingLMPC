@@ -1,6 +1,8 @@
 import numpy as np
 import numpy.linalg as la
 import pdb
+from scipy import interpolate
+from math import sqrt
 
 class Map():
     """map object
@@ -12,7 +14,8 @@ class Map():
         width: track width
         Modify the vector spec to change the geometry of the track
         """
-        self.width = width
+        self.width = width 
+        
         spec = np.array([[60 * 0.03, 0],
                          [80 * 0.03, -80 * 0.03 * 2 / np.pi],
                          # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
@@ -26,12 +29,14 @@ class Map():
                          [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
 
 
-        # spec = np.array([[1.0, 0],
+        spec = self.estimated_spec()
+       # print(spec)
+       # spec = np.array([[1.0, 0],
         #                  [4.5, -4.5 / np.pi],
-        #                  # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-        #                  [2.0, 0],
-        #                  [4.5, -4.5 / np.pi],
-        #                  [1.0, 0]])
+         #                 # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+         #                 [2.0, 0],
+         #                 [4.5, -4.5 / np.pi],
+         #                 [1.0, 0]])
 
         # Now given the above segments we compute the (x, y) points of the track and the angle of the tangent vector (psi) at
         # these points. For each segment we compute the (x, y, psi) coordinate at the last point of the segment. Furthermore,
@@ -117,6 +122,61 @@ class Map():
 
         self.PointAndTangent = PointAndTangent
         self.TrackLength = PointAndTangent[-1, 3] + PointAndTangent[-1, 4]
+
+    def estimated_spec(self):
+        t = np.load("fnc/track_curved.npz")
+        xs = t["x"] * 4
+        ys = t["y"] * 4
+        ds = .0001
+        lengths = 0
+        for i in range(1, len(xs)):
+            lengths += np.linalg.norm([xs[i] - xs[i-1], ys[i] - ys[i-1]])
+        i = np.arange(len(xs))
+        interp_i = np.linspace(0, i.max(), (lengths // ds))
+
+        tck = interpolate.splrep(i, xs, s=1, per=1)
+        xi = interpolate.splev(interp_i, tck, der=0)
+        xder = interpolate.splev(interp_i, tck, der=1)
+        xder_2 = interpolate.splev(interp_i, tck, der=2)
+
+        tck = interpolate.splrep(i, ys, s=1, per=1)
+        yi = interpolate.splev(interp_i, tck, der=0)
+        yder = interpolate.splev(interp_i, tck, der=1)
+        yder_2 = interpolate.splev(interp_i, tck, der=2)
+
+        ds = 1
+        i, idx = 0, [0]
+        print(len(xi))
+        while i < len(xi):
+            print(i)
+            total_dist = 0
+            for j in range(i+1, len(xi)):
+                total_dist += sqrt((xi[j]-xi[j-1])**2 + (yi[j]-yi[j-1])**2)
+                if total_dist > ds:
+                    idx.append(j)
+                    break
+            i = j+1
+
+        x = xi[idx]
+        xder = xder[idx]
+        xder_2 = xder_2[idx]
+
+        y = yi[idx]
+        yder = yder[idx]
+        yder_2 = yder_2[idx]
+
+        curvature = (xder*yder_2 - yder*xder_2) / (xder**2 + yder**2)**1.5
+        r = []
+        for i in range(curvature.shape[0]):
+            if (np.abs(curvature[i]) < 0.01):
+                r.append(0.0)
+            else:
+                r.append(1/curvature[i])
+
+        spec = [[ds, r[i]] for i in range(1, len(curvature))]
+        #spec.append([ds, r[0]])
+        spec = np.array(spec)
+        return spec
 
     def getGlobalPosition(self, s, ey):
         """coordinate transformation from curvilinear reference frame (e, ey) to inertial reference frame (X, Y)
