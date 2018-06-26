@@ -33,12 +33,12 @@ class Simulator():
 
         SimulationTime = 0
         for i in range(0, ClosedLoopData.Points):
-
             Controller.solve(x[i, :])
 
             u[i, :] = Controller.uPred[0,:]
 
             if LMPCprediction != 0:
+                Controller.LapTime = i
                 LMPCprediction.PredictedStates[:,:,i, Controller.it]   = Controller.xPred
                 LMPCprediction.PredictedInputs[:, :, i, Controller.it] = Controller.uPred
                 LMPCprediction.SSused[:, :, i, Controller.it]          = Controller.SS_PointSelectedTot

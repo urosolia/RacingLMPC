@@ -52,7 +52,9 @@ class ControllerLMPC():
         self.shift = shift
         self.dt = dt
         self.map = map
-        self.Solver = Solver            
+        self.Solver = Solver
+        self.LapTime = 0
+        self.itUsedSysID = 2
 
         self.OldInput = np.zeros((1,2))
 
@@ -72,6 +74,8 @@ class ControllerLMPC():
 
         # Build matrices for inequality constraints
         self.F, self.b = _LMPC_BuildMatIneqConst(self)
+
+        self.xPred = []
 
     def solve(self, x0, uOld = np.zeros([0, 0])):
         """Computes control action
@@ -96,18 +100,21 @@ class ControllerLMPC():
         map = self.map
 
         # Select Points from SS
-        SS_PointSelectedTot      = np.empty((n, 0))
-        Qfun_SelectedTot         = np.empty((0))
-        for jj in range(0, self.numSS_it):
-            SS_PointSelected, Qfun_Selected = _SelectPoints(SS, Qfun, it - jj - 1, x0, numSS_Points / self.numSS_it, shift)
-            SS_PointSelectedTot =  np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
-            Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
+        sortedLapTime = np.argsort(self.Qfun[0, 0:it])
+
+        SS_PointSelectedTot = np.empty((n, 0))
+        SS_glob_PointSelectedTot = np.empty((n, 0))
+        Qfun_SelectedTot = np.empty((0))
+        for jj in sortedLapTime[0:self.numSS_it]:
+            SS_PointSelected, Qfun_Selected = _SelectPoints(self, jj, x0, numSS_Points / self.numSS_it, shift)
+            SS_PointSelectedTot = np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
+            Qfun_SelectedTot = np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
 
         self.SS_PointSelectedTot = SS_PointSelectedTot
-        self.Qfun_SelectedTot    = Qfun_SelectedTot
-        # Run System ID
+        self.Qfun_SelectedTot = Qfun_SelectedTot
+
         startTimer = datetime.datetime.now()
-        Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self)
+        Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self, sortedLapTime)
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         L, npG, npE = _LMPC_BuildMatEqConst(self, Atv, Btv, Ctv, N, n, d)
         self.linearizationTime = deltaTimer
@@ -369,22 +376,39 @@ def _LMPC_BuildMatIneqConst(LMPC):
     Fslack = np.zeros((FDummy2.shape[0], n))
     F_hard = np.hstack((FDummy2, Fslack))
 
-    LaneSlack = np.zeros((F_hard.shape[0], 2*N))
-    colIndex = range(2*N)
-    rowIndex = []
+    LaneSlack = np.zeros((F_hard.shape[0], 2 * N))
+    colIndexPositive = []
+    rowIndexPositive = []
+    colIndexNegative = []
+    rowIndexNegative = []
     for i in range(0, N):
-        rowIndex.append(i*Fx.shape[0] +0) # Slack on second element of Fx
-        rowIndex.append(i*Fx.shape[0] +1) # Slack on third element of Fx
-    LaneSlack[rowIndex, colIndex] = 1.0
+        colIndexPositive.append(i * 2 + 0)
+        colIndexNegative.append(i * 2 + 1)
 
-    F = np.hstack((F_hard, LaneSlack))
+        rowIndexPositive.append(i * Fx.shape[0] + 0)  # Slack on second element of Fx
+        rowIndexNegative.append(i * Fx.shape[0] + 1)  # Slack on third element of Fx
+
+    LaneSlack[rowIndexPositive, colIndexPositive] = 1.0
+    LaneSlack[rowIndexNegative, rowIndexNegative] = -1.0
+
+    F_1 = np.hstack((F_hard, LaneSlack))
+
+    I = - np.eye(2*N)
+    Zeros = np.zeros((2*N, F_hard.shape[1]))
+    Positivity = np.hstack((Zeros, I))
+
+    F = np.vstack((F_1, Positivity))
+
     # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
     # pdb.set_trace()
 
 
 
-    # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
-    b = np.hstack((bxtot, butot, np.zeros(numSS_Points)))
+    b_1 = np.hstack((bxtot, butot, np.zeros(numSS_Points)))
+
+    b = np.hstack((b_1, np.zeros(2*N)))
+    # np.savetxt('b.csv', b, delimiter=',', fmt='%f')
+
     if LMPC.Solver == "CVX":
         F_sparse = spmatrix(F[np.nonzero(F)], np.nonzero(F)[0].astype(int), np.nonzero(F)[1].astype(int), F.shape)
         F_return = F_sparse
@@ -394,8 +418,17 @@ def _LMPC_BuildMatIneqConst(LMPC):
     return F_return, b
 
 
-def _SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
+def _SelectPoints(LMPC, it, x0, numSS_Points, shift):
+    SS = LMPC.SS
+    SS_glob = LMPC.SS_glob
+    Qfun = LMPC.Qfun
+    xPred = LMPC.xPred
+    map = LMPC.map
+    TrackLength = map.TrackLength
+    currIt = LMPC.it
+
     x = SS[:, :, it]
+    x_glob = SS_glob[:, :, it]
     oneVec = np.ones((x.shape[0], 1))
     x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
     diff = x - x0Vec
@@ -403,11 +436,41 @@ def _SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
     MinNorm = np.argmin(norm)
 
     if (MinNorm + shift >= 0):
-        SS_Points = x[shift + MinNorm:shift + MinNorm + numSS_Points, :].T
-        Sel_Qfun = Qfun[shift + MinNorm:shift + MinNorm + numSS_Points, it]
+        indexSSandQfun = range(shift + MinNorm, shift + MinNorm + numSS_Points)
+        # SS_Points = x[shift + MinNorm:shift + MinNorm + numSS_Points, :].T
+        # SS_glob_Points = x_glob[shift + MinNorm:shift + MinNorm + numSS_Points, :].T
+        # Sel_Qfun = Qfun[shift + MinNorm:shift + MinNorm + numSS_Points, it]
     else:
-        SS_Points = x[MinNorm:MinNorm + numSS_Points, :].T
-        Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it]
+        indexSSandQfun = range(MinNorm, MinNorm + numSS_Points)
+        # SS_Points = x[MinNorm:MinNorm + numSS_Points, :].T
+        # SS_glob_Points = x_glob[MinNorm:MinNorm + numSS_Points, :].T
+        # Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it]
+
+    SS_Points = x[indexSSandQfun, :].T
+    SS_glob_Points = x_glob[indexSSandQfun, :].T
+    Sel_Qfun = Qfun[indexSSandQfun, it]
+
+    # if xPred != []:
+    #     sPred = xPred[:, 4]
+    #     print sPred
+    #     print sPred > TrackLength, sum(sPred > TrackLength)
+    #     print (np.all((xPred[:, 4] > TrackLength) == False))
+
+    if xPred == []:
+        # print "Here "
+        Sel_Qfun = Qfun[indexSSandQfun, it]
+    elif (np.all((xPred[:, 4] > TrackLength) == False)):
+        # print "Here 1"
+        Sel_Qfun = Qfun[indexSSandQfun, it]
+    elif it < currIt - 1:
+        # print "Here 2"
+        Sel_Qfun = Qfun[indexSSandQfun, it] + Qfun[0, it + 1]
+    else:
+        sPred = xPred[:, 4]
+        # print "Here 3", sum(sPred > TrackLength)
+        predCurrLap = LMPC.N - sum(sPred > TrackLength)
+        currLapTime = LMPC.LapTime
+        Sel_Qfun = Qfun[indexSSandQfun, it] + currLapTime + predCurrLap
 
     return SS_Points, Sel_Qfun
 
@@ -511,7 +574,7 @@ def _LMPC_GetPred(Solution,n,d,N, np):
 # ========================= Internal functions for Local Regression and Linearization ==================================
 # ======================================================================================================================
 # ======================================================================================================================
-def _LMPC_EstimateABC(ControllerLMPC):
+def _LMPC_EstimateABC(ControllerLMPC, sortedLapTime):
     LinPoints       = ControllerLMPC.LinPoints
     LinInput        = ControllerLMPC.LinInput
     N               = ControllerLMPC.N
@@ -528,7 +591,7 @@ def _LMPC_EstimateABC(ControllerLMPC):
     ParallelComputation = 0
     Atv = []; Btv = []; Ctv = []; indexUsed_list = []
 
-    usedIt = range(it-2,it)
+    usedIt = sortedLapTime[0:ControllerLMPC.itUsedSysID] # range(ControllerLMPC.it-ControllerLMPC.itUsedSysID, ControllerLMPC.it)
     MaxNumPoint = 40  # Need to reason on how these points are selected
 
     if ParallelComputation == 1:
