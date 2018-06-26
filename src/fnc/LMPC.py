@@ -132,6 +132,7 @@ class ControllerLMPC():
                 feasible = 1
             else:
                 feasible = 0
+                print res_cons['status']
             Solution = np.squeeze(res_cons['x'])     
 
         elif self.Solver == "OSQP":
@@ -388,7 +389,7 @@ def _LMPC_BuildMatIneqConst(LMPC):
         rowIndexPositive.append(i * Fx.shape[0] + 0)  # Slack on second element of Fx
         rowIndexNegative.append(i * Fx.shape[0] + 1)  # Slack on third element of Fx
 
-    LaneSlack[rowIndexPositive, colIndexPositive] = 1.0
+    LaneSlack[rowIndexPositive, colIndexPositive] = -1.0
     LaneSlack[rowIndexNegative, rowIndexNegative] = -1.0
 
     F_1 = np.hstack((F_hard, LaneSlack))
@@ -566,7 +567,13 @@ def _LMPC_GetPred(Solution,n,d,N, np):
     xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n*(N+1))]),(N+1,n))))
     uPred = np.squeeze(np.transpose(np.reshape((Solution[n*(N+1)+np.arange(d*N)]),(N, d))))
     lambd = Solution[n*(N+1)+d*N:Solution.shape[0]-n]
-    slack = Solution[Solution.shape[0]-n:]
+    slack = Solution[Solution.shape[0]-n-2*N:]
+    laneSlack = Solution[Solution.shape[0]-2*N:]
+
+    print np.sum(np.abs(laneSlack))
+    if np.sum(np.abs(laneSlack)) > 0.5:
+        pdb.set_trace()
+
     return xPred, uPred, lambd, slack
 
 # ======================================================================================================================

@@ -4,7 +4,6 @@
     <list default="true" id="b82c504b-cebe-4b95-a526-6942af548f40" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/fnc/LMPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/LMPC.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/fnc/SysModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/SysModel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -22,7 +21,7 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="132">
+            <state relative-caret-position="221">
               <caret line="47" column="56" selection-start-line="47" selection-start-column="56" selection-end-line="47" selection-end-column="56" />
             </state>
           </provider>
@@ -52,8 +51,8 @@
       <file leaf-file-name="LMPC.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="256">
-              <caret line="410" lean-forward="true" selection-start-line="410" selection-end-line="410" />
+            <state relative-caret-position="289">
+              <caret line="403" column="19" selection-start-line="403" selection-start-column="19" selection-end-line="403" selection-end-column="19" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -125,8 +124,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>SS_Points</find>
-      <find>np.appe</find>
       <find>plt</find>
       <find>ComputeCost</find>
       <find>LMPC_BuildMatIneqConst</find>
@@ -155,6 +152,8 @@
       <find>_LMPC_BuildMatCost</find>
       <find>_SelectPoints</find>
       <find>_LMPC_EstimateABC</find>
+      <find>pdb.set</find>
+      <find>GetPre</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -184,9 +183,9 @@
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="215" />
-    <option name="y" value="100" />
-    <option name="width" value="1258" />
+    <option name="x" value="728" />
+    <option name="y" value="51" />
+    <option name="width" value="678" />
     <option name="height" value="845" />
   </component>
   <component name="ProjectView">
@@ -194,7 +193,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -217,6 +215,7 @@
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -285,13 +284,13 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="215" y="100" width="1258" height="845" extended-state="0" />
+    <frame x="728" y="51" width="678" height="845" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.48809522" visible="true" weight="0.004850445" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.48809522" visible="true" weight="0.00761035" />
       <window_info anchor="bottom" id="TODO" order="6" weight="0.32904884" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.4157754" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.47459894" />
       <window_info anchor="bottom" id="Version Control" order="7" weight="0.32904884" />
       <window_info anchor="bottom" id="Python Console" order="7" weight="0.32714137" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -553,13 +552,6 @@
     <entry file="file://$PROJECT_DIR$/README.md">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/Classes.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="285">
-          <caret line="19" column="20" selection-start-line="19" selection-start-column="13" selection-end-line="19" selection-end-column="20" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/plot.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="4260">
@@ -624,17 +616,24 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/fnc/Classes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="285">
+          <caret line="19" column="20" selection-start-line="19" selection-start-column="13" selection-end-line="19" selection-end-column="20" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="132">
+        <state relative-caret-position="221">
           <caret line="47" column="56" selection-start-line="47" selection-start-column="56" selection-end-line="47" selection-end-column="56" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="256">
-          <caret line="410" lean-forward="true" selection-start-line="410" selection-end-line="410" />
+        <state relative-caret-position="289">
+          <caret line="403" column="19" selection-start-line="403" selection-start-column="19" selection-end-line="403" selection-end-column="19" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>

@@ -70,7 +70,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 20+2              # Total LMPC laps
+Laps       = 30+2              # Total LMPC laps
 
 # Safe Set Parameters
 LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
@@ -80,7 +80,7 @@ shift = 0                     # Given the closed point, x_t^j, to the x(t) selec
 
 # Tuning Parameters
 Qslack  =  5 * np.diag([10, 1, 1, 1, 10, 1])            # Cost on the slack variable for the terminal constraint
-Qlane   =  1 * np.array([100, 10])                      # Quadratic and linear slack lane cost
+Qlane   =  1 * np.array([0, 10])                      # Quadratic and linear slack lane cost
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
 R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
 dR_LMPC = 10 * np.array([1.0, 10.0])                     # Input rate cost u
