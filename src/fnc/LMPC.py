@@ -570,9 +570,9 @@ def _LMPC_GetPred(Solution,n,d,N, np):
     slack = Solution[Solution.shape[0]-n-2*N:]
     laneSlack = Solution[Solution.shape[0]-2*N:]
 
-    print np.sum(np.abs(laneSlack))
-    if np.sum(np.abs(laneSlack)) > 0.5:
-        pdb.set_trace()
+    # print np.sum(np.abs(laneSlack))
+    # if np.sum(np.abs(laneSlack)) > 0.5:
+    #     pdb.set_trace()
 
     return xPred, uPred, lambd, slack
 
