@@ -38,6 +38,7 @@ class Simulator():
 
             u[i, :] = Controller.uPred[0,:]
 
+
             if LMPCprediction != 0:
                 LMPCprediction.PredictedStates[:, :, i, Controller.it]   = Controller.xPred
                 LMPCprediction.PredictedInputs[:, :, i, Controller.it] = Controller.uPred
@@ -52,7 +53,7 @@ class Simulator():
             x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
             SimulationTime = i + 1
 
-            if i <= 5:
+            if i <= 5000:
                 # TODO more general, no linearization time
                 print("Linearization time: %.4fs Solver time: %.4fs" % (Controller.linearizationTime.total_seconds(), Controller.solverTime.total_seconds()))
                 print("Time: ", i * ClosedLoopData.dt, "Current State and Input: ", x[i, :], u[i, :])

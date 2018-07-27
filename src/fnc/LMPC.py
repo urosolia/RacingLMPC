@@ -17,6 +17,7 @@ from abc import ABCMeta, abstractmethod
 import sys
 sys.path.append('../../SwitchSysLMPC/src')
 import pwa_cluster as pwac
+import pdb
 
 
 solvers.options['show_progress'] = False
@@ -87,8 +88,6 @@ class AbstractControllerLMPC:
             x0: current state position
         """
 
-        # TODO: possible iteration of several QPs here for PWA
-
         # Select Points from Safe Set
         # a subset of nearby points are chosen from past iterations
         SS_PointSelectedTot      = np.empty((self.n, 0))
@@ -108,6 +107,7 @@ class AbstractControllerLMPC:
         best_cost = np.inf
         best_solution = np.empty((0,0))
         startTimer = datetime.datetime.now()
+        self.feasible = 0
         # TODO make this parallel
         for i, qp_param in enumerate(qp_params):
             L, G, E, M, q, F, b = qp_param
@@ -131,11 +131,10 @@ class AbstractControllerLMPC:
                 cost = res_cons.info.obj_val if feasible else np.inf
 
             # TODO: must add terminal cost for LMPC
-            
             if cost < best_cost:
                 best_cost = cost
                 best_solution = Solution
-                # best_ind = i=
+                best_ind = i
                 self.feasible = feasible
 
         deltaTimer = datetime.datetime.now() - startTimer
@@ -145,9 +144,13 @@ class AbstractControllerLMPC:
         # self.SSind += best_ind + 1
 
         # TODO throw infeasibility error?
+        assert self.feasible == 1, "no QPs were feasible"
 
         # Extract solution and set linearization points
-        xPred, uPred, _, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
+        try:
+            xPred, uPred, _, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
+        except:
+            return
         self.xPred = xPred.T
         if self.N == 1:
             self.uPred    = np.array([[uPred[0], uPred[1]]])
@@ -235,14 +238,14 @@ class AbstractControllerLMPC:
 class PWAControllerLMPC(AbstractControllerLMPC):
     """
     Piecewise affine controller
-    For now, uses LTV LMPC control, but stores predictions from a piecewise affine model
+
     """
 
     def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
         # self.SSind = N
-        self.numTermPts = 1
+        self.numTermPts = 100
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
@@ -256,8 +259,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         # get dynamics
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
-        # TODO can we do this?
-        SSind = closest_idx(self.SS[:,:,self.it-2], x0)
+        # use the previously used terminal constraint+1
+        SSind = closest_idx(self.SS[:,:,self.it-2], x0) # TODO: self.best_i + 1 not closest_idx(self.SS[:,:,self.it-2], x0)
         select_reg_0 = self.SS_regions[SSind:(SSind+self.N+1), self.it-2]
         select_reg = select_reg_0
         
@@ -267,8 +270,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             terminal_point = self.SS[SSind+self.N+1+i,:,self.it-2]
             if SSind+self.N+1+i > self.TimeSS[self.it-2] or self.SS_regions[SSind+self.N+1+i, self.it-2] == select_reg_0[-1]:
                 select_reg = select_reg_0
-                
-            elif self.SS_regions[SSind+self.N+1+i] != select_reg_0[-1]:
+            else:
                 # TODO: isn't this all LastIdea is doing?
                 select_reg = self.SS_regions[SSind+i:(SSind+self.N+1+i), self.it-2]
 
