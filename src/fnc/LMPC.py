@@ -75,6 +75,9 @@ class AbstractControllerLMPC:
         # TODO replace with after-the-fact mapping?
         self.SS_glob = 10000 * np.ones((NumPoints, n, Laps))    # SS in global (X-Y) used for plotting
 
+        # TODO this is just for PWA
+        self.SSind = None
+
         # Initialize the controller iteration
         self.it      = 0
 
@@ -108,6 +111,7 @@ class AbstractControllerLMPC:
         best_solution = np.empty((0,0))
         startTimer = datetime.datetime.now()
         self.feasible = 0
+        best_ind = 0
         # TODO make this parallel
         for i, qp_param in enumerate(qp_params):
             L, G, E, M, q, F, b = qp_param
@@ -140,11 +144,13 @@ class AbstractControllerLMPC:
         deltaTimer = datetime.datetime.now() - startTimer
         self.solverTime = deltaTimer
 
-        # TODO
-        # self.SSind += best_ind + 1
-
         # TODO throw infeasibility error?
-        assert self.feasible == 1, "no QPs were feasible"
+        if self.feasible == 0:
+            return 
+            
+        # TODO
+        if self.SSind is not None:
+            self.SSind += best_ind + 1 # + self.N 
 
         # Extract solution and set linearization points
         try:
@@ -162,13 +168,6 @@ class AbstractControllerLMPC:
         
         # TODO: make this more general
         self.LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
-
-        # TODO: this is a temporary hack to store piecewise affine predictions
-        # only putting this prediction in the one-step position
-        # if self.clustering is not None:
-        #     print(self.xPred[0],self.uPred[0])
-        #     pwa_pred = self.clustering.get_prediction(np.hstack([self.xPred[0],self.uPred[0]]))
-        #     self.xPred[1] = pwa_pred
         
         
 
@@ -260,7 +259,11 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         # get dynamics
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
         # use the previously used terminal constraint+1
-        SSind = closest_idx(self.SS[:,:,self.it-2], x0) # TODO: self.best_i + 1 not closest_idx(self.SS[:,:,self.it-2], x0)
+        if self.SSind is None:
+            self.SSind = closest_idx(self.SS[:,:,self.it-2], x0) # TODO: self.best_ind + 1 not closest_idx(self.SS[:,:,self.it-2], x0)
+        SSind = self.SSind
+        print(SSind)
+
         select_reg_0 = self.SS_regions[SSind:(SSind+self.N+1), self.it-2]
         select_reg = select_reg_0
         

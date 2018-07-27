@@ -36,6 +36,11 @@ class Simulator():
 
             Controller.solve(x[i, :])
 
+            if Controller.feasible == 0:
+                print("Unfeasible at time ", i*ClosedLoopData.dt)
+                print("Cur State: ", x[i, :], "Iteration ", Controller.it)
+                break
+
             u[i, :] = Controller.uPred[0,:]
 
 
@@ -45,10 +50,6 @@ class Simulator():
                 LMPCprediction.SSused[:, :, i, Controller.it]          = Controller.SS_PointSelectedTot
                 LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
 
-            if Controller.feasible == 0:
-                print("Unfeasible at time ", i*ClosedLoopData.dt)
-                print("Cur State: ", x[i, :], "Iteration ", Controller.it)
-                break
 
             x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
             SimulationTime = i + 1

@@ -45,7 +45,7 @@ import pickle
 RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
+RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 0; animation_stateFlag = 0
 runPWAFlag = 1; # uncomment importing pwa_cluster in LMPC.py
 testCoordChangeFlag = 0;
 plotOneStepPredictionErrors = 1;
@@ -227,16 +227,20 @@ if testCoordChangeFlag == 1:
     unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
 if plotOneStepPredictionErrors == 1:
-    it=5
+    it=LMPController.it-1
+    print(LMPController.it)
     onestep_errors = []
     onestep_norm_errors = []
-    for i in range(1, int(LMPController.TimeSS[it])):
-        current_state = LMPController.SS[i, :, it]
-        current_pos = LMPController.SS[i, 4:6, it]
-        predicted_trajectory = LMPCOpenLoopData.PredictedStates[:, :, i-1, it]
-        predicted_state = predicted_trajectory[1,:]
-        onestep_errors.append(predicted_state-current_state)
-        onestep_norm_errors.append(np.linalg.norm(predicted_state-current_state))
+    #for i in range(1, int(LMPController.TimeSS[it])):
+    for i in range(1, int(LMPCOpenLoopData.PredictedStates.shape[2])):
+        if np.any(LMPController.SS[i, :, it] < 10000):
+            current_state = LMPController.SS[i, :, it]
+            current_pos = LMPController.SS[i, 4:6, it]
+            predicted_trajectory = LMPCOpenLoopData.PredictedStates[:, :, i-1, it]
+            predicted_state = predicted_trajectory[1,:]
+            #print(predicted_state, current_state) # 0,10,000
+            onestep_errors.append(predicted_state-current_state)
+            onestep_norm_errors.append(np.linalg.norm(predicted_state-current_state))
 
     plt.figure();
     onestep_errors = np.array(onestep_errors)
