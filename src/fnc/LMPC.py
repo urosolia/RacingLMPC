@@ -36,11 +36,11 @@ class AbstractControllerLMPC:
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
-            numSS_it: number of previois trajectories selected to build SS
+            numSS_it: number of previous trajectories selected to build SS
             N: horizon length
             Q,R: weight to define cost function h(x,u) = ||x||_Q + ||u||_R
             dR: weight to define the input rate cost h(x,u) = ||x_{k+1}-x_k||_dR
-            n,d: state and input dimensiton
+            n,d: state and input dimension
             shift: given the closest point x_t^j to x(t) the controller start selecting the point for SS from x_{t+shift}^j
             track_map: track_map
             Laps: maximum number of laps the controller can run (used to avoid dynamic allocation)
@@ -75,14 +75,14 @@ class AbstractControllerLMPC:
         # TODO replace with after-the-fact mapping?
         self.SS_glob = 10000 * np.ones((NumPoints, n, Laps))    # SS in global (X-Y) used for plotting
 
-        # TODO this is just for PWA
+        # TODO this is only used for PWA controller
         self.SSind = None
 
         # Initialize the controller iteration
         self.it      = 0
 
         # Initialize pool for parallel computing used in the internal function _LMPC_EstimateABC
-        # TODO this parameter should be tunable
+        # TODO this parameter should be an optional argument
         self.p = Pool(4)
 
     def solve(self, x0, uOld=np.zeros([0, 0])):
@@ -93,48 +93,46 @@ class AbstractControllerLMPC:
 
         # Select Points from Safe Set
         # a subset of nearby points are chosen from past iterations
-        SS_PointSelectedTot      = np.empty((self.n, 0))
-        Qfun_SelectedTot         = np.empty((0))
-        for jj in range(0, self.numSS_it):
-            SS_PointSelected, Qfun_Selected = SelectPoints(self.SS, self.Qfun, self.it - jj - 1, x0, self.numSS_Points / self.numSS_it, self.shift)
-            SS_PointSelectedTot =  np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
-            Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
-
-        self.SS_PointSelectedTot = SS_PointSelectedTot
-        self.Qfun_SelectedTot    = Qfun_SelectedTot
+        self._selectSS(x0)
 
         # Get the matrices for defining the QP
-        # this method will be defined in inheriting classes
-        
         qp_params = self._getQP(x0)
-        best_cost = np.inf
-        best_solution = np.empty((0,0))
+
+        # setting up to loop over QPs
+        best_cost = np.inf; best_solution = np.empty((0,0))
+        self.feasible = 0; best_ind = 0
+
         startTimer = datetime.datetime.now()
-        self.feasible = 0
-        best_ind = 0
         # TODO make this parallel
         for i, qp_param in enumerate(qp_params):
             L, G, E, M, q, F, b = qp_param
             # Solve QP
-            if self.Solver == "CVX":
-                res_cons = qp(convert_sparse_cvx(M), matrix(q), convert_sparse_cvx(F), 
-                              matrix(b), convert_sparse_cvx(G), 
-                              convert_sparse_cvx(E) * matrix(x0) + convert_sparse_cvx(L))
-                if res_cons['status'] == 'optimal':
-                    feasible = 1
-                    cost = res_cons['primal objective']
-                else:
-                    feasible = 0
-                    cost = np.inf
-                Solution = np.squeeze(res_cons['x'])     
-            elif self.Solver == "OSQP":
-                # Adaptation for QSQP from https://github.com/alexbuyval/RacingLMPC/
-                res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
-                Solution = res_cons.x
-                # TODO is this right
-                cost = res_cons.info.obj_val if feasible else np.inf
+            try:
+                if self.Solver == "CVX":
+                    res_cons = qp(convert_sparse_cvx(M), matrix(q), convert_sparse_cvx(F), 
+                                  matrix(b), convert_sparse_cvx(G), 
+                                  convert_sparse_cvx(E) * matrix(x0) + convert_sparse_cvx(L))
+                    if res_cons['status'] == 'optimal':
+                        feasible = 1
+                        cost = res_cons['primal objective']
+                    else:
+                        feasible = 0
+                        cost = np.inf
+                    Solution = np.squeeze(res_cons['x'])     
+                elif self.Solver == "OSQP":
+                    # Adaptation for QSQP from https://github.com/alexbuyval/RacingLMPC/
+                    res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
+                    Solution = res_cons.x
+                    cost = res_cons.info.obj_val if feasible else np.inf
+                if self.clustering is not None:
+                    # TODO use QfunSelect instead
+                    # TODO not sure if we need to 2*
+                    cost = 2 * cost + self.Qfun[self.SSind+self.N+1+i, self.it-2]
+            except ValueError as e:
+                print("caught", e)
+                cost = np.inf
+                feasible = 0
 
-            # TODO: must add terminal cost for LMPC
             if cost < best_cost:
                 best_cost = cost
                 best_solution = Solution
@@ -144,20 +142,17 @@ class AbstractControllerLMPC:
         deltaTimer = datetime.datetime.now() - startTimer
         self.solverTime = deltaTimer
 
-        # TODO throw infeasibility error?
         if self.feasible == 0:
             return 
             
-        # TODO
+        # TODO: incorporate this into selectSS()
         if self.SSind is not None:
-            self.SSind += best_ind + 1 # + self.N 
+            self.SSind += best_ind + 1 
 
         # Extract solution and set linearization points
-        try:
-            xPred, uPred, _, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
-        except:
-            return
+        xPred, uPred, _, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
         self.xPred = xPred.T
+        # TODO more elegant way for various dimensions
         if self.N == 1:
             self.uPred    = np.array([[uPred[0], uPred[1]]])
             self.LinInput =  np.array([[uPred[0], uPred[1]]])
@@ -244,10 +239,23 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
         # self.SSind = N
-        self.numTermPts = 100
+        self.numTermPts = 100 # 100
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+
+    def _selectSS(self, x0):
+        # TODO integrate terminal_point and terminal_cost into this function
+        SS_PointSelectedTot      = np.empty((self.n, 0))
+        Qfun_SelectedTot         = np.empty((0))
+        for jj in range(0, self.numSS_it):
+            SS_PointSelected, Qfun_Selected = SelectPoints(self.SS, self.Qfun, self.it - jj - 1, x0, self.numSS_Points / self.numSS_it, self.shift)
+            SS_PointSelectedTot =  np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
+            Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
+
+        self.SS_PointSelectedTot = SS_PointSelectedTot
+        self.Qfun_SelectedTot    = Qfun_SelectedTot
+
     def _getQP(self, x0):
         # PWA System ID
         self._estimate_pwa(verbose=True)
@@ -262,7 +270,6 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         if self.SSind is None:
             self.SSind = closest_idx(self.SS[:,:,self.it-2], x0) # TODO: self.best_ind + 1 not closest_idx(self.SS[:,:,self.it-2], x0)
         SSind = self.SSind
-        print(SSind)
 
         select_reg_0 = self.SS_regions[SSind:(SSind+self.N+1), self.it-2]
         select_reg = select_reg_0
@@ -271,6 +278,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         for i in range(self.numTermPts):
             terminal_point = self.SS[SSind+self.N+1+i,:,self.it-2]
+            # TODO integrate into selectSS function above
+            terminal_cost = self.Qfun[SSind+self.N+1+i, self.it-2]
+            # self.Qfun_SelectedTot
             if SSind+self.N+1+i > self.TimeSS[self.it-2] or self.SS_regions[SSind+self.N+1+i, self.it-2] == select_reg_0[-1]:
                 select_reg = select_reg_0
             else:
@@ -324,7 +334,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             
 
             np.savez('cluster_labels', labels=self.clustering.cluster_labels,
-                                       region_fns=self.clustering.region_fns)
+                                       region_fns=self.clustering.region_fns,
+                                       thetas=self.clustering.thetas)
 
             # label the regions of the points in the safe set
             self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
@@ -357,6 +368,16 @@ class ControllerLMPC(AbstractControllerLMPC):
         super(ControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
     
+    def _selectSS(self, x0):
+        SS_PointSelectedTot      = np.empty((self.n, 0))
+        Qfun_SelectedTot         = np.empty((0))
+        for jj in range(0, self.numSS_it):
+            SS_PointSelected, Qfun_Selected = SelectPoints(self.SS, self.Qfun, self.it - jj - 1, x0, self.numSS_Points / self.numSS_it, self.shift)
+            SS_PointSelectedTot =  np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
+            Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
+
+        self.SS_PointSelectedTot = SS_PointSelectedTot
+        self.Qfun_SelectedTot    = Qfun_SelectedTot
 
     def _getQP(self, x0):
         # Run System ID
@@ -758,6 +779,35 @@ def dynamicsEqConstr(Afun, Bfun, Cfun, N):
 # ======================================================================================================================
 # ======================================================================================================================
 
+# TODO: this function is in progress
+def PWA_model_from_LTV(self):
+    LinPoints       = self.LinPoints
+    LinInput        = self.LinInput
+    N               = self.N
+    n               = self.n
+    d               = self.d
+    SS              = self.SS
+    uSS             = self.uSS
+    TimeSS          = self.TimeSS
+    PointAndTangent = self.track_map.PointAndTangent
+    dt              = self.dt
+    it              = self.it
+    p               = self.p
+
+    ParallelComputation = 0 # TODO
+    Atv = []; Btv = []; Ctv = []; indexUsed_list = []
+
+    usedIt = range(it-2,it)
+    MaxNumPoint = 40  # TODO Need to reason on how these points are selected
+
+
+    for i in range(0, N):
+       Ai, Bi, Ci, indexSelected = RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
+                                                           MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i)
+       Atv.append(Ai); Btv.append(Bi); Ctv.append(Ci)
+       indexUsed_list.append(indexSelected)
+
+    return Atv, Btv, Ctv, indexUsed_list
 
 def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i):
     x0 = LinPoints[i, :]

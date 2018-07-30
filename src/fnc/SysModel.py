@@ -2,6 +2,7 @@ import numpy as np
 import pdb
 import datetime
 from Utilities import Curvature
+from Track import Map
 
 class Simulator():
     """Vehicle simulator
@@ -26,7 +27,7 @@ class Simulator():
         """
 
         # Assign x = ClosedLoopData.x. IMPORTANT: x and ClosedLoopData.x share the same memory and therefore
-        # if you modofy one is like modifying the other one!
+        # if you modify one is like modifying the other one!
         x      = ClosedLoopData.x
         x_glob = ClosedLoopData.x_glob
         u      = ClosedLoopData.u
@@ -52,6 +53,7 @@ class Simulator():
 
 
             x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
+            #x[i + 1, :], x_glob[i + 1, :] = _PWAModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
             SimulationTime = i + 1
 
             if i <= 5000:
@@ -193,5 +195,25 @@ def _DynModel(x, x_glob, u, np, dt, PointAndTangent):
     cur_x_next[0] = cur_x_next[0] + 0.1*noise_vx
     cur_x_next[1] = cur_x_next[1] + 0.1*noise_vy
     cur_x_next[2] = cur_x_next[2] + 0.1*noise_wz
+
+    return cur_x_next, x_next
+
+def _PWAModel(x, x_glob, u, np, dt, PointAndTangent):
+
+    data = np.load('cluster_labels.npz')
+    region_fns = data['region_fns']
+    thetas = data['thetas']
+
+    dot_pdt = [w.T.dot(np.hstack([x, [1]])) for w in region_fns]
+    idx = np.argmax(dot_pdt)
+    cur_x_next = thetas[idx].T.dot(np.hstack([x, u, 1]))
+
+    x_next     = cur_x_next # TODO global transform
+
+    X, Y = Map(0.8).getGlobalPosition(x_next[4], x_next[5])
+    x_next[4] = X
+    x_next[5] = Y
+
+    print("simulating using PWA model", X, Y)
 
     return cur_x_next, x_next
