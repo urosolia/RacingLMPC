@@ -13,25 +13,25 @@ class Map():
         Modify the vector spec to change the geometry of the track
         """
         self.width = width
-        spec = np.array([[60 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-                         [20 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         [40 * 0.03, +40 * 0.03 * 10 / np.pi],
-                         [60 * 0.03, -60 * 0.03 * 5 / np.pi],
-                         [40 * 0.03, +40 * 0.03 * 10 / np.pi],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         [20 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
-
-
-        # spec = np.array([[1.0, 0],
-        #                  [4.5, -4.5 / np.pi],
+        # spec = np.array([[60 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
         #                  # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-        #                  [2.0, 0],
-        #                  [4.5, -4.5 / np.pi],
-        #                  [1.0, 0]])
+        #                  [20 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+        #                  [40 * 0.03, +40 * 0.03 * 10 / np.pi],
+        #                  [60 * 0.03, -60 * 0.03 * 5 / np.pi],
+        #                  [40 * 0.03, +40 * 0.03 * 10 / np.pi],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+        #                  [20 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
+
+
+        spec = np.array([[1.0, 0],
+                         [4.5, -4.5 / np.pi],
+                         # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                         [2.0, 0],
+                         [4.5, -4.5 / np.pi],
+                         [1.0, 0]])
 
         # Now given the above segments we compute the (x, y) points of the track and the angle of the tangent vector (psi) at
         # these points. For each segment we compute the (x, y, psi) coordinate at the last point of the segment. Furthermore,
@@ -121,6 +121,8 @@ class Map():
     def getGlobalPosition(self, s, ey):
         """coordinate transformation from curvilinear reference frame (e, ey) to inertial reference frame (X, Y)
         (s, ey): position in the curvilinear reference frame
+
+        # TODO: epsi as argument (optional) and return psi
         """
 
         # wrap s along the track
@@ -131,6 +133,7 @@ class Map():
         PointAndTangent = self.PointAndTangent
 
         index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
+        #print(s)
         i = int(np.where(np.squeeze(index))[0])
 
         if PointAndTangent[i, 5] == 0.0:  # If segment is a straight line

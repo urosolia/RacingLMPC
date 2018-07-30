@@ -239,7 +239,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
         # self.SSind = N
-        self.numTermPts = 100 # 100
+        self.numTermPts = 20 # 100
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
@@ -266,6 +266,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         # get dynamics
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
+
         # use the previously used terminal constraint+1
         if self.SSind is None:
             self.SSind = closest_idx(self.SS[:,:,self.it-2], x0) # TODO: self.best_ind + 1 not closest_idx(self.SS[:,:,self.it-2], x0)
@@ -278,13 +279,13 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         for i in range(self.numTermPts):
             terminal_point = self.SS[SSind+self.N+1+i,:,self.it-2]
-            # TODO integrate into selectSS function above
+            # TODO (SOON for plotting) integrate into selectSS function above
             terminal_cost = self.Qfun[SSind+self.N+1+i, self.it-2]
             # self.Qfun_SelectedTot
             if SSind+self.N+1+i > self.TimeSS[self.it-2] or self.SS_regions[SSind+self.N+1+i, self.it-2] == select_reg_0[-1]:
                 select_reg = select_reg_0
             else:
-                # TODO: isn't this all LastIdea is doing?
+                # isn't this all LastIdea is doing?
                 select_reg = self.SS_regions[SSind+i:(SSind+self.N+1+i), self.it-2]
 
             # TODO when there is no need to recompute matrices
@@ -344,6 +345,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 for i in range(self.TimeSS[it]-1):
                     self.SS_regions[i, it] = self.clustering.cluster_labels[j]
                     j += 1
+
+            print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
             # to access SS in certain region,
             # region_indices[i] = np.where(self.SS_regions == i)
             # SS_i = SS[region_indices[i], :, :]
@@ -975,6 +978,8 @@ def LMPC_LocLinReg(Q, b, stateFeatures, inputFeatures, qp):
     return A, B, C
 
 def ComputeIndex(h, SS, uSS, TimeSS, it, x0, stateFeatures, scaling, MaxNumPoint, ConsiderInput):
+
+    # 40 smallest k \| [x(t); u(t)] - [x_k; u_k] \|
 
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
 

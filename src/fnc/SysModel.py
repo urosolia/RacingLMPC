@@ -43,6 +43,8 @@ class Simulator():
                 break
 
             u[i, :] = Controller.uPred[0,:]
+            if LMPCprediction == 0:
+                u[i, :] += 0.1 * np.random.standard_normal(size=u[i, :].shape)
 
 
             if LMPCprediction != 0:
@@ -56,7 +58,7 @@ class Simulator():
             #x[i + 1, :], x_glob[i + 1, :] = _PWAModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
             SimulationTime = i + 1
 
-            if i <= 5000:
+            if i <= 5: # 000:
                 # TODO more general, no linearization time
                 print("Linearization time: %.4fs Solver time: %.4fs" % (Controller.linearizationTime.total_seconds(), Controller.solverTime.total_seconds()))
                 print("Time: ", i * ClosedLoopData.dt, "Current State and Input: ", x[i, :], u[i, :])

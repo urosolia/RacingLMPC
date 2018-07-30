@@ -42,10 +42,10 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 0; plotFlag       = 0
-RunMPC     = 0; plotFlagMPC    = 0
+RunPID     = 1; plotFlag       = 0
+RunMPC     = 1; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 0; animation_stateFlag = 0
+RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
 runPWAFlag = 1; # uncomment importing pwa_cluster in LMPC.py
 testCoordChangeFlag = 0;
 plotOneStepPredictionErrors = 1;
@@ -73,10 +73,10 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 5+2              # Total LMPC laps
+Laps       = 1+2              # Total LMPC laps
 
 # Safe Set Parameter
-LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
+LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 32 + N         # Number of points to select from each trajectory to build the safe set
 shift = 0                     # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
@@ -155,7 +155,7 @@ LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
 LMPCSimulator = Simulator(map, 1, 1)
 
 if runPWAFlag == 1:
-    LMPController = PWAControllerLMPC(10, numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
+    LMPController = PWAControllerLMPC(2, numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
 else:
     LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
 LMPController.addTrajectory(ClosedLoopDataPID)
@@ -214,7 +214,7 @@ if plotFlagLMPC == 1:
     plotClosedLoopLMPC(LMPController, map)
 
 if animation_xyFlag == 1:
-    animation_xy(map, LMPCOpenLoopData, LMPController, 5)
+    animation_xy(map, LMPCOpenLoopData, LMPController, LMPController.it-1)
     # saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
 
 if animation_stateFlag == 1:

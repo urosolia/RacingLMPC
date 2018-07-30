@@ -102,6 +102,7 @@ def plotClosedLoopLMPC(LMPController, map):
 
 
 def animation_xy(map, LMPCOpenLoopData, LMPController, it):
+    # TODO: plot even with unfinished lap 
     SS_glob = LMPController.SS_glob
     TimeSS = LMPController.TimeSS
     SS = LMPController.SS
@@ -147,6 +148,7 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
         SSpoints_x = np.zeros((numSS_Points, 1)); SSpoints_y = np.zeros((numSS_Points, 1))
 
         for j in range(0, N+1):
+            # TODO: getGlobalPosition() with negative values in prediction?
             xPred[j,0], yPred[j,0]  = map.getGlobalPosition( LMPCOpenLoopData.PredictedStates[j, 4, i, it],
                                                              LMPCOpenLoopData.PredictedStates[j, 5, i, it] )
 
@@ -174,6 +176,7 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
 
         plt.draw()
         plt.pause(1e-17)
+        pdb.set_trace()
 
 def animation_states(map, LMPCOpenLoopData, LMPController, it):
     SS_glob = LMPController.SS_glob
