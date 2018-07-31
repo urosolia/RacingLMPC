@@ -54,7 +54,7 @@ class Simulator():
                 LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
 
 
-            x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
+            x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], ClosedLoopData.dt, self.map.PointAndTangent)
             #x[i + 1, :], x_glob[i + 1, :] = _PWAModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
             SimulationTime = i + 1
 
@@ -107,7 +107,7 @@ class PID:
 # ================================ Internal functions for change of coordinates ========================================
 # ======================================================================================================================
 # ======================================================================================================================
-def _DynModel(x, x_glob, u, np, dt, PointAndTangent):
+def _DynModel(x, x_glob, u, dt, PointAndTangent):
     # This function computes the system evolution. Note that the discretization is deltaT and therefore is needed that
     # dt <= deltaT and ( dt / deltaT) = integer value
 

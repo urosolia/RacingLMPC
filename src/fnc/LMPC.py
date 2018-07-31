@@ -125,9 +125,9 @@ class AbstractControllerLMPC:
                     Solution = res_cons.x
                     cost = res_cons.info.obj_val if feasible else np.inf
                 if self.clustering is not None:
-                    # TODO use QfunSelect instead
-                    # TODO not sure if we need to 2*
-                    cost = 2 * cost + self.Qfun[self.SSind+self.N+1+i, self.it-2]
+                    # TODO don't think we need to 2*
+                    # since we add it when we build M
+                    cost = cost + self.Qfun_SelectedTot[i]
             except ValueError as e:
                 print("caught", e)
                 cost = np.inf
@@ -150,8 +150,17 @@ class AbstractControllerLMPC:
             self.SSind += best_ind + 1 
 
         # Extract solution and set linearization points
-        xPred, uPred, _, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
+        xPred, uPred, lam, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
+        
+        # Checking slack variable
+        
         print('slack norm', np.linalg.norm(slack))
+        if self.clustering is not None:
+            diff = slack - (self.SS_PointSelectedTot[:,best_ind]-xPred[:,-1])
+        else: 
+            diff = slack - (self.SS_PointSelectedTot.dot(lam)-xPred[:,-1])
+        if np.linalg.norm(diff) > 1e-6: print(np.linalg.norm(diff))
+        
         self.xPred = xPred.T
         # TODO more elegant way for various dimensions
         if self.N == 1:
@@ -393,6 +402,13 @@ class ControllerLMPC(AbstractControllerLMPC):
 
         M, q = LMPC_BuildMatCost(self.N, self.Qslack, self.Q, self.R, self.dR, self.OldInput,
                                  self.Qfun_SelectedTot, self.numSS_Points)
+        # confirming cost matrix correctness
+        # M_old, q_old = LMPC_BuildMatCost_old(self.N, self.Qfun_SelectedTot, self.numSS_Points, 
+        #                              self.Qslack, self.Q, self.R, self.dR, self.OldInput)
+
+        # print(np.linalg.norm(M-M_old))
+        # print(np.linalg.norm(q-q_old))
+
         return [(L, G, E, M, q, self.stackedF, self.stackedb)]
 
     def _EstimateABC(self):
@@ -580,6 +596,44 @@ def LMPC_BuildMatCost(N, Qslack, Q, R, dR, uOld, Sel_Qfun=[], numSS_Points=0):
     # Derivative Input
     q0[n*(N+1):n*(N+1)+2] = -2 * np.dot( uOld, np.diag(dR) )
     q = np.append(np.append(q0, Sel_Qfun), np.zeros(n))
+    return M, q
+
+def LMPC_BuildMatCost_old(N, Sel_Qfun, numSS_Points, Qslack, Q, R, dR, uOld):
+    n = Q.shape[0]
+    P = Q
+    vt = 2
+
+    b = [Q] * (N)
+    Mx = linalg.block_diag(*b)
+
+    c = [R + 2*np.diag(dR)] * (N)
+
+    Mu = linalg.block_diag(*c)
+    # Need to condider that the last input appears just onece in the difference
+    Mu[Mu.shape[0] - 1, Mu.shape[1] - 1] = Mu[Mu.shape[0] - 1, Mu.shape[1] - 1] - dR[1]
+    Mu[Mu.shape[0] - 2, Mu.shape[1] - 2] = Mu[Mu.shape[0] - 2, Mu.shape[1] - 2] - dR[0]
+
+    # Derivative Input Cost
+    OffDiaf = -np.tile(dR, N-1)
+    np.fill_diagonal(Mu[2:], OffDiaf)
+    np.fill_diagonal(Mu[:, 2:], OffDiaf)
+    # np.savetxt('Mu.csv', Mu, delimiter=',', fmt='%f')
+
+    M00 = linalg.block_diag(Mx, P, Mu)
+    M0 = linalg.block_diag(M00, np.zeros((numSS_Points, numSS_Points)), Qslack)
+    xtrack = np.array([vt, 0, 0, 0, 0, 0])
+    q0 = - 2 * np.dot(np.append(np.tile(xtrack, N + 1), np.zeros(R.shape[0] * N)), M00)
+
+    # Derivative Input
+    q0[n*(N+1):n*(N+1)+2] = -2 * np.dot( uOld, np.diag(dR) )
+
+    # np.savetxt('q0.csv', q0, delimiter=',', fmt='%f')
+    q = np.append(np.append(q0, Sel_Qfun), np.zeros(Q.shape[0]))
+
+    # np.savetxt('q.csv', q, delimiter=',', fmt='%f')
+
+    M = 2 * M0  # Need to multiply by two because CVX considers 1/2 in front of quadratic cost
+
     return M, q
 
 def MPC_MatCost(N, Q, R, dR):
