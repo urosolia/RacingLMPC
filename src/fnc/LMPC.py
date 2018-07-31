@@ -153,7 +153,7 @@ class AbstractControllerLMPC:
         xPred, uPred, lam, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
         
         # Checking slack variable
-        
+
         print('slack norm', np.linalg.norm(slack))
         if self.clustering is not None:
             diff = slack - (self.SS_PointSelectedTot[:,best_ind]-xPred[:,-1])
@@ -193,13 +193,18 @@ class AbstractControllerLMPC:
         for i in np.arange(0, self.Qfun.shape[0]):
             if self.Qfun[i, it] == 0:
                 self.Qfun[i, it] = self.Qfun[i - 1, it] - 1
-
+        if self.clustering is not None:
+            self.SS_regions
         if self.it == 0:
             # TODO: made this more general
             self.LinPoints = self.SS[1:self.N + 2, :, it]
             self.LinInput  = self.uSS[1:self.N + 1, :, it]
 
         self.it = self.it + 1
+
+        if self.clustering is not None:
+            self.SSind = None
+            self._estimate_pwa(verbose=False, addTrajectory=True)
 
     def addPoint(self, x, u, i):
         """at iteration j add the current point to SS, uSS and Qfun of the previous iteration
@@ -213,10 +218,10 @@ class AbstractControllerLMPC:
         self.uSS[Counter + i + 1, :, self.it - 1] = u
         if self.Qfun[Counter + i + 1, self.it - 1] == 0:
             self.Qfun[Counter + i + 1, self.it - 1] = self.Qfun[Counter + i, self.it - 1] - 1
-        # TODO: this is a temporary hack to store piecewise affine predictions
-        # won't work for more than one LMPC lap
+        
+        # update list of SS regions
         if self.clustering is not None:
-            self._estimate_pwa(x, u)
+            self._estimate_pwa(x, i)
 
     def update(self, SS, uSS, Qfun, TimeSS, it, LinPoints, LinInput):
         """update controller parameters. This function is useful to transfer information among LMPC controller
@@ -255,10 +260,13 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
     def _selectSS(self, x0):
         if True: # self.SSind is None:
-            self.SSind = closest_idx(self.SS[:,:,self.it-2], x0) 
+            self.SSind = closest_idx(self.SS[:,:,self.it-2], x0)
+            #closest_idx(self.SS[:int(self.TimeSS[self.it-2]),:,self.it-2], x0) 
         if self.SS_regions is None:
             self._estimate_pwa(verbose=True)
         select_reg_0 = self.SS_regions[self.SSind:(self.SSind+self.N+1), self.it-2]
+        if np.any(np.isnan(select_reg_0)):
+            pdb.set_trace()
 
         SS_PointSelectedTot      = []
         Qfun_SelectedTot         = []
@@ -273,7 +281,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 select_reg = select_reg_0
             else:
                 select_reg = self.SS_regions[self.SSind+i:(self.SSind+self.N+1+i), self.it-2]
-
+            assert not np.any(np.isnan(select_reg)), select_reg
             SS_PointSelectedTot.append(terminal_point)
             Qfun_SelectedTot.append(terminal_cost)
             Select_Regs.append(select_reg)
@@ -316,7 +324,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         return qp_mat_list
 
-    def _estimate_pwa(self, x=None, u=None, verbose=False):
+    def _estimate_pwa(self, x=None, i=None, verbose=False, addTrajectory=False):
         if self.clustering is None:
             # construct z and y from past laps
             zs = []; ys = []
@@ -357,11 +365,40 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                     j += 1
 
             print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
+        elif x is not None:
+            Counter = self.TimeSS[self.it - 1]
+            self.SS_regions[int(Counter + i + 1), self.it - 1] = self.clustering.get_region(x)
+        elif addTrajectory:
+            print('updating PWA model with new data')
+            zs = []; ys = []
+            for it in [self.it-2]:
+                states = self.SS[:int(self.TimeSS[it]), :, it]
+                inputs = self.uSS[:int(self.TimeSS[it]), :, it]
+                zs.append(np.hstack([states[:-1], inputs[:-1]]))
+                ys.append(states[1:])
+            zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
+            
+            self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=True)
+            # TODO this method takes a long time to runs, maybe no full_update
+            self.clustering.determine_polytopic_regions(verbose=verbose)
+            print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
+
+            # label the regions of the points in the safe set
+            # TODO only need to update
+            self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
+            j = 0 # data position counter
+            for it in range(self.it-1):
+                for i in range(self.TimeSS[it]-1):
+                    self.SS_regions[i, it] = self.clustering.cluster_labels[j]
+                    j += 1
+
+            np.savez('cluster_labels'+str(self.it), labels=self.clustering.cluster_labels,
+                                       region_fns=self.clustering.region_fns,
+                                       thetas=self.clustering.thetas)
             # to access SS in certain region,
             # region_indices[i] = np.where(self.SS_regions == i)
             # SS_i = SS[region_indices[i], :, :]
             # TODO check if faster to store region_indices
-        # TODO when new trajectories are added, should trigger reestimation
 
 
 
@@ -477,11 +514,12 @@ def SelectPoints(SS, Qfun, it, x0, numSS_Points, shift):
 
     return SS_Points, Sel_Qfun
 
-def closest_idx(x, x0):
+def closest_idx(x, x0, verbose=False):
     oneVec = np.ones((x.shape[0], 1))
     x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
     diff = x - x0Vec
     norm = la.norm(diff, 1, axis=1)
+    if verbose: print(norm)
     return np.argmin(norm)
 
 def ComputeCost(x, u, TrackLength):

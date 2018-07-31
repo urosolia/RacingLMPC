@@ -73,6 +73,7 @@ class Simulator():
                 break
 
         ClosedLoopData.SimTime = SimulationTime
+        # TODO this always says zero
         print("Number of laps completed: ", int(np.floor(x[-1, 4] / (self.map.TrackLength))))
 
 class PID:

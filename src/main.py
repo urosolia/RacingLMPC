@@ -46,7 +46,7 @@ RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
 RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
-runPWAFlag = 0; # uncomment importing pwa_cluster in LMPC.py
+runPWAFlag = 1; # uncomment importing pwa_cluster in LMPC.py
 testCoordChangeFlag = 0;
 plotOneStepPredictionErrors = 1;
 
@@ -73,7 +73,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 1+2              # Total LMPC laps
+Laps       = 2+2              # Total LMPC laps
 
 # Safe Set Parameter
 LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
@@ -215,6 +215,7 @@ if plotFlagLMPC == 1:
     plotClosedLoopLMPC(LMPController, map)
 
 if animation_xyFlag == 1:
+    # animation_xy(map, LMPCOpenLoopData, LMPController, LMPController.it-2)
     animation_xy(map, LMPCOpenLoopData, LMPController, LMPController.it-1)
     # saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
 
