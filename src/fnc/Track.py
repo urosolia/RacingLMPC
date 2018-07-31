@@ -126,6 +126,8 @@ class Map():
         """
 
         # wrap s along the track
+        if s < 0 and np.abs(s) < 1e-4:
+            s = 0
         while (s > self.TrackLength):
             s = s - self.TrackLength
 
@@ -133,7 +135,7 @@ class Map():
         PointAndTangent = self.PointAndTangent
 
         index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
-        #print(s)
+
         i = int(np.where(np.squeeze(index))[0])
 
         if PointAndTangent[i, 5] == 0.0:  # If segment is a straight line

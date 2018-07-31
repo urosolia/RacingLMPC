@@ -151,6 +151,7 @@ class AbstractControllerLMPC:
 
         # Extract solution and set linearization points
         xPred, uPred, _, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
+        print('slack norm', np.linalg.norm(slack))
         self.xPred = xPred.T
         # TODO more elegant way for various dimensions
         if self.N == 1:
@@ -238,56 +239,56 @@ class PWAControllerLMPC(AbstractControllerLMPC):
     def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
-        # self.SSind = N
-        self.numTermPts = 20 # 100
+        self.SS_regions = None
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
 
     def _selectSS(self, x0):
-        # TODO integrate terminal_point and terminal_cost into this function
-        SS_PointSelectedTot      = np.empty((self.n, 0))
-        Qfun_SelectedTot         = np.empty((0))
-        for jj in range(0, self.numSS_it):
-            SS_PointSelected, Qfun_Selected = SelectPoints(self.SS, self.Qfun, self.it - jj - 1, x0, self.numSS_Points / self.numSS_it, self.shift)
-            SS_PointSelectedTot =  np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
-            Qfun_SelectedTot    =  np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
+        if True: # self.SSind is None:
+            self.SSind = closest_idx(self.SS[:,:,self.it-2], x0) 
+        if self.SS_regions is None:
+            self._estimate_pwa(verbose=True)
+        select_reg_0 = self.SS_regions[self.SSind:(self.SSind+self.N+1), self.it-2]
 
-        self.SS_PointSelectedTot = SS_PointSelectedTot
-        self.Qfun_SelectedTot    = Qfun_SelectedTot
+        SS_PointSelectedTot      = []
+        Qfun_SelectedTot         = []
+        Select_Regs = []
+        # TODO should we use numSS_it?
+        for i in range(self.numSS_Points):
+            terminal_point = self.SS[self.SSind+self.N+1+i,:,self.it-2]
+            terminal_cost = self.Qfun[self.SSind+self.N+1+i, self.it-2]
+            region = self.SS_regions[self.SSind+self.N+1+i, self.it-2]
+
+            if terminal_point[0] == 10000 or region == select_reg_0[-1]:
+                select_reg = select_reg_0
+            else:
+                select_reg = self.SS_regions[self.SSind+i:(self.SSind+self.N+1+i), self.it-2]
+
+            SS_PointSelectedTot.append(terminal_point)
+            Qfun_SelectedTot.append(terminal_cost)
+            Select_Regs.append(select_reg)
+
+        self.SS_PointSelectedTot = np.array(SS_PointSelectedTot).T
+        self.Qfun_SelectedTot    = np.array(Qfun_SelectedTot)
+        self.Select_Regs = Select_Regs
 
     def _getQP(self, x0):
         # PWA System ID
         self._estimate_pwa(verbose=True)
-        # TODO get rid of this
+        
         startTimer = datetime.datetime.now()
-        deltaTimer = datetime.datetime.now() - startTimer
-        self.linearizationTime = deltaTimer
-
         # get dynamics
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
-
-        # use the previously used terminal constraint+1
-        if self.SSind is None:
-            self.SSind = closest_idx(self.SS[:,:,self.it-2], x0) # TODO: self.best_ind + 1 not closest_idx(self.SS[:,:,self.it-2], x0)
-        SSind = self.SSind
-
-        select_reg_0 = self.SS_regions[SSind:(SSind+self.N+1), self.it-2]
-        select_reg = select_reg_0
+        deltaTimer = datetime.datetime.now() - startTimer
+        self.linearizationTime = deltaTimer # TODO generalize 
         
         qp_mat_list = []
-
-        for i in range(self.numTermPts):
-            terminal_point = self.SS[SSind+self.N+1+i,:,self.it-2]
-            # TODO (SOON for plotting) integrate into selectSS function above
-            terminal_cost = self.Qfun[SSind+self.N+1+i, self.it-2]
-            # self.Qfun_SelectedTot
-            if SSind+self.N+1+i > self.TimeSS[self.it-2] or self.SS_regions[SSind+self.N+1+i, self.it-2] == select_reg_0[-1]:
-                select_reg = select_reg_0
-            else:
-                # isn't this all LastIdea is doing?
-                select_reg = self.SS_regions[SSind+i:(SSind+self.N+1+i), self.it-2]
-
+        for i in range(self.numSS_Points):
+            terminal_point = self.SS_PointSelectedTot[:,i]
+            terminal_cost = self.Qfun_SelectedTot[i]
+            select_reg = self.Select_Regs[i]
+            
             # TODO when there is no need to recompute matrices
             # L, G, E1, E2, stackedF, stackedb, M, q = full_mat_list[-1]
             # Lterm = L + np.expand_dims(E2.dot(terminal_point),1)
