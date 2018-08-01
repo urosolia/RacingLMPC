@@ -387,9 +387,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
             j = len(self.clustering.cluster_labels)
             
-            self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=True)
-            # TODO this method takes a long time to runs, maybe no full_update
-            self.clustering.determine_polytopic_regions(verbose=verbose)
+            self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=False)
+            # TODO this method takes a long time to run with full_update
+            # self.clustering.determine_polytopic_regions(verbose=verbose)
             if verbose: print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
 
             # label the regions of the points in the safe set

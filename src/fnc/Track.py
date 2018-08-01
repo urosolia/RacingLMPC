@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.linalg as la
 import pdb
+import Utilities
 
 class Map():
     """map object
@@ -178,6 +179,14 @@ class Map():
                 angle + direction * spanAng)  # y coordinate of the last point of the segment
 
         return x, y
+
+    def get_global_state(self, x):
+        assert len(x) == 6, 'state must be 6 dimensional'
+        s = x[4]; ey = x[5]; epsi = x[3]
+        pos_x_glob, pos_y_glob = self.getGlobalPosition(s, ey)
+        psi = Utilities.getAngle(s, epsi, self.PointAndTangent)
+        x_glob = np.array([x[0], x[1], x[2], psi, pos_x_glob, pos_y_glob])
+        return x_glob
 
     def getLocalPosition(self, x, y, psi):
         """coordinate transformation from inertial reference frame (X, Y) to curvilinear reference frame (s, ey)

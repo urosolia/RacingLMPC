@@ -293,7 +293,6 @@ def affine_fit(x,y):
 def cvx_cluster_problem(zs, labels):
     s = np.unique(labels).size
 
-    
     Ms = []
     ms = []
     ws = []
@@ -309,7 +308,7 @@ def cvx_cluster_problem(zs, labels):
     for i in range(s):
         for j in range(s):
             if i == j: continue;
-            expr = Ms[i] * (ws[j] - ws[i]) + np.ones([ms[i],1])
+            expr = Ms[i] * (ws[j] - ws[i]) + np.squeeze(np.ones([ms[i],1]))
             cost = cost + np.ones(ms[i]) * ( cvx.pos(expr) ) / ms[i]
             
     return cvx.Problem(cvx.Minimize(cost)), ws
