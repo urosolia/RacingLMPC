@@ -88,7 +88,7 @@ def getAngle(s, epsi, PointAndTangent):
         # pdb.set_trace()
         angle_at_s = psi + epsi
 
-    return angle_at_s
+    return wrap(angle_at_s)
 
 def wrap(angle):
     if angle < -np.pi:
