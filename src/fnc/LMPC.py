@@ -220,10 +220,8 @@ class AbstractControllerLMPC:
             self.Qfun[Counter + i + 1, self.it - 1] = self.Qfun[Counter + i, self.it - 1] - 1
         
         # update list of SS regions
-        # TODO: break into own method
         if self.clustering is not None:
-            ind = int(Counter + i + 1)
-            self._estimate_pwa(x, ind)
+            self.SS_regions[Counter + i + 1, self.it - 1] = int(self.clustering.get_region(x))
 
         # for debugging
         match = np.array([  1.62672695e+00,   1.24834550e-02,   4.76352263e-01,
@@ -337,7 +335,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         return qp_mat_list
 
-    def _estimate_pwa(self, x=None, ind=None, verbose=False, addTrajectory=False):
+    def _estimate_pwa(self, verbose=False, addTrajectory=False):
         if self.clustering is None:
             # construct z and y from past laps
             zs = []; ys = []
@@ -368,7 +366,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                                        thetas=self.clustering.thetas)
 
             # label the regions of the points in the safe set
-            self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
+            # TODO zeros is a hack...
+            # np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
+            self.SS_regions = np.zeros((self.SS.shape[0],self.SS.shape[2]))
             j = 0 # data position counter
             for it in range(self.it-1):
                 for i in range(self.TimeSS[it]-1):
@@ -376,9 +376,6 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                     j += 1
 
             if verbose: print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
-        elif x is not None:
-            # adding point
-            self.SS_regions[int(ind), self.it - 1] = int(self.clustering.get_region(x))
         elif addTrajectory:
             print('updating PWA model with new data')
             zs = []; ys = []
@@ -388,6 +385,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 zs.append(np.hstack([states[:-1], inputs[:-1]]))
                 ys.append(states[1:])
             zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
+
+            j = len(self.clustering.cluster_labels)
             
             self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=True)
             # TODO this method takes a long time to runs, maybe no full_update
@@ -395,8 +394,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             if verbose: print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
 
             # label the regions of the points in the safe set
-            j = 0 # data position counter
-            for it in range(self.it-1):
+            for it in [self.it-2]:
                 for i in range(self.TimeSS[it]-1):
                     self.SS_regions[i, it] = self.clustering.cluster_labels[j]
                     j += 1
