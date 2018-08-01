@@ -153,13 +153,12 @@ class AbstractControllerLMPC:
         xPred, uPred, lam, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
         
         # Checking slack variable
-
-        print('slack norm', np.linalg.norm(slack))
-        if self.clustering is not None:
-            diff = slack - (self.SS_PointSelectedTot[:,best_ind]-xPred[:,-1])
-        else: 
-            diff = slack - (self.SS_PointSelectedTot.dot(lam)-xPred[:,-1])
-        if np.linalg.norm(diff) > 1e-6: print(np.linalg.norm(diff))
+        # print('slack norm', np.linalg.norm(slack))
+        # if self.clustering is not None:
+        #     diff = slack - (self.SS_PointSelectedTot[:,best_ind]-xPred[:,-1])
+        # else: 
+        #     diff = slack - (self.SS_PointSelectedTot.dot(lam)-xPred[:,-1])
+        # if np.linalg.norm(diff) > 1e-6: print(np.linalg.norm(diff))
         
         self.xPred = xPred.T
         # TODO more elegant way for various dimensions
@@ -213,6 +212,7 @@ class AbstractControllerLMPC:
             u: current input
             i: at the j-th iteration i is the time at which (x,u) are recorded
         """
+
         Counter = self.TimeSS[self.it - 1]
         self.SS[Counter + i + 1, :, self.it - 1] = x + np.array([0, 0, 0, 0, self.track_map.TrackLength, 0])
         self.uSS[Counter + i + 1, :, self.it - 1] = u
@@ -220,8 +220,18 @@ class AbstractControllerLMPC:
             self.Qfun[Counter + i + 1, self.it - 1] = self.Qfun[Counter + i, self.it - 1] - 1
         
         # update list of SS regions
+        # TODO: break into own method
         if self.clustering is not None:
-            self._estimate_pwa(x, i)
+            ind = int(Counter + i + 1)
+            self._estimate_pwa(x, ind)
+
+        # for debugging
+        match = np.array([  1.62672695e+00,   1.24834550e-02,   4.76352263e-01,
+        -3.37187454e-01,   1.30291740e+01,  -1.40744831e-01])
+        if np.linalg.norm(x-match) < 1e-6:
+            print(Counter + i + 1, self.it - 1)
+            print(self.SS_regions[Counter + i + 1, self.it - 1])
+            pdb.set_trace()
 
     def update(self, SS, uSS, Qfun, TimeSS, it, LinPoints, LinInput):
         """update controller parameters. This function is useful to transfer information among LMPC controller
@@ -259,29 +269,34 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
 
     def _selectSS(self, x0):
+        it = self.it-2
         if True: # self.SSind is None:
-            self.SSind = closest_idx(self.SS[:,:,self.it-2], x0)
+            self.SSind = closest_idx(self.SS[:,:,it], x0)
             #closest_idx(self.SS[:int(self.TimeSS[self.it-2]),:,self.it-2], x0) 
         if self.SS_regions is None:
-            self._estimate_pwa(verbose=True)
-        select_reg_0 = self.SS_regions[self.SSind:(self.SSind+self.N+1), self.it-2]
-        if np.any(np.isnan(select_reg_0)):
-            pdb.set_trace()
+            self._estimate_pwa(verbose=False)
+        select_reg_0 = self.SS_regions[self.SSind:(self.SSind+self.N+1), it]
+        
+        # temporary for debugging
+        if np.any(np.isnan(select_reg_0)): pdb.set_trace()
 
         SS_PointSelectedTot      = []
         Qfun_SelectedTot         = []
         Select_Regs = []
         # TODO should we use numSS_it?
         for i in range(self.numSS_Points):
-            terminal_point = self.SS[self.SSind+self.N+1+i,:,self.it-2]
-            terminal_cost = self.Qfun[self.SSind+self.N+1+i, self.it-2]
-            region = self.SS_regions[self.SSind+self.N+1+i, self.it-2]
+            terminal_point = self.SS[self.SSind+self.N+1+i,:, it]
+            terminal_cost = self.Qfun[self.SSind+self.N+1+i, it]
+            region = self.SS_regions[self.SSind+self.N+1+i, it]
 
             if terminal_point[0] == 10000 or region == select_reg_0[-1]:
                 select_reg = select_reg_0
             else:
-                select_reg = self.SS_regions[self.SSind+i:(self.SSind+self.N+1+i), self.it-2]
-            assert not np.any(np.isnan(select_reg)), select_reg
+                select_reg = self.SS_regions[self.SSind+i:(self.SSind+self.N+1+i), it]
+            if np.any(np.isnan(select_reg)): 
+                # TODO what's happening in this case?
+                select_reg = select_reg_0
+
             SS_PointSelectedTot.append(terminal_point)
             Qfun_SelectedTot.append(terminal_cost)
             Select_Regs.append(select_reg)
@@ -291,9 +306,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         self.Select_Regs = Select_Regs
 
     def _getQP(self, x0):
-        # PWA System ID
-        self._estimate_pwa(verbose=True)
-        
+
         startTimer = datetime.datetime.now()
         # get dynamics
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
@@ -324,7 +337,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         return qp_mat_list
 
-    def _estimate_pwa(self, x=None, i=None, verbose=False, addTrajectory=False):
+    def _estimate_pwa(self, x=None, ind=None, verbose=False, addTrajectory=False):
         if self.clustering is None:
             # construct z and y from past laps
             zs = []; ys = []
@@ -350,8 +363,6 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 self.clustering = pwac.ClusterPWA.from_labels(zs, ys, 
                                data['labels'], z_cutoff=self.n)
                 self.clustering.region_fns = data['region_fns']
-            
-
             np.savez('cluster_labels', labels=self.clustering.cluster_labels,
                                        region_fns=self.clustering.region_fns,
                                        thetas=self.clustering.thetas)
@@ -364,10 +375,10 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                     self.SS_regions[i, it] = self.clustering.cluster_labels[j]
                     j += 1
 
-            print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
+            if verbose: print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
         elif x is not None:
-            Counter = self.TimeSS[self.it - 1]
-            self.SS_regions[int(Counter + i + 1), self.it - 1] = self.clustering.get_region(x)
+            # adding point
+            self.SS_regions[int(ind), self.it - 1] = int(self.clustering.get_region(x))
         elif addTrajectory:
             print('updating PWA model with new data')
             zs = []; ys = []
@@ -381,11 +392,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=True)
             # TODO this method takes a long time to runs, maybe no full_update
             self.clustering.determine_polytopic_regions(verbose=verbose)
-            print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
+            if verbose: print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
 
             # label the regions of the points in the safe set
-            # TODO only need to update
-            self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
             j = 0 # data position counter
             for it in range(self.it-1):
                 for i in range(self.TimeSS[it]-1):

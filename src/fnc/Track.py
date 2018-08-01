@@ -122,7 +122,7 @@ class Map():
         """coordinate transformation from curvilinear reference frame (e, ey) to inertial reference frame (X, Y)
         (s, ey): position in the curvilinear reference frame
 
-        # TODO: epsi as argument (optional) and return psi
+        # TODO (ugo): epsi as argument (optional) and return psi 
         """
 
         # wrap s along the track
