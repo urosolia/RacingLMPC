@@ -261,9 +261,15 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
         self.SS_regions = None
+        self.load_model = True
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+        if self.load_model:
+            data = np.load('../notebooks/pwa_model_10.npz')
+            self.clustering = pwac.ClusterPWA.from_labels(data['zs'], data['ys'], 
+                               data['labels'], z_cutoff=self.n)
+            self.clustering.region_fns = data['region_fns']
 
     def _selectSS(self, x0):
         it = self.it-2

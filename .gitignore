@@ -1,3 +1,5 @@
 *.pyc
 *.obj
 *.xml
+.ipynb_checkpoints
+**/*.ipynb_checkpoints/

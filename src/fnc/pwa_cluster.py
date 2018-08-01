@@ -51,15 +51,18 @@ class ClusterPWA:
         self.update_thetas = True
 
     @classmethod
-    def from_num_clusters(cls, zs, ys, num_clusters, z_cutoff=None):
+    def from_num_clusters(cls, zs, ys, num_clusters, initialization=None, z_cutoff=None):
         dimy = ys[0].size; dimz = zs[0].size
         z_lim = dimz if z_cutoff is None else z_cutoff
         # centroids are initialized to be randomly spread over the range of the data
-        centroids = np.random.uniform(size=np.hstack([num_clusters, z_lim]))
-        offset = np.amin(zs, axis=0)
-        spread = np.amax(zs, axis=0) - offset
-        for i in range(z_lim):
-            centroids[:,i] = spread[i]*centroids[:,i] + offset[i]
+        if initialization is None:
+            centroids = np.random.uniform(size=np.hstack([num_clusters, z_lim]))
+            offset = np.amin(zs, axis=0)
+            spread = np.amax(zs, axis=0) - offset
+            for i in range(z_lim):
+                centroids[:,i] = spread[i]*centroids[:,i] + offset[i]
+        else:
+            centroids = initialization
         # covariances are initialized as identity
         cov_c = [np.eye(z_lim) for i in range(centroids.shape[0])]
         # labels are initialized to zero
@@ -92,6 +95,7 @@ class ClusterPWA:
         self.Nd = self.zs.shape[0]
 
     def add_data_update(self, new_zs, new_ys, verbose=False, full_update=True):
+        if verbose: print('adding new data')
         Nd_old = self.Nd
         self.add_data(new_zs, new_ys)
         self.update_clusters(verbose=verbose, data_start=Nd_old)
@@ -106,7 +110,7 @@ class ClusterPWA:
         c_error = 100
         while c_error > 1e-6:
             c_error = self.update_clusters(verbose=verbose, data_start=data_start)
-            if verbose: print(c_error)
+            if verbose: print('centroid movement', c_error)
         if verbose: print("done")
 
     def determine_polytopic_regions(self, verbose=False):
@@ -155,7 +159,7 @@ class ClusterPWA:
             quality_of_clusters = self.cluster_quality(self.zs[i], self.ys[i])
             cluster = np.argmin(quality_of_clusters)
             self.cluster_labels[i] = cluster
-            if verbose and int(self.Nd/15) == 0:
+            if verbose and int(self.Nd/8) == 0:
                 print('processed datapoint', i)
         # Storing the old centroid values
         centroids_old = np.copy(self.centroids)
@@ -350,30 +354,37 @@ def check_equivalence(region_fns, F_region, b_region, x):
             matrix_label.append(i)
     print(region_label, matrix_label)
 
-def select_nc_cross_validation(nc_list, zs, ys, initialization=None, verbose=False,
-                               with_polytopic_regions=False):
+def select_nc_cross_validation(nc_list, zs, ys, verbose=False,
+                               with_polytopic_regions=False, z_cutoff=None,
+                               portion_test=0.25):
     # TODO test this function
-    # TODO better train/test split (multiple?)
-    zs_train = zs[::2]; ys_train = ys[::2]
-    zs_test = zs[1::2]; ys_test = ys[1::2]
+    
+    z_lim = dimz if z_cutoff is None else z_cutoff
+    # splitting into test/train
+    perm = np.random.permutation(len(zs))
+    ind_test = int(portion_test * len(zs))
+    zs_train = zs[ind_test:]; ys_train = ys[ind_test:]
+    zs_test = zs[:ind_test]; ys_test = ys[:ind_test]
+    # fitting each cluster value
     clustering_list = []; errors = []
     for nc in nc_list: # TODO parallel?
-        if verbose: print("Fitting model with Nc=", nc)
-        # TODO make initialization standard
-        clustering = ClusterPWA.from_num_clusters(zs_train, ys_train, nc)
-        clustering_list.append(clustering)
+        if verbose: print("===================== Fitting model with Nc=", nc, "====================")
+        clustering = ClusterPWA.from_num_clusters(zs_train, ys_train, nc, z_cutoff=z_cutoff)
         clustering.fit_clusters(verbose=verbose)
-        if with_polytopic_regions:
+        if with_polytopic_regions: # takes longer
             clustering.determine_polytopic_regions()
-        train_errors = np.abs(clustering.get_prediction_errors(new_zs=zs2, new_ys=ys2))
-        test_errors = np.abs(clustering.get_prediction_errors(new_zs=zs2, new_ys=ys2))
+        train_errors = np.abs(clustering.get_prediction_errors())
+        test_errors = np.abs(clustering.get_prediction_errors(new_zs=zs_test, new_ys=ys_test))
+        if verbose: print('avg train error:', np.linalg.norm(train_errors, ord='fro') / int((1-portion_test) * len(zs)))
+        if verbose: print('avg test error:', np.linalg.norm(test_errors, ord='fro') / ind_test)
         # TODO: best error metric?
-        metric = np.linalg.norm(test_errors, norm='fro')
+        metric = np.linalg.norm(test_errors, ord='fro')
         errors.append(metric)
+        clustering_list.append(clustering)
     idx_best = np.argmin(errors)
-    clustering_list[idx_best].add_data_update(zs2, ys2, verbose=verbose)
+    clustering_list[idx_best].add_data_update(zs_test, ys_test, verbose=verbose)
     if with_polytopic_regions:
-        clustering.determine_polytopic_regions()
+        clustering_list[idx_best].determine_polytopic_regions()
     return clustering_list[idx_best]
     
 
