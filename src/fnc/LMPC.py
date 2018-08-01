@@ -15,7 +15,6 @@ from osqp import OSQP
 
 from abc import ABCMeta, abstractmethod
 import sys
-sys.path.append('../../SwitchSysLMPC/src')
 import pwa_cluster as pwac
 import pdb
 
