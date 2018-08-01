@@ -266,7 +266,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
 
     def _selectSS(self, x0):
-        it = self.it-2
+        it = self.it-1
         if True: # self.SSind is None:
             self.SSind = closest_idx(self.SS[:,:,it], x0)
             #closest_idx(self.SS[:int(self.TimeSS[self.it-2]),:,self.it-2], x0) 
@@ -282,9 +282,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         Select_Regs = []
         # TODO should we use numSS_it?
         for i in range(self.numSS_Points):
-            terminal_point = self.SS[self.SSind+self.N+1+i,:, it]
-            terminal_cost = self.Qfun[self.SSind+self.N+1+i, it]
-            region = self.SS_regions[self.SSind+self.N+1+i, it]
+            terminal_point = self.SS[self.SSind+self.shift+1+i,:, it]
+            terminal_cost = self.Qfun[self.SSind+self.shift+1+i, it]
+            region = self.SS_regions[self.SSind+self.shift+1+i, it]
 
             if terminal_point[0] == 10000 or region == select_reg_0[-1]:
                 select_reg = select_reg_0
@@ -378,7 +378,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         elif addTrajectory:
             print('updating PWA model with new data')
             zs = []; ys = []
-            for it in [self.it-2]:
+            for it in [self.it-1]:
                 states = self.SS[:int(self.TimeSS[it]), :, it]
                 inputs = self.uSS[:int(self.TimeSS[it]), :, it]
                 zs.append(np.hstack([states[:-1], inputs[:-1]]))
@@ -393,7 +393,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             if verbose: print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
 
             # label the regions of the points in the safe set
-            for it in [self.it-2]:
+            for it in [self.it-1]:
                 for i in range(self.TimeSS[it]-1):
                     self.SS_regions[i, it] = self.clustering.cluster_labels[j]
                     j += 1
