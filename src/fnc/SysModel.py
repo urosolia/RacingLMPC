@@ -1,7 +1,7 @@
 import numpy as np
 import pdb
 import datetime
-from Utilities import Curvature
+from Utilities import Curvature, getAngle
 
 class Simulator():
     """Vehicle simulator
@@ -46,6 +46,10 @@ class Simulator():
 
             x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
             SimulationTime = i + 1
+
+            # print(getAngle(x[i+1,4], x[i+1,3], self.map.PointAndTangent))
+            # print(x[i+1,3], x_glob[i+1,3], wrap(x_glob[i+1,3]))
+            # pdb.set_trace()
 
             if i <= 5:
                 print("Linearization time: %.4fs Solver time: %.4fs" % (Controller.linearizationTime.total_seconds(), Controller.solverTime.total_seconds()))
@@ -190,3 +194,14 @@ def _DynModel(x, x_glob, u, np, dt, PointAndTangent):
     cur_x_next[2] = cur_x_next[2] + 0.1*noise_wz
 
     return cur_x_next, x_next
+
+
+def wrap(angle):
+    if angle < -np.pi:
+        w_angle = 2 * np.pi + angle
+    elif angle > np.pi:
+        w_angle = angle - 2 * np.pi
+    else:
+        w_angle = angle
+
+    return w_angle
