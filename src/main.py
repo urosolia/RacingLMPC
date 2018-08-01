@@ -73,17 +73,17 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 2+2              # Total LMPC laps
+Laps       = 5+2              # Total LMPC laps
 
 # Safe Set Parameter
 LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 32 + N         # Number of points to select from each trajectory to build the safe set
 numSS_Points_PWA = 8 + N
-shift = 0                     # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
+shift = N / 2                 # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
 
 # Tuning Parameters
-Qslack  = 5*np.diag([10, 1, 1, 1, 10, 1])          # Cost on the slack variable for the terminal constraint
+Qslack  = 50*np.diag([10, 1, 1, 1, 10, 1])          # Cost on the slack variable for the terminal constraint
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
 R_LMPC  =  1 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
 dR_LMPC =  5 * np.array([1.0, 1.0])                     # Input rate cost u
