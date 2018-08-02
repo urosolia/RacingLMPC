@@ -362,9 +362,11 @@ def select_nc_cross_validation(nc_list, zs, ys, verbose=False,
     z_lim = dimz if z_cutoff is None else z_cutoff
     # splitting into test/train
     perm = np.random.permutation(len(zs))
-    ind_test = int(portion_test * len(zs))
-    zs_train = zs[ind_test:]; ys_train = ys[ind_test:]
-    zs_test = zs[:ind_test]; ys_test = ys[:ind_test]
+    n_test = int(portion_test * len(zs))
+    ind_test = perm[:n_test]
+    ind_train = perm[n_test:]
+    zs_train = zs[ind_train]; ys_train = ys[ind_train]
+    zs_test = zs[ind_test]; ys_test = ys[ind_test]
     # fitting each cluster value
     clustering_list = []; errors = []
     for nc in nc_list: # TODO parallel?
@@ -385,6 +387,6 @@ def select_nc_cross_validation(nc_list, zs, ys, verbose=False,
     clustering_list[idx_best].add_data_update(zs_test, ys_test, verbose=verbose)
     if with_polytopic_regions:
         clustering_list[idx_best].determine_polytopic_regions()
-    return clustering_list[idx_best]
+    return clustering_list[idx_best], np.append(ind_train, ind_test)
     
 
