@@ -352,7 +352,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
 
             if self.load_model:
-                data = np.load('../notebooks/pwa_model_2.npz')
+                data = np.load('../notebooks/pwa_model_4.npz')
                 self.clustering = pwac.ClusterPWA.from_labels(data['zs'], data['ys'], 
                                    data['labels'], z_cutoff=self.n)
                 self.clustering.region_fns = data['region_fns']
@@ -386,7 +386,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 for i in range(self.TimeSS[it]-1):
                     self.SS_regions[i, it] = self.clustering.cluster_labels[cluster_ind]
                     cluster_ind += 1
-            if verbose: print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
+            if verbose: print_PWA_models(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
         elif addTrajectory:
             print('updating PWA model with new data')
             zs = []; ys = []
@@ -402,7 +402,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=self.region_update)
             # TODO this method takes a long time to run with full_update
             if self.region_update: self.clustering.determine_polytopic_regions(verbose=verbose)
-            if verbose: print(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
+            if verbose: print_PWA_models(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
 
             # label the regions of the points in the safe set
             for it in [self.it-1]:
@@ -415,8 +415,6 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                                        thetas=self.clustering.thetas)
             # to access SS in certain region,
             # region_indices[i] = np.where(self.SS_regions == i)
-
-
 
 
 class ControllerLMPC(AbstractControllerLMPC):
@@ -1126,3 +1124,10 @@ def ComputeIndex(h, SS, uSS, TimeSS, it, x0, stateFeatures, scaling, MaxNumPoint
     # K = np.ones(len(index))
 
     return index, K
+
+def print_PWA_models(models):
+    As, Bs, ds = models
+    for A,B,d in zip(As, Bs, ds):
+        spacer = np.nan * np.ones([A.shape[0], 1])
+        stacked = np.hstack([A, spacer, B, spacer, d[:,np.newaxis]])
+        print(np.array_str(stacked, precision=2, suppress_small=True))

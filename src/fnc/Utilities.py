@@ -54,6 +54,8 @@ def getAngle(s, epsi, PointAndTangent):
     TrackLength = PointAndTangent[-1,3]+PointAndTangent[-1,4]
 
     # In case on a lap after the first one
+    while s < 0: 
+        s = TrackLength + s
     while (s > TrackLength):
         s = s - TrackLength
 

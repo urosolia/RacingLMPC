@@ -54,8 +54,8 @@ class Simulator():
                 LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
 
 
-            x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], ClosedLoopData.dt, self.map.PointAndTangent)
-            #x[i + 1, :], x_glob[i + 1, :] = _PWAModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
+            #x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], ClosedLoopData.dt, self.map.PointAndTangent)
+            x[i + 1, :], x_glob[i + 1, :] = _PWAModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map)
             SimulationTime = i + 1
 
             if i <= 5: # 000:
@@ -201,9 +201,9 @@ def _DynModel(x, x_glob, u, dt, PointAndTangent):
 
     return cur_x_next, x_next
 
-def _PWAModel(x, x_glob, u, np, dt, PointAndTangent):
+def _PWAModel(x, x_glob, u, np, dt, trackMap):
 
-    data = np.load('cluster_labels.npz')
+    data = np.load('../notebooks/pwa_model_4.npz')
     region_fns = data['region_fns']
     thetas = data['thetas']
 
@@ -211,12 +211,9 @@ def _PWAModel(x, x_glob, u, np, dt, PointAndTangent):
     idx = np.argmax(dot_pdt)
     cur_x_next = thetas[idx].T.dot(np.hstack([x, u, 1]))
 
-    x_next     = cur_x_next # TODO global transform
+    x_next     = trackMap.get_global_state(cur_x_next)
+    
 
-    X, Y = Map(0.8).getGlobalPosition(x_next[4], x_next[5])
-    x_next[4] = X
-    x_next[5] = Y
-
-    print("simulating using PWA model", X, Y)
+    # print("simulating using PWA model", X, Y)
 
     return cur_x_next, x_next

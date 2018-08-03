@@ -18,7 +18,7 @@ class ClosedLoopData():
         self.x = np.zeros((self.Points + 1, 6))  # Initialize state vector (In curvilinear abscissas)
         self.x_glob = np.zeros((self.Points + 1, 6))  # Initialize the state vector in absolute reference frame
         self.SimTime = 0.0
-        self.x[0,0] = v0
+        self.x[0,0] = v0 
         self.x_glob[0,0] = v0
 
     def updateInitialConditions(self, x, x_glob):

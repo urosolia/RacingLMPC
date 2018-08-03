@@ -42,13 +42,13 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 0; plotFlag       = 0
+RunPID     = 1; plotFlag       = 1
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
+RunLMPC    = 0; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
 runPWAFlag = 1; # uncomment importing pwa_cluster in LMPC.py
 testCoordChangeFlag = 0;
-plotOneStepPredictionErrors = 1;
+plotOneStepPredictionErrors = 0;
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -86,7 +86,7 @@ shift = N / 2                 # Given the closed point, x_t^j, to the x(t) selec
 Qslack  = 50*np.diag([10, 1, 1, 1, 10, 1])          # Cost on the slack variable for the terminal constraint
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
 R_LMPC  =  1 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
-dR_LMPC =  5 * np.array([1.0, 1.0])                     # Input rate cost u
+dR_LMPC =  5 * np.array([1.0, 1.0])                     # Input rate cost u (2,1)
 
 # Initialize LMPC simulator
 LMPCSimulator = Simulator(map, 1, 1)

@@ -287,8 +287,6 @@ class ClusterPWA:
             idx = np.argmin(quality_of_clusters)
         return idx
 
-
-
 def affine_fit(x,y):
         # TODO use best least squares (scipy?)
         ls_res = np.linalg.lstsq(np.hstack([x, np.ones([len(x),1])]), y)
@@ -358,6 +356,8 @@ def select_nc_cross_validation(nc_list, zs, ys, verbose=False,
                                with_polytopic_regions=False, z_cutoff=None,
                                portion_test=0.25):
     # TODO test this function
+    # NOTE the data stored in clustering will be a different order than
+    # the data given to this function.
     
     z_lim = dimz if z_cutoff is None else z_cutoff
     # splitting into test/train
