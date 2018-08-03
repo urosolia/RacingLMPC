@@ -54,8 +54,8 @@ class Simulator():
                 LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
 
 
-            #x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], ClosedLoopData.dt, self.map.PointAndTangent)
-            x[i + 1, :], x_glob[i + 1, :] = _PWAModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map)
+            x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], ClosedLoopData.dt, self.map.PointAndTangent)
+            # x[i + 1, :], x_glob[i + 1, :] = _PWAModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map)
             SimulationTime = i + 1
 
             if i <= 5: # 000:
