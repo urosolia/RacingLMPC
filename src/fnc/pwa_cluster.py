@@ -14,7 +14,7 @@ class ClusterPWA:
     """
 
     def __init__(self, zs, ys, num_clusters, centroids, thetas,
-                 cluster_labels, cov_c, z_cutoff=None):
+                 cluster_labels, cov_c, z_cutoff=None, affine=True):
         """object initialization
 
         Args:
@@ -35,6 +35,7 @@ class ClusterPWA:
             assert z_cutoff <= self.dimz, ("Cannot ignore z dimensions, \
                                             %d > %d").format(z_cutoff, self.dimz) 
             self.z_cutoff = z_cutoff
+        self.affine = affine
         self.Nd = zs.shape[0]
         self.cov_e = np.eye(self.dimy) # TODO: change error model?
 
@@ -44,14 +45,13 @@ class ClusterPWA:
         self.thetas = thetas
         self.Nc = num_clusters
         self.cov_c = cov_c
-
         self.region_fns = None
 
 
         self.update_thetas = True
 
     @classmethod
-    def from_num_clusters(cls, zs, ys, num_clusters, initialization=None, z_cutoff=None):
+    def from_num_clusters(cls, zs, ys, num_clusters, initialization=None, z_cutoff=None, affine=True):
         dimy = ys[0].size; dimz = zs[0].size
         z_lim = dimz if z_cutoff is None else z_cutoff
         # centroids are initialized to be randomly spread over the range of the data
@@ -68,23 +68,24 @@ class ClusterPWA:
         # labels are initialized to zero
         cluster_labels = np.zeros(zs.shape[0])
         # models are initialized to zero
-        thetas = np.zeros( np.hstack([num_clusters, dimz+1, dimy]))
+        dim0 = dimz+1 if affine else dimz
+        thetas = np.zeros( np.hstack([num_clusters, dim0, dimy]))
         return cls(zs, ys, num_clusters, centroids, thetas, 
-                   cluster_labels, cov_c, z_cutoff)
+                   cluster_labels, cov_c, z_cutoff, affine=affine)
 
     @classmethod
-    def from_centroids_models(cls, zs, ys, centroids, thetas, z_cutoff=None):
+    def from_centroids_models(cls, zs, ys, centroids, thetas, z_cutoff=None, affine=True):
         z_lim = zs[0].size if z_cutoff is None else z_cutoff
         cov_c = [np.eye(z_lim) for i in range(centroids.shape[0])]
         return cls(zs, ys, len(centroids), centroids, thetas, 
-                   np.zeros(zs.shape[0]), cov_c, z_cutoff)
+                   np.zeros(zs.shape[0]), cov_c, z_cutoff, affine=affine)
 
     @classmethod
-    def from_labels(cls, zs, ys, cluster_labels, z_cutoff=None):
+    def from_labels(cls, zs, ys, cluster_labels, z_cutoff=None, affine=True):
         centroids, thetas, cov_c = ClusterPWA.get_model_from_labels(zs, ys, 
-                                                     cluster_labels, z_cutoff)
+                                                     cluster_labels, z_cutoff,affine=affine)
         return cls(zs, ys, np.unique(cluster_labels).size, centroids, thetas, 
-                   cluster_labels, cov_c, z_cutoff)
+                   cluster_labels, cov_c, z_cutoff, affine=affine)
 
     def add_data(self, new_zs, new_ys):
         # TODO assertions about data size
@@ -123,10 +124,10 @@ class ClusterPWA:
             self.cluster_labels[i] = np.argmax(dot_pdt)
         if self.update_thetas:
             self.centroids, self.thetas, self.cov_c = ClusterPWA.get_model_from_labels(self.zs, 
-                                             self.ys, self.cluster_labels, self.z_cutoff)
+                                             self.ys, self.cluster_labels, self.z_cutoff, affine=self.affine)
         else:
             self.centroids, _, self.cov_c = ClusterPWA.get_model_from_labels(self.zs, self.ys, 
-                                             self.cluster_labels, self.z_cutoff)
+                                             self.cluster_labels, self.z_cutoff, affine=self.affine)
         
     def get_region_matrices(self):
         return getRegionMatrices(self.region_fns)
@@ -137,7 +138,10 @@ class ClusterPWA:
             # compute errors on the training data
             for i in range(self.Nd):
                 idx = int(self.cluster_labels[i])
-                yhat = self.thetas[idx].T.dot(np.hstack([self.zs[i], 1]))
+                if self.affine:
+                    yhat = self.thetas[idx].T.dot(np.hstack([self.zs[i], 1]))
+                else:
+                    yhat = self.thetas[idx].T.dot(self.zs[i])
                 estimation_errors.append(yhat-self.ys[i])
         else:
             # compute errors on the test data new_zs, new_ys
@@ -167,10 +171,10 @@ class ClusterPWA:
         if verbose: print("updating models")
         if self.update_thetas:
             self.centroids, self.thetas, self.cov_c = ClusterPWA.get_model_from_labels(self.zs, self.ys, 
-                                             self.cluster_labels, self.z_cutoff)
+                                             self.cluster_labels, self.z_cutoff, affine=self.affine)
         else:
             self.centroids, _, self.cov_c = ClusterPWA.get_model_from_labels(self.zs, self.ys, 
-                                             self.cluster_labels, self.z_cutoff)        
+                                             self.cluster_labels, self.z_cutoff, affine=self.affine)        
         try:
             c_error = np.linalg.norm(self.centroids-centroids_old, ord='fro')
         except ValueError as e:
@@ -188,14 +192,18 @@ class ClusterPWA:
         Returns:
             an array of model quality for each cluster
         """
-        #scaling_c = [la.pinv(la.sqrtm(self.cov_c[i])) for i in range(self.Nc)]
+        #scaling_c = [la.pinv(la.sqrtm(self.cov_c[i])) for i in range(self.Nc)] TODO
         scaling_c = [np.eye(self.z_cutoff) for i in range(self.Nc)]
         scaling_e = la.inv(la.sqrtm(self.cov_e))
         
         # is distz the WRONG measure of locality for PWA?
         def distz(idx): 
             return np.linalg.norm(scaling_c[idx].dot(z[0:self.z_cutoff]-self.centroids[idx]),2)
-        disty = lambda idx: np.linalg.norm(scaling_e.dot(y-self.thetas[idx].T.dot(np.hstack([z, 1]))),2)
+        if self.affine:
+            disty = lambda idx: np.linalg.norm(scaling_e.dot(y-self.thetas[idx].T.dot(np.hstack([z, 1]))),2)
+        else:
+            disty = lambda idx: np.linalg.norm(scaling_e.dot(y-self.thetas[idx].T.dot(z)),2)
+
         
         zdists = [distz(i) for i in range(self.Nc)]
         if no_y: 
@@ -204,7 +212,7 @@ class ClusterPWA:
         return np.array(zdists) + np.array(ydists)
 
     @staticmethod
-    def get_model_from_labels(zs, ys, labels, z_cutoff=None):
+    def get_model_from_labels(zs, ys, labels, z_cutoff=None, affine=True):
         """ 
         Uses the cluster labels and data to return centroids and models and spatial covariances
 
@@ -216,8 +224,9 @@ class ClusterPWA:
             z_cutoff = dimz
         Nc = np.unique(labels).size
         Nd = zs.shape[0]
-
-        thetas = np.zeros( np.hstack([Nc, dimz+1, dimy]))
+        
+        dim0 = dimz+1 if affine else dimz
+        thetas = np.zeros( np.hstack([Nc, dim0, dimy]))
         centroids = np.random.uniform(size=np.hstack([Nc, z_cutoff]))
         cov_c = [np.eye(z_cutoff) for i in range(Nc)]
 
@@ -242,7 +251,7 @@ class ClusterPWA:
                     cov_c[i] = np.array([[cov_c[i]]])
             # compute centroids and affine fit
             centroids[i] = np.mean(np.array(points_cutoff), axis=0)
-            thetas[i] = affine_fit(points, points_y) 
+            thetas[i] = affine_fit(points, points_y, affine=affine) 
             assert len(cov_c[i].shape) == 2, cov_c[i].shape
         return centroids, thetas, cov_c
 
@@ -250,15 +259,19 @@ class ClusterPWA:
         """
         Uses recursive least squares to update theta based on the data points in the cluster
         """
-        thetas = np.zeros( np.hstack([self.Nc, self.dimz+1, self.dimy]))
+        dim0 = dimz+1 if self.affine else dimz
+        thetas = np.zeros( np.hstack([self.Nc, self.dim0, self.dimy]))
         
         for i in range(self.Nc):
-            est = rls.Estimator(self.thetas[i], np.eye(self.dimz+1))
+            est = rls.Estimator(self.thetas[i], np.eye(self.dim0))
 
             points = [self.zs[j] for j in range(self.Nd) if self.cluster_labels[j] == i]
             points_y = [self.ys[j] for j in range(self.Nd) if self.cluster_labels[j] == i]
             for point, y in zip(points, points_y):
-                est.update(np.hstack([point,[1]]), y)
+                if self.affine:
+                    est.update(np.hstack([point,[1]]), y)
+                else:
+                    est.update(point, y)
             thetas[i] = est.theta
         return thetas
 
@@ -273,7 +286,10 @@ class ClusterPWA:
 
     def get_prediction(self, z):
         idx = self.get_region(z)
-        yhat = self.thetas[idx].T.dot(np.hstack([z, 1]))
+        if self.affine:
+            yhat = self.thetas[idx].T.dot(np.hstack([z, 1]))
+        else:
+            yhat = self.thetas[idx].T.dot(z)
         return yhat
 
     def get_region(self, z):
@@ -287,9 +303,12 @@ class ClusterPWA:
             idx = np.argmin(quality_of_clusters)
         return idx
 
-def affine_fit(x,y):
+def affine_fit(x,y,affine=True):
         # TODO use best least squares (scipy?)
-        ls_res = np.linalg.lstsq(np.hstack([x, np.ones([len(x),1])]), y)
+        if affine:
+            ls_res = np.linalg.lstsq(np.hstack([x, np.ones([len(x),1])]), y)
+        else:
+            ls_res = np.linalg.lstsq(x, y)
         return ls_res[0]
 
 def cvx_cluster_problem(zs, labels):
@@ -333,9 +352,10 @@ def getRegionMatrices(region_fns):
     return F_region, b_region
 
 def get_PWA_models(thetas, n, p):
+    # if thetas include no d term, jut discard that result
     As = []; Bs = []; ds = [];
     for theta in thetas:
-        assert theta.shape[0] == n+p+1
+        assert theta.shape[0] == n+p+1 or theta.shape[0] == n+p
         assert theta.shape[1] == n
         As.append(theta[:n, :].copy().T)
         Bs.append(theta[n:(n+p), :].copy().T)
@@ -354,7 +374,7 @@ def check_equivalence(region_fns, F_region, b_region, x):
 
 def select_nc_cross_validation(nc_list, zs, ys, verbose=False,
                                with_polytopic_regions=False, z_cutoff=None,
-                               portion_test=0.25):
+                               portion_test=0.25, affine=True):
     # TODO test this function
     # NOTE the data stored in clustering will be a different order than
     # the data given to this function.
@@ -371,14 +391,15 @@ def select_nc_cross_validation(nc_list, zs, ys, verbose=False,
     clustering_list = []; errors = []
     for nc in nc_list: # TODO parallel?
         if verbose: print("===================== Fitting model with Nc=", nc, "====================")
-        clustering = ClusterPWA.from_num_clusters(zs_train, ys_train, nc, z_cutoff=z_cutoff)
+        clustering = ClusterPWA.from_num_clusters(zs_train, ys_train, nc, z_cutoff=z_cutoff, affine=affine)
         clustering.fit_clusters(verbose=verbose)
         if with_polytopic_regions: # takes longer
             clustering.determine_polytopic_regions()
         train_errors = np.abs(clustering.get_prediction_errors())
         test_errors = np.abs(clustering.get_prediction_errors(new_zs=zs_test, new_ys=ys_test))
+        print(train_errors.shape, test_errors.shape)
         if verbose: print('avg train error:', np.linalg.norm(train_errors, ord='fro') / int((1-portion_test) * len(zs)))
-        if verbose: print('avg test error:', np.linalg.norm(test_errors, ord='fro') / ind_test)
+        if verbose: print('avg test error:', np.linalg.norm(test_errors, ord='fro') / n_test)
         # TODO: best error metric?
         metric = np.linalg.norm(test_errors, ord='fro')
         errors.append(metric)
@@ -390,3 +411,9 @@ def select_nc_cross_validation(nc_list, zs, ys, verbose=False,
     return clustering_list[idx_best], np.append(ind_train, ind_test)
     
 
+def print_PWA_models(models):
+    As, Bs, ds = models
+    for A,B,d in zip(As, Bs, ds):
+        spacer = np.nan * np.ones([A.shape[0], 1])
+        stacked = np.hstack([A, spacer, B, spacer, d[:,np.newaxis]])
+        print(np.array_str(stacked, precision=2, suppress_small=True))
