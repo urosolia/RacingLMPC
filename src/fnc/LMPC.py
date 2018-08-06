@@ -244,7 +244,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
         self.SS_regions = None
-        self.load_model = False
+        self.load_model = True
         self.region_update = False
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
@@ -298,7 +298,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             if np.any(np.isnan(select_reg)): 
                 # TODO what's happening in this case?
                 select_reg = select_reg_0
-
+            print(select_reg)
             SS_PointSelectedTot.append(terminal_point)
             Qfun_SelectedTot.append(terminal_cost)
             Select_Regs.append(select_reg)
@@ -352,7 +352,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
 
             if self.load_model:
-                data = np.load('../notebooks/pwa_model_2.npz')
+                data = np.load('../notebooks/pwa_model_15.npz')
                 self.clustering = pwac.ClusterPWA.from_labels(data['zs'], data['ys'], 
                                    data['labels'], z_cutoff=self.n)
                 self.clustering.region_fns = data['region_fns']
