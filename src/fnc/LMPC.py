@@ -244,7 +244,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
         self.SS_regions = None
-        self.load_model = True
+        self.load_model = False #True
         self.region_update = False
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
@@ -298,7 +298,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             if np.any(np.isnan(select_reg)): 
                 # TODO what's happening in this case?
                 select_reg = select_reg_0
-            print(select_reg)
+            # print(select_reg) TODO why always zero!
             SS_PointSelectedTot.append(terminal_point)
             Qfun_SelectedTot.append(terminal_cost)
             Select_Regs.append(select_reg)

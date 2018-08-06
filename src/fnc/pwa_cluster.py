@@ -303,13 +303,51 @@ class ClusterPWA:
             idx = np.argmin(quality_of_clusters)
         return idx
 
-def affine_fit(x,y,affine=True):
+def affine_fit(x,y,affine=True,sparse_mask=None):
         # TODO use best least squares (scipy?)
-        if affine:
-            ls_res = np.linalg.lstsq(np.hstack([x, np.ones([len(x),1])]), y)
+        x1 = np.hstack([x, np.ones([len(x),1])]) if affine else x
+        if sparse_mask is None:
+            ls_res = np.linalg.lstsq(x1, y)
+            theta = ls_res[0]
         else:
-            ls_res = np.linalg.lstsq(x, y)
-        return ls_res[0]
+            theta = sparse_least_squares(x1, y, sparse_mask)
+        return theta
+
+def sparse_least_squares(x, y, M):
+    '''
+    solves y = A x where we want to enforce a sparsity pattern described by mask M
+    i.e., A * M = A (element-wise multiplication)
+
+    TODO speed up with QR? 
+    TODO correct LS method?
+    '''
+    N,n = x.shape
+    N2,m = y.shape
+    assert N2 == N, "dimension mismatch: " + str(N) + ", " + str(N2)
+
+    A = np.zeros([n,m])
+    for i in range(m):
+        xi = np.zeros(x.shape)
+        xi[:,np.where(M[:,i]==1)] = x[:,np.where(M[:,i]==1)]
+        ls_res = np.linalg.lstsq(xi, y[:,i])
+        A[:,i] = ls_res[0]
+        A[np.where(M[:,i]==0),i] = 0
+    return A
+
+def test_least_squares():
+    N,n,m = 500,8,6
+    x = np.random.normal(size=[N,n])
+    A0 = np.random.normal(size=[n,m])
+
+    M = np.ones([n,m])
+    M[::2,1::2] = 0
+    A0 = A0 * M
+
+    y = x.dot(A0) + 0.1 * np.random.normal(size=[N,m])
+    A2 = affine_fit(x,y,affine=False)
+    assert np.amax(A2 - sparse_least_squares(x, y, np.ones([n,m]))) < 1e-10
+    A = sparse_least_squares(x, y, M)
+    assert np.linalg.norm(A-A0) < np.linalg.norm(A2-A0)
 
 def cvx_cluster_problem(zs, labels):
     s = np.unique(labels).size
