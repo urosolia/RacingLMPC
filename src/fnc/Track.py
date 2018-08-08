@@ -12,19 +12,30 @@ class Map():
         width: track width
         Modify the vector spec to change the geometry of the track
         """
-        self.slack = 0.15
-        self.width = width
-        spec = np.array([[60 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+        # self.slack = 0.15
+        # self.width = width
+        # spec = np.array([[60 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+        #                  # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+        #                  [20 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+        #                  [40 * 0.03, +40 * 0.03 * 10 / np.pi],
+        #                  [60 * 0.03, -60 * 0.03 * 5 / np.pi],
+        #                  [40 * 0.03, +40 * 0.03 * 10 / np.pi],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+        #                  [20 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
+
+        self.width = 0.4
+        self.slack = 0.45
+        lengthCurve = 4.5
+        spec = np.array([[1.0, 0],
+                         [lengthCurve, lengthCurve / np.pi],
                          # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-                         [20 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         [40 * 0.03, +40 * 0.03 * 10 / np.pi],
-                         [60 * 0.03, -60 * 0.03 * 5 / np.pi],
-                         [40 * 0.03, +40 * 0.03 * 10 / np.pi],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         [20 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
+                         [lengthCurve / 2, -lengthCurve / np.pi],
+                         [lengthCurve, lengthCurve / np.pi],
+                         [lengthCurve / np.pi * 2, 0],
+                         [lengthCurve / 2, lengthCurve / np.pi]])
 
 
         # spec = np.array([[1.0, 0],

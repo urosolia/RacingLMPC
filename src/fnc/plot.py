@@ -305,7 +305,7 @@ def saveGif_xyResults(map, LMPCOpenLoopData, LMPController, it):
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     fig = plt.figure(101)
-    plt.ylim((-5, 1.5))
+    # plt.ylim((-5, 1.5))
     fig.set_tight_layout(True)
     plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
     plt.plot(Points0[:, 0], Points0[:, 1], '--')

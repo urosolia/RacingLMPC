@@ -42,10 +42,10 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 1; plotFlag       = 0
-RunMPC     = 1; plotFlagMPC    = 0
-RunMPC_tv  = 1; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunPID     = 0; plotFlag       = 0
+RunMPC     = 0; plotFlagMPC    = 0
+RunMPC_tv  = 0; plotFlagMPC_tv = 0
+RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -70,7 +70,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 20+2              # Total LMPC laps
+Laps       = 40+2              # Total LMPC laps
 
 # Safe Set Parameters
 LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
@@ -209,7 +209,7 @@ if plotFlagLMPC == 1:
     plotClosedLoopLMPC(LMPController, map)
 
 if animation_xyFlag == 1:
-    animation_xy(map, LMPCOpenLoopData, LMPController, 18)
+    animation_xy(map, LMPCOpenLoopData, LMPController, 36)
 
 if animation_stateFlag == 1:
     animation_states(map, LMPCOpenLoopData, LMPController, 18)
@@ -218,6 +218,6 @@ unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
 unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
+saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 36)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()
