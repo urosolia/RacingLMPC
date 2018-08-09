@@ -31,7 +31,7 @@ from Classes import ClosedLoopData, LMPCprediction
 from PathFollowingLTVMPC import PathFollowingLTV_MPC
 from PathFollowingLTIMPC import PathFollowingLTI_MPC
 from Track import Map, unityTestChangeOfCoordinates
-from LMPC import ControllerLMPC
+from LMPC import ControllerLMPC, PWAControllerLMPC
 from Utilities import Regression
 from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults, Save_statesAnimation
 import numpy as np
@@ -45,7 +45,10 @@ import pickle
 RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+runPWAFlag = 0; # uncomment importing pwa_cluster in LMPC.py
+testCoordChangeFlag = 0;
+plotOneStepPredictionErrors = 1;
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -73,7 +76,7 @@ TimeLMPC   = 400              # Simulation time
 Laps       = 5+2              # Total LMPC laps
 
 # Safe Set Parameter
-LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
+LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 32 + N         # Number of points to select from each trajectory to build the safe set
 shift = 0                     # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
@@ -151,7 +154,10 @@ ClosedLoopLMPC = ClosedLoopData(dt, TimeLMPC, v0)
 LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
 LMPCSimulator = Simulator(map, 1, 1)
 
-LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
+if runPWAFlag == 1:
+    LMPController = PWAControllerLMPC(10, numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
+else:
+    LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
 LMPController.addTrajectory(ClosedLoopDataPID)
 LMPController.addTrajectory(ClosedLoopDataLTV_MPC)
 
@@ -188,7 +194,7 @@ else:
 
 print("===== LMPC terminated")
 # ======================================================================================================================
-# ========================================= PLOT TRACK =================================================================
+# ========================================= PLOT TRACK/PREDICTIONS =====================================================
 # ======================================================================================================================
 for i in range(0, LMPController.it):
     print("Lap time at iteration ", i, " is ", LMPController.Qfun[0, i]*dt, "s")
@@ -209,41 +215,40 @@ if plotFlagLMPC == 1:
 
 if animation_xyFlag == 1:
     animation_xy(map, LMPCOpenLoopData, LMPController, 5)
+    # saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
 
 if animation_stateFlag == 1:
     animation_states(map, LMPCOpenLoopData, LMPController, 5)
+    # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 
-unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
-unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
-unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
+if testCoordChangeFlag == 1:
+    unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
+    unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
+    unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
-# Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
+if plotOneStepPredictionErrors == 1:
+    it=5
+    onestep_errors = []
+    onestep_norm_errors = []
+    for i in range(1, int(LMPController.TimeSS[it])):
+        current_state = LMPController.SS[i, :, it]
+        current_pos = LMPController.SS[i, 4:6, it]
+        predicted_trajectory = LMPCOpenLoopData.PredictedStates[:, :, i-1, it]
+        predicted_state = predicted_trajectory[1,:]
+        onestep_errors.append(predicted_state-current_state)
+        onestep_norm_errors.append(np.linalg.norm(predicted_state-current_state))
+
+    plt.figure();
+    onestep_errors = np.array(onestep_errors)
+    state_names = ['vx', 'vy', 'wz', 'epsi', 's', 'ey']
+    for state in range(onestep_errors.shape[1]):
+        if state == 0:
+            plt.title('One Step Prediction Error')
+        plt.subplot(onestep_errors.shape[1], 1, state+1)
+        plt.plot(onestep_errors[:,state])
+        plt.ylabel(state_names[state])
+
 plt.show()
 
-# ======================================================================================================================
-# ========================================= PLOT PREDICTION ERROR=======================================================
-# ======================================================================================================================
 
-it=5
-onestep_errors = []
-onestep_norm_errors = []
-for i in range(1, int(LMPController.TimeSS[it])):
-    current_state = LMPController.SS[i, :, it]
-    current_pos = LMPController.SS[i, 4:6, it]
-    predicted_trajectory = LMPCOpenLoopData.PredictedStates[:, :, i-1, it]
-    predicted_state = predicted_trajectory[1,:]
-    onestep_errors.append(predicted_state-current_state)
-    onestep_norm_errors.append(np.linalg.norm(predicted_state-current_state))
-
-plt.figure();
-onestep_errors = np.array(onestep_errors)
-state_names = ['vx', 'vy', 'wz', 'epsi', 's', 'ey']
-for state in range(onestep_errors.shape[1]):
-    if state == 0:
-        plt.title('One Step Prediction Error')
-    plt.subplot(onestep_errors.shape[1], 1, state+1)
-    plt.plot(onestep_errors[:,state])
-    plt.ylabel(state_names[state])
-plt.show()
 

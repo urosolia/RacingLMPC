@@ -11,10 +11,12 @@ from pathos.multiprocessing import ProcessingPool as Pool
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
-#from osqp import OSQP
+from osqp import OSQP
 
 from abc import ABCMeta, abstractmethod
-import sys
+# import sys
+# sys.path.append('../../SwitchSysLMPC/src')
+# import pwa_cluster as pwac
 
 
 solvers.options['show_progress'] = False
@@ -125,12 +127,16 @@ class AbstractControllerLMPC:
         else:
             self.uPred = uPred.T
             self.LinInput = np.vstack((uPred.T[1:, :], uPred.T[-1, :]))
-        # TODO: this is a temporary hack to store piecewise affine predictions
-        if self.clustering is not None:
-            self.xPred = xPred.T # replace xPred with pwa one step prediction using x0 and uPred[1]
         self.OldInput = uPred.T[0,:]
         # TODO: make this more general
         self.LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
+
+        # TODO: this is a temporary hack to store piecewise affine predictions
+        # only putting this prediction in the one-step position
+        if self.clustering is not None:
+            pwa_pred = self.clustering.get_prediction(np.hstack([self.xPred[0],self.uPred[0]]))
+            self.xPred[1] = pwa_pred
+        
         
 
     def addTrajectory(self, ClosedLoopData):
@@ -208,11 +214,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
         self.n_clusters = n_clusters
         # python 2/3 compatibility
-        if sys.version_info.major == 3:
-            super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
-                             n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        else:
-            super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+        super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
     
     def _getQP(self, x0):
@@ -222,6 +224,10 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         deltaTimer = datetime.datetime.now() - startTimer
         L, npG, npE = BuildMatEqConst_TV(self.Solver, Atv, Btv, Ctv)
         self.linearizationTime = deltaTimer
+
+        # PWA System ID
+        self._estimate_pwa(verbose=True)
+
 
         # Build Terminal cost and Constraint
         G, E = LMPC_TermConstr(self.Solver, self.N, self.n, self.d, npG, npE, self.SS_PointSelectedTot)
@@ -270,11 +276,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                Ctv.append(ParallelResutl[i][2])
                indexUsed_list.append(ParallelResutl[i][3])
 
-        self._estimate_pwa()
-
         return Atv, Btv, Ctv, indexUsed_list
 
-    def _estimate_pwa(self, x=None, u=None):
+    def _estimate_pwa(self, x=None, u=None, verbose=False):
         if self.clustering is None:
             # construct z and y from past laps
             zs = []; ys = []
@@ -283,26 +287,12 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 inputs = self.uSS[:int(self.TimeSS[it]), :, it]
                 zs.append(np.hstack([states[:-1], inputs[:-1]]))
                 ys.append(states[1:])
-            zs = np.array(zs); ys = np.array(ys)
+            zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
             self.clustering = pwac.ClusterPWA.from_num_clusters(zs, ys, 
                                     self.n_clusters, z_cutoff=self.n)
-        else:
-            pass # do nothing
-            # construct new z and y 
-            # self.clustering.add_data_update(zs, ys, full_update=False)
-        if self.clustering is None:
-            self.clustering.fit_clusters() # verbose=verbose)
-            self.clustering.determine_polytopic_regions()
-            self.F_region, self.b_region = pwac.getRegionMatrices(self.clustering.region_fns)
-        # define a function for one step prediction
+            self.clustering.fit_clusters(verbose=verbose)
+            # self.clustering.determine_polytopic_regions(verbose=verbose)
 
-    def _one_step_prediction(self, x, u):
-        assert self.clustering is not None
-        z = np.hstack([x, u])
-        for region in len(self.F_region):
-            if self.F_region[region].dot(x) <= b_region[region]:
-                return self.clustering.thetas[region].T.dot(np.hstack([z, 1]))
-        
 
 
 class ControllerLMPC(AbstractControllerLMPC):
@@ -317,11 +307,7 @@ class ControllerLMPC(AbstractControllerLMPC):
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         # Build matrices for inequality constraints
         self.F, self.b = LMPC_BuildMatIneqConst(N, n, numSS_Points, Solver)
-        if sys.version_info.major == 3:
-            super().__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
-                             n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        else:
-            super(ControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
+        super(ControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
     
 
