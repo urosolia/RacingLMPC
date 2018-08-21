@@ -25,14 +25,16 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import sys
-sys.path.append('fnc')
-from SysModel import Simulator, PID
-from Classes import ClosedLoopData, LMPCprediction
+sys.path.append('ControllersObject')
+sys.path.append('Utilities')
+from SysModel import Simulator
+from PID import PID
+from dataStructures import ClosedLoopDataObj, LMPCprediction
 from PathFollowingLTVMPC import PathFollowingLTV_MPC
-from PathFollowingLTIMPC import PathFollowingLTI_MPC
-from Track import Map, unityTestChangeOfCoordinates
-from LMPC import ControllerLMPC, PWAControllerLMPC
-from Utilities import Regression
+from PathFollowingLTI_MPC import PathFollowingLTI_MPC
+from trackInitialization import Map, unityTestChangeOfCoordinates
+from LMPC import ControllerLMPC #, PWAControllerLMPC
+from utilities import Regression
 from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults, Save_statesAnimation
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,8 +47,8 @@ import pickle
 RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
-runPWAFlag = 1; # uncomment importing pwa_cluster in LMPC.py
+RunLMPC    = 0; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
+runPWAFlag = 0; # uncomment importing pwa_cluster in LMPC.py
 testCoordChangeFlag = 0;
 plotOneStepPredictionErrors = 0;
 
@@ -66,7 +68,7 @@ n = 6;   d = 2               # State and Input dimension
 Q = np.diag([1.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
 R = np.diag([1.0, 10.0])                  # delta, a
 
-map = Map(0.8)                            # Initialize the map
+map = Map('3110_big')                            # Initialize the map
 simulator = Simulator(map)                # Initialize the Simulator
 
 # ======================================================================================================================
@@ -77,6 +79,7 @@ Laps       = 5+2              # Total LMPC laps
 
 # Safe Set Parameter
 LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
+SysID_Solver = "scipy"         # Can pick CVX, OSQP or scipy. For OSQP uncomment line 14 in LMPC.py
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 32 + N         # Number of points to select from each trajectory to build the safe set
 numSS_Points_PWA = 8 + N
@@ -84,9 +87,11 @@ shift = N / 2                 # Given the closed point, x_t^j, to the x(t) selec
 
 # Tuning Parameters
 Qslack  = 50*np.diag([10, 1, 1, 1, 10, 1])          # Cost on the slack variable for the terminal constraint
+Qlane   = 0.1 * 0.5 * 10 * np.array([50, 10]) # Quadratic slack lane cost
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
 R_LMPC  =  1 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
 dR_LMPC =  5 * np.array([1.0, 1.0])                     # Input rate cost u (2,1)
+aConstr = np.array([0.7, 2.0])
 
 # Initialize LMPC simulator
 LMPCSimulator = Simulator(map, 1, 1)
@@ -96,7 +101,7 @@ LMPCSimulator = Simulator(map, 1, 1)
 # ======================================================================================================================
 print("Starting PID")
 if RunPID == 1:
-    ClosedLoopDataPID = ClosedLoopData(dt, Time , v0)
+    ClosedLoopDataPID = ClosedLoopDataObj(dt, Time , v0)
     PIDController = PID(vt)
     simulator.Sim(ClosedLoopDataPID, PIDController)
 
@@ -117,8 +122,8 @@ lamb = 0.0000001
 A, B, Error = Regression(ClosedLoopDataPID.x, ClosedLoopDataPID.u, lamb)
 
 if RunMPC == 1:
-    ClosedLoopDataLTI_MPC = ClosedLoopData(dt, TimeMPC, v0)
-    Controller_PathFollowingLTI_MPC = PathFollowingLTI_MPC(A, B, Q, R, N, vt)
+    ClosedLoopDataLTI_MPC = ClosedLoopDataObj(dt, TimeMPC, v0)
+    Controller_PathFollowingLTI_MPC = PathFollowingLTI_MPC(A, B, Q, R, N, vt, Qlane)
     simulator.Sim(ClosedLoopDataLTI_MPC, Controller_PathFollowingLTI_MPC)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'wb')
@@ -135,8 +140,9 @@ print("===== MPC terminated")
 # ======================================================================================================================
 print("Starting TV-MPC")
 if RunMPC_tv == 1:
-    ClosedLoopDataLTV_MPC = ClosedLoopData(dt, TimeMPC_tv, v0)
-    Controller_PathFollowingLTV_MPC = PathFollowingLTV_MPC(Q, R, N, vt, n, d, ClosedLoopDataPID.x, ClosedLoopDataPID.u, dt, map)
+    ClosedLoopDataLTV_MPC = ClosedLoopDataObj(dt, TimeMPC_tv, v0)
+    Controller_PathFollowingLTV_MPC = PathFollowingLTV_MPC(Q, R, N, vt, ClosedLoopDataPID.x, 
+                                                      ClosedLoopDataPID.u, dt, map, "OSQP")
     simulator.Sim(ClosedLoopDataLTV_MPC, Controller_PathFollowingLTV_MPC)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'wb')
@@ -151,7 +157,7 @@ print("===== TV-MPC terminated")
 # ==============================  LMPC w\ LOCAL LINEAR REGRESSION ======================================================
 # ======================================================================================================================
 print("Starting LMPC")
-ClosedLoopLMPC = ClosedLoopData(dt, TimeLMPC, v0)
+ClosedLoopLMPC = ClosedLoopDataObj(dt, TimeLMPC, v0)
 LMPCSimulator = Simulator(map, 1, 1)
 
 if runPWAFlag == 1:
@@ -159,7 +165,13 @@ if runPWAFlag == 1:
     LMPController = PWAControllerLMPC(2, numSS_Points_PWA, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
 else:
     LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
-    LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Q_LMPC, R_LMPC, dR_LMPC, n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver)
+    LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Qlane, Q_LMPC, R_LMPC, dR_LMPC, 
+                                    n, d, shift, dt, map, Laps, TimeLMPC, LMPC_Solver,
+                                    SysID_Solver, True, 0, 0, aConstr)
+
+
+ 
+        
 LMPController.addTrajectory(ClosedLoopDataPID)
 LMPController.addTrajectory(ClosedLoopDataLTV_MPC)
 

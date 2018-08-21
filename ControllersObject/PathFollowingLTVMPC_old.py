@@ -2,7 +2,10 @@ from scipy import linalg
 import numpy as np
 from cvxopt.solvers import qp
 from cvxopt import spmatrix, matrix, solvers
-from Utilities import Curvature
+import sys
+
+sys.path.append('../Utilities')
+from utilities import Curvature
 import datetime
 
 solvers.options['show_progress'] = False

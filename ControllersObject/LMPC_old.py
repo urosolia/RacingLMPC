@@ -8,7 +8,9 @@ from cvxopt.solvers import qp
 import datetime
 from functools import partial
 from pathos.multiprocessing import ProcessingPool as Pool
-from Utilities import Curvature
+import sys
+sys.path.append('../Utilities')
+from utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
 from osqp import OSQP

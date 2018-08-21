@@ -11,8 +11,8 @@ def plotTrajectory(map, x, x_glob, u):
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
     for i in range(0, int(Points)):
-        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.width)
-        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
+        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     plt.figure()
@@ -57,8 +57,8 @@ def plotClosedLoopLMPC(LMPController, map):
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
     for i in range(0, int(Points)):
-        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.width)
-        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
+        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     plt.figure(1)
@@ -113,8 +113,8 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
     for i in range(0, int(Points)):
-        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.width)
-        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
+        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     plt.figure(200)
@@ -230,8 +230,8 @@ def animation_states(map, LMPCOpenLoopData, LMPController, it):
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
     for i in range(0, int(Points)):
-        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.width)
-        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
+        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     axtr = fig.add_subplot(3, 2, 6)
@@ -303,8 +303,8 @@ def saveGif_xyResults(map, LMPCOpenLoopData, LMPController, it):
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
     for i in range(0, int(Points)):
-        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.width)
-        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
+        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     fig = plt.figure(101)
@@ -422,8 +422,8 @@ def Save_statesAnimation(map, LMPCOpenLoopData, LMPController, it):
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
     for i in range(0, int(Points)):
-        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.width)
-        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.width)
+        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     axtr = fig.add_subplot(3, 2, 6)

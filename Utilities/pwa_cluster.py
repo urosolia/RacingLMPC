@@ -458,7 +458,6 @@ def select_nc_cross_validation(nc_list, zs, ys, verbose=False,
         clustering_list[idx_best].determine_polytopic_regions()
     return clustering_list[idx_best], np.append(ind_train, ind_test)
     
-
 def print_PWA_models(models):
     As, Bs, ds = models
     for A,B,d in zip(As, Bs, ds):

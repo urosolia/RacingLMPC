@@ -1,8 +1,12 @@
 import numpy as np
 import pdb
 import datetime
-from Utilities import Curvature
-from Track import Map
+import sys
+
+sys.path.append('Utilities')
+
+from utilities import Curvature
+from trackInitialization import Map
 
 class Simulator():
     """Vehicle simulator
@@ -52,7 +56,7 @@ class Simulator():
                 LMPCprediction.PredictedInputs[:, :, i, Controller.it] = Controller.uPred
                 LMPCprediction.SSused[:, :, i, Controller.it]          = Controller.SS_PointSelectedTot
                 LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
-
+                # TODO update LMPCprediction.oneStepPredictionError
 
             x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], ClosedLoopData.dt, self.map.PointAndTangent)
             # x[i + 1, :], x_glob[i + 1, :] = _PWAModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map)
@@ -66,7 +70,7 @@ class Simulator():
 
 
             if self.flagLMPC == 1:
-                Controller.addPoint(x[i, :], u[i, :], i)
+                Controller.addPoint(x[i, :], x_glob[i,:], u[i, :], i)
 
             if (self.laps == 1) and (int(np.floor(x[i+1, 4] / (self.map.TrackLength))))>0:
                 print("Simulation terminated: Lap completed")
@@ -76,33 +80,6 @@ class Simulator():
         # TODO this always says zero
         print("Number of laps completed: ", int(np.floor(x[-1, 4] / (self.map.TrackLength))))
 
-class PID:
-    """Create the PID controller used for path following at constant speed
-    Attributes:
-        solve: given x0 computes the control action
-    """
-    def __init__(self, vt):
-        """Initialization
-        Arguments:
-            vt: target velocity
-        """
-        self.vt = vt
-        self.uPred = np.zeros([1,2])
-
-        startTimer = datetime.datetime.now()
-        endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
-        self.solverTime = deltaTimer
-        self.linearizationTime = deltaTimer
-        self.feasible = 1
-
-    def solve(self, x0):
-        """Computes control action
-        Arguments:
-            x0: current state position
-        """
-        vt = self.vt
-        self.uPred[0, 0] = - 0.6 * x0[5] - 0.9 * x0[3] + np.maximum(-0.9, np.minimum(np.random.randn() * 0.25, 0.9))
-        self.uPred[0, 1] = 1.5 * (vt - x0[0]) + np.maximum(-0.2, np.minimum(np.random.randn() * 0.10, 0.2))
 # ======================================================================================================================
 # ======================================================================================================================
 # ================================ Internal functions for change of coordinates ========================================

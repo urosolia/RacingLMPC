@@ -1,38 +1,94 @@
+#!/usr/bin/env python
+
 import numpy as np
-import numpy.linalg as la
 import pdb
-import Utilities
+import numpy.linalg as la
+import rospy
 
 class Map():
     """map object
     Attributes:
         getGlobalPosition: convert position from (s, ey) to (X,Y)
     """
-    def __init__(self, width):
+    def __init__(self, flagTrackShape=0):
         """Initialization
-        width: track width
         Modify the vector spec to change the geometry of the track
         """
-        self.width = width
-        spec = np.array([[60 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-                         [20 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         [40 * 0.03, +40 * 0.03 * 10 / np.pi],
-                         [60 * 0.03, -60 * 0.03 * 5 / np.pi],
-                         [40 * 0.03, +40 * 0.03 * 10 / np.pi],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         [20 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
+        if flagTrackShape == 0:
+            selectedTrack = rospy.get_param("trackShape")
+        else:
+            selectedTrack = flagTrackShape
 
+        if selectedTrack == "3110":
+            self.halfWidth = 0.7
+            self.slack     = 0.45
+            spec = np.array([[60 * 0.03, 0],
+                             [60 * 0.03, +60 * 0.03 * 2 / np.pi],
+                             # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                             [20 * 0.03, 0],
+                             [60 * 0.03, +60 * 0.03 * 2 / np.pi],
+                             [40 * 0.03, -40 * 0.03 * 10 / np.pi],
+                             [60 * 0.03, +60 * 0.03 * 5 / np.pi],
+                             [40 * 0.03, -40 * 0.03 * 10 / np.pi],
+                             [60 * 0.03, +60 * 0.03 * 2 / np.pi],
+                             [20 * 0.03, 0],
+                             [60 * 0.03, +60 * 0.03 * 2 / np.pi]])
+        elif selectedTrack == "3110_big":
+            self.halfWidth = 0.4
+            self.slack     = 0.45
+            spec = np.array([[60 * 0.03, 0],
+                             [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+                             # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                             [20 * 0.03, 0],
+                             [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+                             [40 * 0.03, +40 * 0.03 * 10 / np.pi],
+                             [60 * 0.03, -60 * 0.03 * 5 / np.pi],
+                             [40 * 0.03, +40 * 0.03 * 10 / np.pi],
+                             [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+                             [20 * 0.03, 0],
+                             [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
 
-        # spec = np.array([[1.0, 0],
-        #                  [4.5, -4.5 / np.pi],
-        #                  # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-        #                  [2.0, 0],
-        #                  [4.5, -4.5 / np.pi],
-        #                  [1.0, 0]])
+        elif selectedTrack == "oval":
+            self.halfWidth = 0.7 
+            self.slack     = 0.45
+            spec = np.array([[1.0, 0],
+                             [5.5, 5.5 / np.pi],
+                             # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                             [2.0, 0],
+                             [5.5, 5.5 / np.pi],
+                             [1.0, 0]])
+        elif selectedTrack == "L_shape":
+            self.halfWidth = 0.4 
+            self.slack     = 0.45
+            lengthCurve = 4.5
+            spec = np.array([[1.0, 0],
+                             [lengthCurve, lengthCurve / np.pi],
+                             # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                             [lengthCurve/2,-lengthCurve / np.pi ],
+                             [lengthCurve, lengthCurve / np.pi],
+                             [lengthCurve / np.pi *2, 0],
+                             [lengthCurve/2, lengthCurve / np.pi]])
+        elif selectedTrack == "L_shape_1":
+            self.halfWidth = 0.4 
+            self.slack     = 0.45
+            lengthCurve = 3.5 #3.0
+            straight = 1.0
+            spec = np.array([[1.0, 0],
+                             [lengthCurve, lengthCurve / np.pi],
+                             # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                             [straight, 0],
+                             [lengthCurve/2,-lengthCurve / np.pi ],
+                             [straight, 0],
+                             [lengthCurve, lengthCurve / np.pi],
+                             [lengthCurve / np.pi *2 + 1.0, 0],
+                             [lengthCurve/2, lengthCurve / np.pi]])
+
+        elif selectedTrack == "circle":
+            self.halfWidth = 0.7 
+            self.slack     = 0.45
+            spec = np.array([[4.5, 4.5 / np.pi],
+                             # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                             [4.5, 4.5 / np.pi]])
 
         # Now given the above segments we compute the (x, y) points of the track and the angle of the tangent vector (psi) at
         # these points. For each segment we compute the (x, y, psi) coordinate at the last point of the segment. Furthermore,
@@ -52,6 +108,13 @@ class Map():
                     y = PointAndTangent[i-1, 1] + l * np.sin(ang)  # y coordinate of the last point of the segment
                 psi = ang  # Angle of the tangent vector at the last point of the segment
 
+                # # With the above information create the new line
+                # if i == 0:
+                #     NewLine = np.array([x, y, psi, PointAndTangent[i, 3], l, 0])
+                # else:
+                #     NewLine = np.array([x, y, psi, PointAndTangent[i, 3] + PointAndTangent[i, 4], l, 0])
+                #
+                # PointAndTangent[i + 1, :] = NewLine  # Write the new info
 
                 if i == 0:
                     NewLine = np.array([x, y, psi, PointAndTangent[i, 3], l, 0])
@@ -94,6 +157,17 @@ class Map():
                 y = CenterY + np.abs(r) * np.sin(
                     angle + direction * spanAng)  # y coordinate of the last point of the segment
 
+                # With the above information create the new line
+                # plt.plot(CenterX, CenterY, 'bo')
+                # plt.plot(x, y, 'ro')
+
+                # if i == 0:
+                #     NewLine = np.array([x, y, psi, PointAndTangent[i, 3], l, 1 / r])
+                # else:
+                #     NewLine = np.array([x, y, psi, PointAndTangent[i, 3] + PointAndTangent[i, 4], l, 1 / r])
+                #
+                # PointAndTangent[i + 1, :] = NewLine  # Write the new info
+
                 if i == 0:
                     NewLine = np.array([x, y, psi, PointAndTangent[i, 3], l, 1 / r])
                 else:
@@ -101,6 +175,21 @@ class Map():
 
                 PointAndTangent[i, :] = NewLine  # Write the new info
             # plt.plot(x, y, 'or')
+
+        # Now update info on last point
+        # xs = PointAndTangent[PointAndTangent.shape[0] - 2, 0]
+        # ys = PointAndTangent[PointAndTangent.shape[0] - 2, 1]
+        # xf = PointAndTangent[0, 0]
+        # yf = PointAndTangent[0, 1]
+        # psif = PointAndTangent[PointAndTangent.shape[0] - 2, 2]
+        #
+        # # plt.plot(xf, yf, 'or')
+        # # plt.show()
+        # l = np.sqrt((xf - xs) ** 2 + (yf - ys) ** 2)
+        #
+        # NewLine = np.array([xf, yf, psif, PointAndTangent[PointAndTangent.shape[0] - 2, 3] + PointAndTangent[
+        #     PointAndTangent.shape[0] - 2, 4], l, 0])
+        # PointAndTangent[-1, :] = NewLine
 
 
         xs = PointAndTangent[-2, 0]
@@ -122,16 +211,9 @@ class Map():
     def getGlobalPosition(self, s, ey):
         """coordinate transformation from curvilinear reference frame (e, ey) to inertial reference frame (X, Y)
         (s, ey): position in the curvilinear reference frame
-
-        # TODO (ugo): epsi as argument (optional) and return psi 
         """
 
         # wrap s along the track
-        if s < 0 and np.abs(s) < 1e-4:
-            s = 0
-        else:
-            while s < 0: 
-                s = self.TrackLength + s
         while (s > self.TrackLength):
             s = s - self.TrackLength
 
@@ -139,7 +221,6 @@ class Map():
         PointAndTangent = self.PointAndTangent
 
         index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
-
         i = int(np.where(np.squeeze(index))[0])
 
         if PointAndTangent[i, 5] == 0.0:  # If segment is a straight line
@@ -187,9 +268,10 @@ class Map():
         assert len(x) == 6, 'state must be 6 dimensional'
         s = x[4]; ey = x[5]; epsi = x[3]
         pos_x_glob, pos_y_glob = self.getGlobalPosition(s, ey)
-        psi = Utilities.getAngle(s, epsi, self.PointAndTangent)
+        psi = getAngle(s, epsi, self.PointAndTangent)
         x_glob = np.array([x[0], x[1], x[2], psi, pos_x_glob, pos_y_glob])
         return x_glob
+
 
     def getLocalPosition(self, x, y, psi):
         """coordinate transformation from inertial reference frame (X, Y) to curvilinear reference frame (s, ey)
@@ -231,7 +313,7 @@ class Map():
                         s       = s_local + PointAndTangent[i, 3]
                         ey      = la.norm(v1) * np.sin(angle)
 
-                        if np.abs(ey)<= self.width:
+                        if np.abs(ey)<= self.halfWidth + self.slack:
                             CompletedFlag = 1
 
             else:
@@ -276,19 +358,19 @@ class Map():
                         psi_unwrap = np.unwrap([ang + arc2, psi])[1]
                         epsi = psi_unwrap - (ang + arc2)
 
-                        if np.abs(ey) <= self.width:
+                        if np.abs(ey) <= self.halfWidth + self.slack:
                             CompletedFlag = 1
 
         if epsi>1.0:
-            pdb.set_trace()
+            print( "epsi Greater then 1.0")
+        #     pdb.set_trace()
 
         if CompletedFlag == 0:
             s    = 10000
             ey   = 10000
             epsi = 10000
-
-            print("Error!! POINT OUT OF THE TRACK!!!! <==================")
-            pdb.set_trace()
+            print( "Error!! POINT OUT OF THE TRACK!!!! <==================")
+            # pdb.set_trace()
 
         return s, ey, epsi, CompletedFlag
 
@@ -351,14 +433,61 @@ def unityTestChangeOfCoordinates(map, ClosedLoopData):
 
         if np.dot(v3 - v4, v3 - v4) > 0.00000001:
             TestResult = 0
-            print("ERROR", v1, v2, v3, v4)
+            print( "ERROR", v1, v2, v3, v4)
             pdb.set_trace()
             v1 = np.array(map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5]))
             v2 = np.array(xdat[i, 4:6])
             v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
             v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-            print(np.dot(v3 - v4, v3 - v4))
+            print( np.dot(v3 - v4, v3 - v4))
             pdb.set_trace()
 
     if TestResult == 1:
-        print("Change of coordinates test passed!")
+        print( "Change of coordinates test passed!")
+
+def getAngle(s, epsi, PointAndTangent):
+    """curvature computation
+    s: curvilinear abscissa at which the espi has to be converted
+    espi: espi that has to be converted in global frame
+    PointAndTangent: points and tangent vectors defining the map (these quantities are initialized in the map object)
+    """
+    TrackLength = PointAndTangent[-1,3]+PointAndTangent[-1,4]
+
+    # In case on a lap after the first one
+    while s < 0: 
+        s = TrackLength + s
+    while (s > TrackLength):
+        s = s - TrackLength
+
+    # Given s \in [0, TrackLength] compute the curvature
+    # Compute the segment in which system is evolving
+    index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
+
+    i = int(np.where(np.squeeze(index))[0])
+
+    # Compute angle of the segment at the starting point
+    if i > 0:
+        ang = PointAndTangent[i - 1, 2]
+    else:
+        ang = 0
+
+    # Compute the radius of curvature of the segment
+    if PointAndTangent[i, 5] == 0:
+        r= 0
+    else:
+        r = 1 / PointAndTangent[i, 5]  # Radius of curvature
+
+    # Compute the angle in global frame
+    if r == 0:
+        # On a straight part of the circuit
+        angle_at_s = ang + epsi
+    else:
+        # On a curve
+        cumulative_s = PointAndTangent[i, 3]
+        relative_s = s - cumulative_s
+        spanAng = relative_s / np.abs(r)  # Angle spanned by the circle
+        psi = wrap(ang + spanAng * np.sign(r))  # Angle of the tangent vector at the last point of the segment
+        # pdb.set_trace()
+        angle_at_s = psi + epsi
+
+    return wrap(angle_at_s)
