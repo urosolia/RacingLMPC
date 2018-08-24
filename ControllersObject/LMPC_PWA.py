@@ -294,11 +294,11 @@ class PWAControllerLMPC(AbstractControllerLMPC):
     def _selectSS(self, x0):
         it = self.it-1
         if True: # self.SSind is None:
-            self.SSind = closest_idx(self.SS[:,:,it], x0)
+            self.SSind = max(self.N, closest_idx(self.SS[:,:,it], x0))
             #closest_idx(self.SS[:int(self.TimeSS[self.it-2]),:,self.it-2], x0) 
         if self.SS_regions is None:
             self._estimate_pwa(verbose=False)
-        select_reg_0 = self.SS_regions[self.SSind:(self.SSind+self.N+1), it]
+        select_reg_0 = self.SS_regions[self.SSind-self.N:(self.SSind+1), it]
         
         # temporary for debugging
         if np.any(np.isnan(select_reg_0)): pdb.set_trace()
@@ -309,20 +309,22 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         Select_Regs = []
         # TODO should we use numSS_it?
         for i in range(self.numSS_Points):
-            terminal_point = self.SS[self.SSind+self.shift+1+i,:, it]
-            terminal_point_glob = self.SS_glob[self.SSind+self.shift+1+i,:, it]
-            terminal_cost = self.Qfun[self.SSind+self.shift+1+i, it]
-            region = self.SS_regions[self.SSind+self.shift+1+i, it]
+            term_idx = self.SSind+self.shift+1+i
+            terminal_point = self.SS[term_idx,:, it]
+            terminal_point_glob = self.SS_glob[term_idx,:, it]
+            terminal_cost = self.Qfun[term_idx, it]
+            region = self.SS_regions[term_idx, it]
 
-            if terminal_point[0] == 10000 or region == select_reg_0[-1]:
+            if terminal_point[0] == 10000: # or region == select_reg_0[-1]:
                 select_reg = select_reg_0
             else:
-                select_reg = self.SS_regions[self.SSind+i:(self.SSind+self.N+1+i), it]
+                select_reg = self.SS_regions[(term_idx-self.N):term_idx, it]
             if np.any(np.isnan(select_reg)): 
                 # TODO what's happening in this case?
+                print("hm why nan")
                 select_reg = select_reg_0
             # print(select_reg)
-            select_reg[0] = self.SS_regions[self.SSind, it] # TODO is this a hack...
+            # remove select_reg[0] = self.SS_regions[self.SSind, it] # TODO is this a hack...
             SS_PointSelectedTot.append(terminal_point)
             SS_glob_PointSelectedTot.append(terminal_point_glob)
             Qfun_SelectedTot.append(terminal_cost)
@@ -380,7 +382,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             zs = np.squeeze(np.vstack(zs)); ys = np.squeeze(np.vstack(ys))
 
             if self.load_model:
-                data = np.load('/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_10.npz')
+                data = np.load('/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_5.npz')
                 #'../notebooks/pwa_model_10.npz')
                 affine=True; sparse_mask=None #self.affine, self.sparse_mask
                 self.clustering = pwac.ClusterPWA.from_labels(data['zs'], data['ys'], 
@@ -812,7 +814,7 @@ def LMPC_BuildMatIneqConst(N, numSS_Points=0, SelectReg=None,
     else: 
         MatFx = np.empty((0, 0))
         bxtot  = np.empty(0)
-        for i in range(0, N): # No need to constraint also the terminal point --> go up to N
+        for i in range(0, N): # No need to constraint (initial or terminal point --> go 1 up to N
             Fxreg = np.vstack([Fx, F_region[int(SelectReg[i])]])
             bxreg = np.vstack([bx, np.expand_dims(b_region[int(SelectReg[i])], 1)])
             MatFx = linalg.block_diag(MatFx, Fxreg)
