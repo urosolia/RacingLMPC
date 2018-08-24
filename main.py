@@ -34,6 +34,7 @@ from PathFollowingLTVMPC import PathFollowingLTV_MPC
 from PathFollowingLTI_MPC import PathFollowingLTI_MPC
 from trackInitialization import Map, unityTestChangeOfCoordinates
 from LMPC import ControllerLMPC #, PWAControllerLMPC
+from LMPC_PWA import PWAControllerLMPC
 from utilities import Regression
 from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults, Save_statesAnimation
 import numpy as np
@@ -48,7 +49,7 @@ RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
 RunLMPC    = 0; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
-runPWAFlag = 0; # uncomment importing pwa_cluster in LMPC.py
+runPWAFlag = 1; # uncomment importing pwa_cluster in LMPC.py
 testCoordChangeFlag = 0;
 plotOneStepPredictionErrors = 0;
 
@@ -187,7 +188,7 @@ if RunLMPC == 1:
         LMPCSimulator.Sim(ClosedLoopLMPC, LMPController, LMPCOpenLoopData)
         LMPController.addTrajectory(ClosedLoopLMPC)
 
-        if LMPController.feasible == 0:
+        if LMPController.feasible == 0 or ClosedLoopLMPC.x[ClosedLoopLMPC.SimTime, 4] < 0.5 *  map.TrackLength:
             break
         else:
             # Reset Initial Conditions
@@ -213,6 +214,7 @@ print("===== LMPC terminated")
 for i in range(0, LMPController.it):
     print("Lap time at iteration ", i, " is ", LMPController.Qfun[0, i]*dt, "s")
 
+plot_iteration = LMPController.it-1 # final iteration
 
 print("===== Start Plotting")
 if plotFlag == 1:
@@ -229,11 +231,11 @@ if plotFlagLMPC == 1:
 
 if animation_xyFlag == 1:
     # animation_xy(map, LMPCOpenLoopData, LMPController, LMPController.it-2)
-    animation_xy(map, LMPCOpenLoopData, LMPController, LMPController.it-1)
+    animation_xy(map, LMPCOpenLoopData, LMPController, plot_iteration)
     # saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 6)
 
 if animation_stateFlag == 1:
-    animation_states(map, LMPCOpenLoopData, LMPController, 5)
+    animation_states(map, LMPCOpenLoopData, LMPController, plot_iteration)
     # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 
 if testCoordChangeFlag == 1:

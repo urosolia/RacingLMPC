@@ -49,13 +49,16 @@ class Simulator():
             u[i, :] = Controller.uPred[0,:]
             if LMPCprediction == 0:
                 u[i, :] += 0.1 * np.random.standard_normal(size=u[i, :].shape)
-
+                
 
             if LMPCprediction != 0:
                 LMPCprediction.PredictedStates[:, :, i, Controller.it]   = Controller.xPred
                 LMPCprediction.PredictedInputs[:, :, i, Controller.it] = Controller.uPred
                 LMPCprediction.SSused[:, :, i, Controller.it]          = Controller.SS_PointSelectedTot
                 LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
+                previous_prediction = LMPCprediction.PredictedStates[0, :, i-1, Controller.it]
+                # TODO: is this correct??
+                LMPCprediction.oneStepPredictionError[:, i, Controller.it]  = x[i,:] - previous_prediction
                 # TODO update LMPCprediction.oneStepPredictionError
 
             x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], ClosedLoopData.dt, self.map.PointAndTangent)
@@ -68,12 +71,15 @@ class Simulator():
                 print("Time: ", i * ClosedLoopData.dt, "Current State and Input: ", x[i, :], u[i, :])
 
 
-
             if self.flagLMPC == 1:
                 Controller.addPoint(x[i, :], x_glob[i,:], u[i, :], i)
 
             if (self.laps == 1) and (int(np.floor(x[i+1, 4] / (self.map.TrackLength))))>0:
                 print("Simulation terminated: Lap completed")
+                break
+
+            if LMPCprediction != 0 and i >= LMPCprediction.PredictedStates.shape[2]-1:
+                print("Simulation terminated: time expired")
                 break
 
         ClosedLoopData.SimTime = SimulationTime

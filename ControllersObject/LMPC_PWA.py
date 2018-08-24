@@ -261,7 +261,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        self.affine = False # False
+        self.affine = True #  False # False
         dim0 = n+d+1 if self.affine else n+d
         # mask = [A B d].T
         sparse_mask = np.ones([n, dim0])
@@ -380,9 +380,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             zs = np.squeeze(np.vstack(zs)); ys = np.squeeze(np.vstack(ys))
 
             if self.load_model:
-                data = np.load('/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_15.npz')
+                data = np.load('/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_10.npz')
                 #'../notebooks/pwa_model_10.npz')
-                affine=False; sparse_mask=None #self.affine, self.sparse_mask
+                affine=True; sparse_mask=None #self.affine, self.sparse_mask
                 self.clustering = pwac.ClusterPWA.from_labels(data['zs'], data['ys'], 
                                    data['labels'], z_cutoff=self.n, affine=affine, sparse_mask=sparse_mask)
                 self.clustering.region_fns = data['region_fns']
