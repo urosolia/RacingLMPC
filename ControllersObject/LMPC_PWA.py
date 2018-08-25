@@ -288,7 +288,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         # update list of SS regions
         Counter = self.TimeSS[self.it - 1]
-        self.SS_regions[Counter + i + 1, self.it - 1] = int(self.clustering.get_region(x))
+        # TODO: 
+        self.SS_regions[Counter + i + 1, self.it - 1] = int(self.clustering.get_region(x + np.array([0, 0, 0, 0, self.map.TrackLength, 0])))
 
 
     def _selectSS(self, x0):
@@ -814,14 +815,14 @@ def LMPC_BuildMatIneqConst(N, numSS_Points=0, SelectReg=None,
     else: 
         MatFx = np.empty((0, 0))
         bxtot  = np.empty(0)
-        for i in range(0, N): # No need to constraint (initial or terminal point --> go 1 up to N
+        for i in range(1, N): # No need to constraint (initial or terminal point --> go 1 up to N
             Fxreg = np.vstack([Fx, F_region[int(SelectReg[i])]])
             bxreg = np.vstack([bx, np.expand_dims(b_region[int(SelectReg[i])], 1)])
             MatFx = linalg.block_diag(MatFx, Fxreg)
             bxtot  = np.append(bxtot, bxreg)
 
-    NoTerminalConstr = np.zeros((np.shape(MatFx)[0], n))  # No need to constraint also the terminal point
-    Fxtot = np.hstack((MatFx, NoTerminalConstr))
+    NoTerminalConstr = np.zeros((np.shape(MatFx)[0], n))  # No need to constraint initial/terminal point
+    Fxtot = np.hstack((NoTerminalConstr, MatFx, NoTerminalConstr))
 
     # Let's start by computing the submatrix of F relates with the input
     rep_b = [Fu] * (N)
