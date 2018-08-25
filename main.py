@@ -75,8 +75,8 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ======================================================================================================================
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
-TimeLMPC   = 400              # Simulation time
-Laps       = 1+2              # Total LMPC laps
+TimeLMPC   = 250              # Simulation time
+Laps       = 2+2              # Total LMPC laps
 
 # Safe Set Parameter
 LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
@@ -84,14 +84,14 @@ SysID_Solver = "scipy"         # Can pick CVX, OSQP or scipy. For OSQP uncomment
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 32 + N         # Number of points to select from each trajectory to build the safe set
 numSS_Points_PWA = 8 + N
-shift = N                 # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
+shift = 2 * N / 3                 # Given the closed point, x_t^j, to the x(t) select the SS points from x_{t+shift}^j
 
 # Tuning Parameters
 Qslack  = 50*np.diag([10, 1, 1, 1, 10, 1])          # Cost on the slack variable for the terminal constraint
 Qlane   = 0.1 * 0.5 * 10 * np.array([50, 10]) # Quadratic slack lane cost
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
 R_LMPC  =  1 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
-dR_LMPC =  5 * np.array([1.0, 1.0])                     # Input rate cost u (2,1)
+dR_LMPC =  2 * 5 * np.array([1.0, 1.0])                     # Input rate cost u (2,1)
 aConstr = np.array([0.7, 2.0])
 
 # Initialize LMPC simulator

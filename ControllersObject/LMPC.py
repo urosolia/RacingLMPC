@@ -228,7 +228,6 @@ class ControllerLMPC():
         # print self.TimeSS[it], it 
         self.SS[0:(self.TimeSS[it] + 1), :, it] = ClosedLoopData.x[0:(self.TimeSS[it] + 1), :]
         self.SS_glob[0:(self.TimeSS[it] + 1), :, it] = ClosedLoopData.x_glob[0:(self.TimeSS[it] + 1), :]
-        # TODO is below right or should it be timeSS[it]+1?
         self.uSS[0:(self.TimeSS[it]), :, it]      = ClosedLoopData.u[0:(self.TimeSS[it]), :]
         self.Qfun[0:(self.TimeSS[it] + 1), it]  = _ComputeCost(ClosedLoopData.x[0:(self.TimeSS[it] + 1), :],
                                                                ClosedLoopData.u[0:(self.TimeSS[it]), :], self.map.TrackLength)
@@ -243,7 +242,6 @@ class ControllerLMPC():
         self.qpTime[0:(self.TimeSS[it] + 1), it]     = np.squeeze(ClosedLoopData.solverTime[0:(self.TimeSS[it] + 1), :])
         self.sysIDTime[0:(self.TimeSS[it] + 1), it]  = np.squeeze(ClosedLoopData.sysIDTime[0:(self.TimeSS[it] + 1), :])
         self.contrTime[0:(self.TimeSS[it] + 1), it]  = np.squeeze(ClosedLoopData.contrTime[0:(self.TimeSS[it] + 1), :])
-        # TODO is below right or should it be timeSS[it]+1?
         self.measSteering[0:(self.TimeSS[it]),:, it] = ClosedLoopData.measSteering[0:(self.TimeSS[it]), :]
         self.it = self.it + 1
 

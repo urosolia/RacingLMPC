@@ -110,6 +110,7 @@ class AbstractControllerLMPC:
         # setting up to loop over QPs
         best_cost = np.inf; best_solution = np.empty((0,0))
         self.feasible = 0; best_ind = 0
+        best_status = ''
 
         startTimer = datetime.datetime.now()
         # TODO make this parallel
@@ -127,12 +128,14 @@ class AbstractControllerLMPC:
                     else:
                         feasible = 0
                         cost = np.inf
-                    Solution = np.squeeze(res_cons['x'])     
+                    Solution = np.squeeze(res_cons['x'])  
+                    status = ''   
                 elif self.Solver == "OSQP":
                     # Adaptation for QSQP from https://github.com/alexbuyval/RacingLMPC/
                     res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
                     Solution = res_cons.x
                     cost = res_cons.info.obj_val if feasible else np.inf
+                    status = res_cons.info.status_val
                 if self.clustering is not None:
                     # TODO don't think we need to 2*
                     # since we add it when we build M
@@ -147,12 +150,16 @@ class AbstractControllerLMPC:
                 best_solution = Solution
                 best_ind = i
                 self.feasible = feasible
+                best_status = status
 
         deltaTimer = datetime.datetime.now() - startTimer
         self.solverTime = deltaTimer
 
         if self.feasible == 0:
             return 
+
+        if best_status != OSQP().constant('OSQP_SOLVED'):
+            print('nonoptimal', best_status, x0)
             
         # TODO: incorporate this into selectSS()
         if self.SSind is not None:
@@ -261,6 +268,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
+        self.loaded_num = 5
         self.affine = True #  False # False
         dim0 = n+d+1 if self.affine else n+d
         # mask = [A B d].T
@@ -288,7 +296,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         # update list of SS regions
         Counter = self.TimeSS[self.it - 1]
-        self.SS_regions[Counter + i + 1, self.it - 1] = int(self.clustering.get_region(x))
+        # TODO: 
+        self.SS_regions[Counter + i + 1, self.it - 1] = int(self.clustering.get_region(x + np.array([0, 0, 0, 0, self.map.TrackLength, 0])))
 
 
     def _selectSS(self, x0):
@@ -382,9 +391,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             zs = np.squeeze(np.vstack(zs)); ys = np.squeeze(np.vstack(ys))
 
             if self.load_model:
-                data = np.load('/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_5.npz')
+                data = np.load('/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_' + str(self.loaded_num) +'.npz')
                 #'../notebooks/pwa_model_10.npz')
-                affine=True; sparse_mask=None #self.affine, self.sparse_mask
+                affine=self.affine; sparse_mask=self.sparse_mask #self.affine, self.sparse_mask
                 self.clustering = pwac.ClusterPWA.from_labels(data['zs'], data['ys'], 
                                    data['labels'], z_cutoff=self.n, affine=affine, sparse_mask=sparse_mask)
                 self.clustering.region_fns = data['region_fns']
@@ -814,14 +823,14 @@ def LMPC_BuildMatIneqConst(N, numSS_Points=0, SelectReg=None,
     else: 
         MatFx = np.empty((0, 0))
         bxtot  = np.empty(0)
-        for i in range(0, N): # No need to constraint (initial or terminal point --> go 1 up to N
+        for i in range(1, N): # No need to constraint (initial or terminal point --> go 1 up to N
             Fxreg = np.vstack([Fx, F_region[int(SelectReg[i])]])
             bxreg = np.vstack([bx, np.expand_dims(b_region[int(SelectReg[i])], 1)])
             MatFx = linalg.block_diag(MatFx, Fxreg)
             bxtot  = np.append(bxtot, bxreg)
 
-    NoTerminalConstr = np.zeros((np.shape(MatFx)[0], n))  # No need to constraint also the terminal point
-    Fxtot = np.hstack((MatFx, NoTerminalConstr))
+    NoTerminalConstr = np.zeros((np.shape(MatFx)[0], n))  # No need to constraint initial/terminal point
+    Fxtot = np.hstack((NoTerminalConstr, MatFx, NoTerminalConstr))
 
     # Let's start by computing the submatrix of F relates with the input
     rep_b = [Fu] * (N)
