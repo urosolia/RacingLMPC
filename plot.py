@@ -2,10 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import matplotlib.patches as patches
+import matplotlib.cm as cm
+import matplotlib as mpl
 
 import pdb
 
 def plotTrajectory(map, x, x_glob, u):
+    # TODO: color by region?
     Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
     Points1 = np.zeros((Points, 2))
     Points2 = np.zeros((Points, 2))
@@ -46,6 +49,7 @@ def plotTrajectory(map, x, x_glob, u):
     plt.ylabel('acc')
 
 def plotClosedLoopLMPC(LMPController, map):
+    # TODO: color by region?
     SS_glob = LMPController.SS_glob
     TimeSS  = LMPController.TimeSS
     SS      = LMPController.SS
@@ -108,23 +112,80 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
     SS = LMPController.SS
     uSS = LMPController.uSS
 
-    Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
+    # Track Points
+    discretize = 10
+    Points = int(np.floor(discretize * map.TrackLength))
     Points1 = np.zeros((Points, 2))
     Points2 = np.zeros((Points, 2))
     Points0 = np.zeros((Points, 2))
     for i in range(0, int(Points)):
-        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
-        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
-        Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
+        Points1[i, :] = map.getGlobalPosition(i / discretize, map.halfWidth)
+        Points2[i, :] = map.getGlobalPosition(i / discretize, -map.halfWidth)
+        Points0[i, :] = map.getGlobalPosition(i / discretize, 0)
 
-    plt.figure(200)
-    plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
-    plt.plot(Points0[:, 0], Points0[:, 1], '--')
-    plt.plot(Points1[:, 0], Points1[:, 1], '-b')
-    plt.plot(Points2[:, 0], Points2[:, 1], '-b')
-    plt.plot(SS_glob[0:TimeSS[it], 4, it], SS_glob[0:TimeSS[it], 5, it], '-ok', label="Closed-loop trajectory",zorder=-1)
+    # determining if PWA
+    try:
+        Nr = LMPController.clustering.Nc
+        PWA = True
+    except AttributeError:
+        # not a PWA controller
+        pass
 
-    ax = plt.axes()
+    if PWA:
+        f, (ax, ax2) = plt.subplots(2,1, gridspec_kw = {'height_ratios':[10, 1]})
+    else:
+        f, ax = plt.subplots(1,1)
+    ax.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
+    ax.plot(Points0[:, 0], Points0[:, 1], '--')
+    ax.plot(Points1[:, 0], Points1[:, 1], '-b')
+    ax.plot(Points2[:, 0], Points2[:, 1], '-b')
+
+    if PWA:
+        # Regions
+        Nr = LMPController.clustering.Nc
+        Fs, bs = LMPController.clustering.get_region_matrices()
+
+        # Reducing regions to s bounds
+        vx = 1 # todo: update based on current speed?
+        region_s_endpoints = []
+        for F,b in zip(Fs, bs):
+            lower_bds = []; upper_bds = []
+            for j in range(b.size):
+                # if we set other state values to 0, then constraint is 
+                # F[j,4] * s \leq b[j] - F[j,1] * vx
+                bound = (b[j] - F[j,1] * vx) / F[j,4]
+                if F[j,4] < 0:
+                    lower_bds.append(bound)
+                elif F[j,4] > 0:
+                    upper_bds.append(bound)
+            if len(lower_bds) == 0: lower_bds = [0]
+            if len(upper_bds) == 0: upper_bds = [map.TrackLength]
+            region_s_endpoints.append([max(lower_bds), min(upper_bds)])
+        # Translating s bounds to indices of Points1
+        region_endpoints = []
+        for s_endpoint in region_s_endpoints:
+            ind0 = int(np.round(s_endpoint[0] * discretize))
+            ind1 = int(np.round(s_endpoint[1] * discretize))
+            region_endpoints.append((ind0,ind1+1))
+        print(region_endpoints)
+        #region_endpoints = [(i*Points//Nr,(i+1)*Points//Nr+1) for i in range(Nr)]
+        #print(region_endpoints)
+        # plot each region by indices
+        viridis_cmap = cm.get_cmap("viridis", Nr)
+        color_list = viridis_cmap(np.arange(Nr))
+
+        for i in range(Nr):
+            ind = region_endpoints[i]
+            print(ind, Points1[ind[0]:ind[1], 0])
+            if ind[0] < Points1.shape[0] and ind[0]<ind[1]:
+                ax.fill(np.hstack([Points1[ind[0]:ind[1], 0],np.flip(Points2[ind[0]:ind[1], 0], axis=0)]), 
+                     np.hstack([Points1[ind[0]:ind[1], 1],np.flip(Points2[ind[0]:ind[1], 1], axis=0)]),
+                     alpha=0.25, color=color_list[i])
+
+
+    ax.plot(SS_glob[0:TimeSS[it], 4, it], SS_glob[0:TimeSS[it], 5, it], '-ok', label="Closed-loop trajectory",zorder=-1)
+
+    # ax = plt.axes()
     SSpoints_x = []; SSpoints_y = []
     xPred = []; yPred = []
     SSpoints, = ax.plot(SSpoints_x, SSpoints_y, 'sb', label="SS",zorder=0)
@@ -137,13 +198,21 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
     rec = patches.Polygon(v, alpha=0.7,closed=True, fc='r', ec='k',zorder=10)
     ax.add_patch(rec)
 
-    plt.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
+    ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
                 mode="expand", borderaxespad=0, ncol=3)
+
+    if PWA:
+        bounds = np.arange(Nr+1)
+        norm = mpl.colors.BoundaryNorm(bounds, viridis_cmap.N)
+        cb1 = mpl.colorbar.ColorbarBase(ax2, cmap=viridis_cmap, norm=norm,
+                                        orientation='horizontal', alpha=0.25,
+                                        boundaries=bounds,
+                                        ticks=np.arange(Nr))
+        region_text = ax2.text(0.01,0.1,'current region: ')
 
     N = LMPController.N
     numSS_Points = LMPController.numSS_Points
     for i in range(0, int(LMPController.TimeSS[it])):
-
         xPred = np.zeros((N+1, 1)); yPred = np.zeros((N+1, 1))
         SSpoints_x = np.zeros((numSS_Points, 1)); SSpoints_y = np.zeros((numSS_Points, 1))
 
@@ -166,9 +235,13 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
 
 
         for j in range(0, numSS_Points):
+            # todo: plot predicted regions by color?
             SSpoints_x[j,0], SSpoints_y[j,0] = map.getGlobalPosition(LMPCOpenLoopData.SSused[4, j, i, it],
                                                                      LMPCOpenLoopData.SSused[5, j, i, it])
         SSpoints.set_data(SSpoints_x, SSpoints_y)
+        if PWA:
+            current_region = LMPController.clustering.get_region(LMPCOpenLoopData.PredictedStates[0, :, i, it])
+            region_text.set_text('current region: ' + str(current_region))
 
         line.set_data(xPred, yPred)
 
@@ -179,6 +252,7 @@ def animation_xy(map, LMPCOpenLoopData, LMPController, it):
         pdb.set_trace()
 
 def animation_states(map, LMPCOpenLoopData, LMPController, it):
+    # TODO: color by PWA?
     SS_glob = LMPController.SS_glob
     TimeSS = LMPController.TimeSS
     SS = LMPController.SS

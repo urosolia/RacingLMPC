@@ -268,7 +268,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        self.loaded_num = 5
+        self.loaded_num = 10
         self.affine = True #  False # False
         dim0 = n+d+1 if self.affine else n+d
         # mask = [A B d].T

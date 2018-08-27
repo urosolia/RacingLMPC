@@ -301,6 +301,7 @@ class ClusterPWA:
         return yhat
 
     def get_region(self, z):
+        # z is either full or can contain just z[:z_cutoff]
         if self.region_fns is not None:
             # use region functions to assign model
             dot_pdt = [w.T.dot(np.hstack([z[0:self.z_cutoff], [1]])) for w in self.region_fns]
