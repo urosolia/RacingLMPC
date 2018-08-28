@@ -392,8 +392,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             # recording all SS data
             zs = []; ys = []
             for it in range(self.it):
-                states = self.SS[:int(self.LapCounter[it]), :, it]
-                inputs = self.uSS[:int(self.LapCounter[it]), :, it]
+                states = self.SS[:int(self.LapCounter[it]+1), :, it]
+                inputs = self.uSS[:int(self.LapCounter[it]+1), :, it]
                 zs.append(np.hstack([states[:-1,:], inputs[:-1,:]]))
                 ys.append(states[1:,:])
             zs = np.squeeze(np.vstack(zs)); ys = np.squeeze(np.vstack(ys))
@@ -421,7 +421,6 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                     self.clustering = pwac.ClusterPWA.from_labels(zs, ys, 
                                    cluster_labels, z_cutoff=self.n, affine=self.affine, sparse_mask=self.sparse_mask)
                     self.clustering.region_fns = data['region_fns']
-                    cluster_ind = 0
 
                 if self.region_update: self.clustering.determine_polytopic_regions(verbose=verbose)
                 
@@ -432,25 +431,22 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                                     affine=self.affine, sparse_mask=self.sparse_mask)
                 self.clustering.fit_clusters(verbose=verbose)
                 self.clustering.determine_polytopic_regions(verbose=verbose)
-                cluster_ind = 0
                 
             # label the regions of the points in the safe set
             for it in range(self.it):
-                for i in range(self.LapCounter[it]-1): # this was it!!!
-                    self.SS_regions[i, it] = self.clustering.cluster_labels[cluster_ind]
-                    cluster_ind += 1
+                for i in range(self.LapCounter[it]+1):
+                    self.SS_regions[i, it] = self.clustering.get_region(self.SS[i,:,it])
             if verbose: print_PWA_models(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
         # if cluster already initialized, adding new lap data
         elif addTrajectory:
             print('updating PWA model with new data')
             zs = []; ys = []
             it = self.it-1
-            states = self.SS[:int(self.LapCounter[it]), :, it]
-            inputs = self.uSS[:int(self.LapCounter[it]), :, it]
+            states = self.SS[:int(self.LapCounter[it]+1), :, it]
+            inputs = self.uSS[:int(self.LapCounter[it]+1), :, it]
             zs.append(np.hstack([states[:-1], inputs[:-1]]))
             ys.append(states[1:])
             zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
-            cluster_ind = len(self.clustering.cluster_labels)
             
             self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=self.region_update)
             # TODO this method takes a long time to run with full_update
@@ -459,8 +455,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
             # label the regions of the points in the safe set
             # TODO
-            for i in range(self.LapCounter[it]-1):
-                self.SS_regions[i, it] = self.clustering.cluster_labels[cluster_ind + i]
+            for i in range(self.LapCounter[it]+1):
+                self.SS_regions[i, it] = self.clustering.get_region(self.SS[i,:,it])
 
             np.savez('cluster_labels'+str(self.it), labels=self.clustering.cluster_labels,
                                        region_fns=self.clustering.region_fns,
