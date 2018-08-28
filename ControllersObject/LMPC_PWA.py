@@ -145,6 +145,12 @@ class AbstractControllerLMPC:
                 cost = np.inf
                 feasible = 0
 
+            # if np.any(self.SS_PointSelectedTot[4,i]>self.map.TrackLength):
+            # #if x0[4] > 15:
+            #     print(self.Select_Regs[i])
+            #     # print(self.SS_PointSelectedTot[:,i])
+            #     pdb.set_trace()
+
             if cost < best_cost:
                 best_cost = cost
                 best_solution = Solution
@@ -330,7 +336,11 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 select_reg = self.SS_regions[(term_idx-self.N):term_idx, it]
             if np.any(np.isnan(select_reg)): 
                 # TODO what's happening in this case?
-                print("hm why nan")
+                print(select_reg)
+                print(self.SS[(term_idx-self.N):term_idx, it])
+                print(terminal_point)
+                pdb.set_trace()
+                # print("hm why nan")
                 select_reg = select_reg_0
             # print(select_reg)
             # remove select_reg[0] = self.SS_regions[self.SSind, it] # TODO is this a hack...
@@ -437,7 +447,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 
             # label the regions of the points in the safe set
             # TODO zeros is a hack... np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
-            self.SS_regions = np.zeros((self.SS.shape[0],self.SS.shape[2]))
+            self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
+            # np.zeros((self.SS.shape[0],self.SS.shape[2]))
             for it in range(self.it):
                 for i in range(self.LapCounter[it]-1):
                     self.SS_regions[i, it] = self.clustering.cluster_labels[cluster_ind]
@@ -452,8 +463,6 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 zs.append(np.hstack([states[:-1], inputs[:-1]]))
                 ys.append(states[1:])
             zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
-
-            j = len(self.clustering.cluster_labels)
             
             self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=self.region_update)
             # TODO this method takes a long time to run with full_update
@@ -462,10 +471,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
             # label the regions of the points in the safe set
             # TODO
-            for it in [self.it-1]:
-                for i in range(self.LapCounter[it]-1):
-                    self.SS_regions[i, it] = self.clustering.cluster_labels[j]
-                    j += 1
+            it=self.it-1
+            for i in range(self.LapCounter[it]-1):
+                self.SS_regions[i, it] = self.clustering.cluster_labels[ len(self.clustering.cluster_labels) + i]
 
             np.savez('cluster_labels'+str(self.it), labels=self.clustering.cluster_labels,
                                        region_fns=self.clustering.region_fns,
