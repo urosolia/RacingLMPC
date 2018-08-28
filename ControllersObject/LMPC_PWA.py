@@ -64,7 +64,7 @@ class AbstractControllerLMPC:
         self.track_map = track_map
         self.map = self.track_map
         self.Solver = Solver            
-        self.clustering = None
+        self.clustering = None # TODO: this is a lazy check, better way
         self.OldInput = np.zeros((1,d))
         startTimer = datetime.datetime.now()
         deltaTimer = datetime.datetime.now() - startTimer
@@ -104,6 +104,11 @@ class AbstractControllerLMPC:
         # a subset of nearby points are chosen from past iterations
         self._selectSS(x0)
 
+        # DEBUGGING SS_REGION
+        for it in range(self.it):
+            nan_idx = np.where(np.isnan(self.SS_regions[:, it]))
+            if not np.all(self.SS[nan_idx,:, it] == 10000): pdb.set_trace()
+
         # Get the matrices for defining the QP
         qp_params = self._getQP(x0)
 
@@ -136,9 +141,7 @@ class AbstractControllerLMPC:
                     Solution = res_cons.x
                     cost = res_cons.info.obj_val if feasible else np.inf
                     status = res_cons.info.status_val
-                if self.clustering is not None:
-                    # TODO don't think we need to 2*
-                    # since we add it when we build M
+                if self.clustering is not None: # TODO: better way to integrate cost
                     cost = cost + self.Qfun_SelectedTot[i]
             except ValueError as e:
                 print("caught", e)
@@ -173,14 +176,6 @@ class AbstractControllerLMPC:
 
         # Extract solution and set linearization points
         xPred, uPred, lam, slack = LMPC_GetPred(best_solution, self.n, self.d, self.N)
-        
-        # Checking slack variable
-        # print('slack norm', np.linalg.norm(slack))
-        # if self.clustering is not None:
-        #     diff = slack - (self.SS_PointSelectedTot[:,best_ind]-xPred[:,-1])
-        # else: 
-        #     diff = slack - (self.SS_PointSelectedTot.dot(lam)-xPred[:,-1])
-        # if np.linalg.norm(diff) > 1e-6: print(np.linalg.norm(diff))
         
         self.xPred = xPred.T
         # TODO more elegant way for various dimensions
@@ -268,13 +263,17 @@ class PWAControllerLMPC(AbstractControllerLMPC):
     def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
-        self.SS_regions = None
-        self.load_model = True
+        self.load_path = '/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_10.npz'
         self.region_update = False
+        self.load_use_data = True
+        self.clustering = None
         # python 2/3 compatibility
         super(PWAControllerLMPC, self).__init__(numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                                               n, d, shift, dt, track_map, Laps, TimeLMPC, Solver)
-        self.loaded_num = 10
+        self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
+        # np.zeros((self.SS.shape[0],self.SS.shape[2]))
+
+
         self.affine = True #  False # False
         dim0 = n+d+1 if self.affine else n+d
         # mask = [A B d].T
@@ -287,10 +286,10 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         self.sparse_mask = sparse_mask.T
         
     def addTrajectory(self, ClosedLoopData):
-        # overriding abstract class
         super(PWAControllerLMPC, self).addTrajectory(ClosedLoopData)
 
-        # self.clustering not initialized yet for adding trajectories from old controllers
+        # if PWA model initialized, need to update with new data
+        # assigning new data to regions
         if self.clustering is not None:
             print("ADDING TRAJECTORY PWA")
             self.SSind = None
@@ -303,15 +302,16 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         # update list of SS regions
         Counter = self.TimeSS[self.it - 1]
         # TODO: 
-        self.SS_regions[Counter + i + 1, self.it - 1] = int(self.clustering.get_region(x + np.array([0, 0, 0, 0, self.map.TrackLength, 0])))
+        self.SS_regions[Counter + i + 1, self.it - 1] = int(self.clustering.get_region(x 
+                                      + np.array([0, 0, 0, 0, self.map.TrackLength, 0])))
 
 
     def _selectSS(self, x0):
         it = self.it-1
-        if True: # self.SSind is None:
+        if True: 
+            # TODO: problem behavior with self.N when moving too fast
             self.SSind = max(self.N, closest_idx(self.SS[:,:,it], x0))
-            #closest_idx(self.SS[:int(self.TimeSS[self.it-2]),:,self.it-2], x0) 
-        if self.SS_regions is None:
+        if self.clustering is None:
             self._estimate_pwa(verbose=False)
         select_reg_0 = self.SS_regions[self.SSind-self.N:(self.SSind+1), it]
         
@@ -386,12 +386,10 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             qp_mat_list.append((Lterm, G, E1, M, q, stackedF, stackedb))
         return qp_mat_list
 
-    def _estimate_pwa(self, verbose=False, addTrajectory=False, forceEstimate=False):
-        homedir = os.path.expanduser("~")    
-
-        verbose=True
+    def _estimate_pwa(self, verbose=True, addTrajectory=False):
+        # when the clustering object is not initialized
         if self.clustering is None:
-            # reading in SS data
+            # recording all SS data
             zs = []; ys = []
             for it in range(self.it):
                 states = self.SS[:int(self.LapCounter[it]), :, it]
@@ -400,69 +398,59 @@ class PWAControllerLMPC(AbstractControllerLMPC):
                 ys.append(states[1:,:])
             zs = np.squeeze(np.vstack(zs)); ys = np.squeeze(np.vstack(ys))
 
-            if self.load_model:
-                data = np.load('/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_' + str(self.loaded_num) +'.npz')
-                #'../notebooks/pwa_model_10.npz')
-                affine=self.affine; sparse_mask=self.sparse_mask #self.affine, self.sparse_mask
-                self.clustering = pwac.ClusterPWA.from_labels(data['zs'], data['ys'], 
+            # create clustering object with possibly previous data
+            if self.load_path is not None:
+                # loading previous data and model
+                data = np.load(self.load_path)
+                affine=self.affine; sparse_mask=self.sparse_mask 
+                if self.load_use_data:
+                    self.clustering = pwac.ClusterPWA.from_labels(data['zs'], data['ys'], 
                                    data['labels'], z_cutoff=self.n, affine=affine, sparse_mask=sparse_mask)
-                self.clustering.region_fns = data['region_fns']
-                cluster_ind = len(self.clustering.cluster_labels)
-                self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=self.region_update)
-                if self.region_update: self.clustering.determine_polytopic_regions(verbose=verbose)
-            else:
-                # to make testing run faster
-                try:
-                    # TODO path and make this hack better
-                    if forceEstimate:
-                        raise NameError
-                    data = np.load(homedir + '/barc/workspace/src/barc/src/Utilities/cluster_labels.npz')
-                except NameError: #IOError: # FileNotFoundError:
-                    # use greedy method to fit PWA model
-                    self.clustering = pwac.ClusterPWA.from_num_clusters(zs, ys, 
-                                        self.n_clusters, z_cutoff=self.n,
-                                        affine=self.affine, sparse_mask=self.sparse_mask)
-                    self.clustering.fit_clusters(verbose=verbose)
-                
-                    # TODO this method takes a long time to runs
-                    if not forceEstimate: self.clustering.determine_polytopic_regions(verbose=verbose)
-                    cluster_ind = 0
+                    cluster_ind = len(self.clustering.cluster_labels)
+                    self.clustering.region_fns = data['region_fns']
+                    # adding new SS data
+                    self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=self.region_update)
                 else:
+                    # labelling new SS data
                     cluster_labels = []
                     for z,y in zip(zs,ys):
                         dot_pdt = [w.T.dot(np.hstack([z[0:self.n], [1]])) for w in data['region_fns']]
                         idx = np.argmax(dot_pdt)
                         cluster_labels.append(idx)
                     cluster_labels = np.array(cluster_labels)
-                    self.clustering = pwac.ClusterPWA.from_labels(zs, ys, #data['zs'], data['ys'], #
+                    self.clustering = pwac.ClusterPWA.from_labels(zs, ys, 
                                    cluster_labels, z_cutoff=self.n, affine=self.affine, sparse_mask=self.sparse_mask)
                     self.clustering.region_fns = data['region_fns']
-                    cluster_ind = 0 # len(self.clustering.cluster_labels) # 0
-                    # self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=self.region_update)
-                if forceEstimate:
-                    np.savez('cluster_labels', labels=self.clustering.cluster_labels,
-                                           #region_fns=self.clustering.region_fns,
-                                           thetas=self.clustering.thetas,
-                                           zs=zs, ys=ys)
+                    cluster_ind = 0
+
+                if self.region_update: self.clustering.determine_polytopic_regions(verbose=verbose)
+                
+            else:
+                # use greedy method to fit PWA model
+                self.clustering = pwac.ClusterPWA.from_num_clusters(zs, ys, 
+                                    self.n_clusters, z_cutoff=self.n,
+                                    affine=self.affine, sparse_mask=self.sparse_mask)
+                self.clustering.fit_clusters(verbose=verbose)
+                self.clustering.determine_polytopic_regions(verbose=verbose)
+                cluster_ind = 0
                 
             # label the regions of the points in the safe set
-            # TODO zeros is a hack... np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
-            self.SS_regions = np.nan * np.ones((self.SS.shape[0],self.SS.shape[2]))
-            # np.zeros((self.SS.shape[0],self.SS.shape[2]))
             for it in range(self.it):
-                for i in range(self.LapCounter[it]-1):
+                for i in range(self.LapCounter[it]-1): # this was it!!!
                     self.SS_regions[i, it] = self.clustering.cluster_labels[cluster_ind]
                     cluster_ind += 1
             if verbose: print_PWA_models(pwac.get_PWA_models(self.clustering.thetas, self.n, self.d))
+        # if cluster already initialized, adding new lap data
         elif addTrajectory:
             print('updating PWA model with new data')
             zs = []; ys = []
-            for it in [self.it-1]:
-                states = self.SS[:int(self.LapCounter[it]), :, it]
-                inputs = self.uSS[:int(self.LapCounter[it]), :, it]
-                zs.append(np.hstack([states[:-1], inputs[:-1]]))
-                ys.append(states[1:])
+            it = self.it-1
+            states = self.SS[:int(self.LapCounter[it]), :, it]
+            inputs = self.uSS[:int(self.LapCounter[it]), :, it]
+            zs.append(np.hstack([states[:-1], inputs[:-1]]))
+            ys.append(states[1:])
             zs = np.squeeze(np.array(zs)); ys = np.squeeze(np.array(ys))
+            cluster_ind = len(self.clustering.cluster_labels)
             
             self.clustering.add_data_update(zs, ys, verbose=verbose, full_update=self.region_update)
             # TODO this method takes a long time to run with full_update
@@ -471,16 +459,13 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
             # label the regions of the points in the safe set
             # TODO
-            it=self.it-1
             for i in range(self.LapCounter[it]-1):
-                self.SS_regions[i, it] = self.clustering.cluster_labels[ len(self.clustering.cluster_labels) + i]
+                self.SS_regions[i, it] = self.clustering.cluster_labels[cluster_ind + i]
 
             np.savez('cluster_labels'+str(self.it), labels=self.clustering.cluster_labels,
                                        region_fns=self.clustering.region_fns,
                                        thetas=self.clustering.thetas)
-        print('count in regions 0/1', np.bincount(self.clustering.cluster_labels.astype(int)))
-            # to access SS in certain region,
-            # region_indices[i] = np.where(self.SS_regions == i)
+        print('count in each region', np.bincount(self.clustering.cluster_labels.astype(int)))
 
     def oneStepPrediction(self, x, u, UpdateModel=0):
         """Propagate the model one step foreward
