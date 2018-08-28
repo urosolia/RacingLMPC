@@ -104,11 +104,6 @@ class AbstractControllerLMPC:
         # a subset of nearby points are chosen from past iterations
         self._selectSS(x0)
 
-        # DEBUGGING SS_REGION
-        for it in range(self.it):
-            nan_idx = np.where(np.isnan(self.SS_regions[:, it]))
-            if not np.all(self.SS[nan_idx,:, it] == 10000): pdb.set_trace()
-
         # Get the matrices for defining the QP
         qp_params = self._getQP(x0)
 
@@ -301,8 +296,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
         # update list of SS regions
         Counter = self.TimeSS[self.it - 1]
-        # TODO: 
-        self.SS_regions[Counter + i + 1, self.it - 1] = int(self.clustering.get_region(x 
+        self.SS_regions[Counter, self.it - 1] = int(self.clustering.get_region(x 
                                       + np.array([0, 0, 0, 0, self.map.TrackLength, 0])))
 
 
@@ -671,7 +665,7 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
         osqp.warm_start(x=initvals)
     res = osqp.solve()
     if res.info.status_val != osqp.constant('OSQP_SOLVED'):
-        print("OSQP exited with status '%s'" % res.info.status)
+        # print("OSQP exited with status '%s'" % res.info.status)
         feasible = 0
     if res.info.status_val == osqp.constant('OSQP_SOLVED') or res.info.status_val == osqp.constant('OSQP_SOLVED_INACCURATE') or  res.info.status_val == osqp.constant('OSQP_MAX_ITER_REACHED'):
         feasible = 1

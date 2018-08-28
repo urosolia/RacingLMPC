@@ -76,7 +76,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 250              # Simulation time
-Laps       = 2+2              # Total LMPC laps
+Laps       = 3+2              # Total LMPC laps
 
 # Safe Set Parameter
 LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
