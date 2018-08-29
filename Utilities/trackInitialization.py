@@ -214,6 +214,11 @@ class Map():
         """
 
         # wrap s along the track
+        if s < 0 and np.abs(s) < 1e-4:
+            s = 0
+        else:
+            while s < 0: 
+                s = self.TrackLength + s
         while (s > self.TrackLength):
             s = s - self.TrackLength
 

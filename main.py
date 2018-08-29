@@ -69,14 +69,14 @@ n = 6;   d = 2               # State and Input dimension
 Q = np.diag([1.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
 R = np.diag([1.0, 10.0])                  # delta, a
 
-map = Map('3110_big')                            # Initialize the map
+map = Map('oval') #3110_big')                            # Initialize the map
 simulator = Simulator(map)                # Initialize the Simulator
 
 # ======================================================================================================================
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 250              # Simulation time
-Laps       = 3+2              # Total LMPC laps
+Laps       = 5+2              # Total LMPC laps
 
 # Safe Set Parameter
 LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py

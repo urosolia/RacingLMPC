@@ -115,6 +115,7 @@ class AbstractControllerLMPC:
         startTimer = datetime.datetime.now()
         # TODO make this parallel
         for i, qp_param in enumerate(qp_params):
+            startTimer_i = datetime.datetime.now()
             L, G, E, M, q, F, b = qp_param
             # Solve QP
             try:
@@ -142,6 +143,7 @@ class AbstractControllerLMPC:
                 print("caught", e)
                 cost = np.inf
                 feasible = 0
+            deltaTimer_i = datetime.datetime.now() - startTimer_i
 
             # if np.any(self.SS_PointSelectedTot[4,i]>self.map.TrackLength):
             # #if x0[4] > 15:
@@ -258,7 +260,8 @@ class PWAControllerLMPC(AbstractControllerLMPC):
     def __init__(self, n_clusters, numSS_Points, numSS_it, N, Qslack, Q, R, dR, 
                  n, d, shift, dt, track_map, Laps, TimeLMPC, Solver):
         self.n_clusters = n_clusters
-        self.load_path = '/home/sarah/Dropbox/controls/MPC-collab/RacingLMPC/notebooks/pwa_model_10.npz'
+        stem = '/home/sarah/barc/workspace/src/barc/src/RacingLMPC/'
+        self.load_path = stem + 'notebooks/pwa_model_oval_10.npz'
         self.region_update = False
         self.load_use_data = True
         self.clustering = None
@@ -282,6 +285,10 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         
     def addTrajectory(self, ClosedLoopData):
         super(PWAControllerLMPC, self).addTrajectory(ClosedLoopData)
+        print(self.it)
+        if self.it > 1: 
+            it = np.argmin(self.Qfun[0, 1:self.it])+1
+            print(it, self.Qfun[0, :self.it])
 
         # if PWA model initialized, need to update with new data
         # assigning new data to regions
@@ -301,13 +308,16 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
 
     def _selectSS(self, x0):
-        it = self.it-1
+        
+        # choosing safe set to be the fastest one
+        # it = self.it -1
+        it = np.argmin(self.Qfun[0, 1:self.it])+1
+
         if True: 
             # TODO: problem behavior with self.N when moving too fast
-            self.SSind = max(self.N, closest_idx(self.SS[:,:,it], x0))
-        if self.clustering is None:
-            self._estimate_pwa(verbose=False)
-        select_reg_0 = self.SS_regions[self.SSind-self.N:(self.SSind+1), it]
+            self.SSind = max(self.N-self.shift, closest_idx(self.SS[:,:,it], x0))
+        self._estimate_pwa(verbose=False)
+        select_reg_0 = self.SS_regions[self.SSind-self.N+self.shift:(self.SSind+self.shift+1), it]
         
         # temporary for debugging
         if np.any(np.isnan(select_reg_0)): pdb.set_trace()
@@ -350,11 +360,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
 
     def _getQP(self, x0):
 
-        startTimer = datetime.datetime.now()
         # get dynamics
         As, Bs, ds = pwac.get_PWA_models(self.clustering.thetas, self.n, self.d)
-        deltaTimer = datetime.datetime.now() - startTimer
-        self.linearizationTime = deltaTimer # TODO generalize 
+        
         
         qp_mat_list = []
         for i in range(self.numSS_Points):
@@ -381,6 +389,7 @@ class PWAControllerLMPC(AbstractControllerLMPC):
         return qp_mat_list
 
     def _estimate_pwa(self, verbose=True, addTrajectory=False):
+        startTimer = datetime.datetime.now()
         # when the clustering object is not initialized
         if self.clustering is None:
             # recording all SS data
@@ -455,7 +464,9 @@ class PWAControllerLMPC(AbstractControllerLMPC):
             np.savez('cluster_labels'+str(self.it), labels=self.clustering.cluster_labels,
                                        region_fns=self.clustering.region_fns,
                                        thetas=self.clustering.thetas)
-        print('count in each region', np.bincount(self.clustering.cluster_labels.astype(int)))
+        # print('count in each region', np.bincount(self.clustering.cluster_labels.astype(int)))
+        deltaTimer = datetime.datetime.now() - startTimer
+        self.linearizationTime = deltaTimer # TODO generalize
 
     def oneStepPrediction(self, x, u, UpdateModel=0):
         """Propagate the model one step foreward
@@ -648,6 +659,7 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
     <https://github.com/oxfordcontrol/osqp/issues/10>`_ in your solutions.
     """
     osqp = OSQP()
+    # osqp.setup()
     if G is not None:
         l = -inf * ones(len(h))
         if A is not None:
@@ -658,9 +670,9 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
             qp_A = G
             qp_l = l
             qp_u = h
-        osqp.setup(P=P, q=q, A=qp_A, l=qp_l, u=qp_u, verbose=False, polish=True)
+        osqp.setup(P=P, q=q, A=qp_A, l=qp_l, u=qp_u, verbose=False, polish=True, time_limit=0.007)
     else:
-        osqp.setup(P=P, q=q, A=None, l=None, u=None, verbose=False)
+        osqp.setup(P=P, q=q, A=None, l=None, u=None, verbose=False, time_limit=0.007)
     if initvals is not None:
         osqp.warm_start(x=initvals)
     res = osqp.solve()
