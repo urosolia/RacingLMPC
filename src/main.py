@@ -70,7 +70,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 40+2              # Total LMPC laps
+Laps       = 10+2             # Total LMPC laps
 
 # Safe Set Parameters
 LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
@@ -209,15 +209,15 @@ if plotFlagLMPC == 1:
     plotClosedLoopLMPC(LMPController, map)
 
 if animation_xyFlag == 1:
-    animation_xy(map, LMPCOpenLoopData, LMPController, 36)
+    animation_xy(map, LMPCOpenLoopData, LMPController, 11)
 
 if animation_stateFlag == 1:
-    animation_states(map, LMPCOpenLoopData, LMPController, 18)
+    animation_states(map, LMPCOpenLoopData, LMPController, 11)
 
 unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
 unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 36)
+# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 36)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()
