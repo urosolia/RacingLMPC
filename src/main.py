@@ -39,6 +39,12 @@ import matplotlib.pyplot as plt
 import pdb
 import pickle
 
+if sys.version_info[0] == 3:
+    # Handles the Python2 pickled objects.
+    pickle_options = {'encoding': 'latin1'}
+else:
+    pickle_options = {}
+
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
@@ -100,11 +106,11 @@ if RunPID == 1:
     simulator.Sim(ClosedLoopDataPID, PIDController)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataPID.obj', 'wb')
-    pickle.dump(ClosedLoopDataPID, file_data)
+    pickle.dump(ClosedLoopDataPID, file_data, **pickle_options)
     file_data.close()
 else:
     file_data = open(sys.path[0]+'/data/ClosedLoopDataPID.obj', 'rb')
-    ClosedLoopDataPID = pickle.load(file_data)
+    ClosedLoopDataPID = pickle.load(file_data, **pickle_options)
     file_data.close()
 print("===== PID terminated")
 
@@ -121,11 +127,11 @@ if RunMPC == 1:
     simulator.Sim(ClosedLoopDataLTI_MPC, Controller_PathFollowingLTI_MPC)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'wb')
-    pickle.dump(ClosedLoopDataLTI_MPC, file_data)
+    pickle.dump(ClosedLoopDataLTI_MPC, file_data, **pickle_options)
     file_data.close()
 else:
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'rb')
-    ClosedLoopDataLTI_MPC = pickle.load(file_data)
+    ClosedLoopDataLTI_MPC = pickle.load(file_data, **pickle_options)
     file_data.close()
 print("===== MPC terminated")
 
@@ -139,11 +145,11 @@ if RunMPC_tv == 1:
     simulator.Sim(ClosedLoopDataLTV_MPC, Controller_PathFollowingLTV_MPC)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'wb')
-    pickle.dump(ClosedLoopDataLTV_MPC, file_data)
+    pickle.dump(ClosedLoopDataLTV_MPC, file_data, **pickle_options)
     file_data.close()
 else:
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'rb')
-    ClosedLoopDataLTV_MPC = pickle.load(file_data)
+    ClosedLoopDataLTV_MPC = pickle.load(file_data, **pickle_options)
     file_data.close()
 print("===== TV-MPC terminated")
 # ======================================================================================================================
@@ -187,9 +193,9 @@ if RunLMPC == 1:
     file_data.close()
 else:
     file_data = open(sys.path[0]+'/data/LMPController.obj', 'rb')
-    ClosedLoopLMPC = pickle.load(file_data)
-    LMPController  = pickle.load(file_data)
-    LMPCOpenLoopData  = pickle.load(file_data)
+    ClosedLoopLMPC = pickle.load(file_data, **pickle_options)
+    LMPController  = pickle.load(file_data, **pickle_options)
+    LMPCOpenLoopData  = pickle.load(file_data, **pickle_options)
     file_data.close()
 
 print("===== LMPC terminated")
