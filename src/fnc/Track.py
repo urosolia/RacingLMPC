@@ -7,37 +7,37 @@ class Map():
     Attributes:
         getGlobalPosition: convert position from (s, ey) to (X,Y)
     """
-    def __init__(self, width):
+    def __init__(self, halfWidth):
         """Initialization
-        width: track width
+        halfWidth: track halfWidth
         Modify the vector spec to change the geometry of the track
         """
         # Goggle-shaped track
-        self.slack = 0.15
-        self.width = width
-        spec = np.array([[60 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-                         [20 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         [40 * 0.03, +40 * 0.03 * 10 / np.pi],
-                         [60 * 0.03, -60 * 0.03 * 5 / np.pi],
-                         [40 * 0.03, +40 * 0.03 * 10 / np.pi],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi],
-                         [20 * 0.03, 0],
-                         [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
-
-        # # L-shaped track
-        # self.width = 0.4
-        # self.slack = 0.45
-        # lengthCurve = 4.5
-        # spec = np.array([[1.0, 0],
-        #                  [lengthCurve, lengthCurve / np.pi],
+        # self.slack = 0.15
+        # self.halfWidth = halfWidth
+        # spec = np.array([[60 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
         #                  # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
-        #                  [lengthCurve / 2, -lengthCurve / np.pi],
-        #                  [lengthCurve, lengthCurve / np.pi],
-        #                  [lengthCurve / np.pi * 2, 0],
-        #                  [lengthCurve / 2, lengthCurve / np.pi]])
+        #                  [20 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+        #                  [40 * 0.03, +40 * 0.03 * 10 / np.pi],
+        #                  [60 * 0.03, -60 * 0.03 * 5 / np.pi],
+        #                  [40 * 0.03, +40 * 0.03 * 10 / np.pi],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi],
+        #                  [20 * 0.03, 0],
+        #                  [80 * 0.03, -80 * 0.03 * 2 / np.pi]])
+
+        # L-shaped track
+        self.halfWidth = 0.4
+        self.slack = 0.45
+        lengthCurve = 4.5
+        spec = np.array([[1.0, 0],
+                         [lengthCurve, lengthCurve / np.pi],
+                         # Note s = 1 * np.pi / 2 and r = -1 ---> Angle spanned = np.pi / 2
+                         [lengthCurve / 2, -lengthCurve / np.pi],
+                         [lengthCurve, lengthCurve / np.pi],
+                         [lengthCurve / np.pi * 2, 0],
+                         [lengthCurve / 2, lengthCurve / np.pi]])
 
 
         # spec = np.array([[1.0, 0],
@@ -228,7 +228,7 @@ class Map():
                         s       = s_local + PointAndTangent[i, 3]
                         ey      = la.norm(v1) * np.sin(angle)
 
-                        if np.abs(ey)<= self.width + self.slack:
+                        if np.abs(ey)<= self.halfWidth + self.slack:
                             CompletedFlag = 1
 
             else:
@@ -273,7 +273,7 @@ class Map():
                         psi_unwrap = np.unwrap([ang + arc2, psi])[1]
                         epsi = psi_unwrap - (ang + arc2)
 
-                        if np.abs(ey) <= self.width + self.slack:
+                        if np.abs(ey) <= self.halfWidth + self.slack:
                             CompletedFlag = 1
 
         if epsi>1.0:

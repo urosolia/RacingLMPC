@@ -6,8 +6,6 @@ from scipy import linalg
 from scipy import sparse
 from cvxopt.solvers import qp
 import datetime
-from functools import partial
-from pathos.multiprocessing import ProcessingPool as Pool
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
@@ -24,7 +22,7 @@ class ControllerLMPC():
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
 
-    def __init__(self, numSS_Points, numSS_it, N, Qslack, Qlane, Q, R, dR, n, d, shift, dt,  map, Laps, TimeLMPC, Solver):
+    def __init__(self, numSS_Points, numSS_it, N, Qslack, Qlane, Q, R, dR, dt,  map, Laps, TimeLMPC, Solver, inputConstraints):
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
@@ -47,30 +45,31 @@ class ControllerLMPC():
         self.Q = Q
         self.R = R
         self.dR = dR
-        self.n = n
-        self.d = d
-        self.shift = shift
+        self.n = Q.shape[1]
+        self.d = R.shape[1]
         self.dt = dt
         self.map = map
         self.Solver = Solver
         self.LapTime = 0
-        self.itUsedSysID = 2
+        self.itUsedSysID = 1
+        self.inputConstraints = inputConstraints
 
         self.OldInput = np.zeros((1,2))
 
         # Initialize the following quantities to avoid dynamic allocation
         NumPoints = int(TimeLMPC / dt) + 1
-        self.TimeSS  = 10000 * np.ones(Laps).astype(int)        # Time at which each j-th iteration is completed
-        self.SS      = 10000 * np.ones((NumPoints, 6, Laps))    # Sampled Safe SS
-        self.uSS     = 10000 * np.ones((NumPoints, 2, Laps))    # Input associated with the points in SS
-        self.Qfun    =     0 * np.ones((NumPoints, Laps))       # Qfun: cost-to-go from each point in SS
-        self.SS_glob = 10000 * np.ones((NumPoints, 6, Laps))    # SS in global (X-Y) used for plotting
+        self.LapCounter = 10000 * np.ones(Laps).astype(int)        # Time at which each j-th iteration is completed
+        self.TimeSS     = 10000 * np.ones(Laps).astype(int)        # Time at which each j-th iteration is completed
+        self.SS         = 10000 * np.ones((NumPoints, 6, Laps))    # Sampled Safe SS
+        self.uSS        = 10000 * np.ones((NumPoints, 2, Laps))    # Input associated with the points in SS
+        self.Qfun       =     0 * np.ones((NumPoints, Laps))       # Qfun: cost-to-go from each point in SS
+        self.SS_glob    = 10000 * np.ones((NumPoints, 6, Laps))    # SS in global (X-Y) used for plotting
+
+        self.zVector = np.array([0.0, 0.0, 0.0, 0.0, 10.0, 0.0])
+
 
         # Initialize the controller iteration
         self.it      = 0
-
-        # Initialize pool for parallel computing used in the internal function _LMPC_EstimateABC
-        self.p = Pool(4)
 
         # Build matrices for inequality constraints
         self.F, self.b = _LMPC_BuildMatIneqConst(self)
@@ -91,24 +90,30 @@ class ControllerLMPC():
         N = self.N; dt = self.dt
         it           = self.it
         numSS_Points = self.numSS_Points
-        shift       = self.shift
         Qslack       = self.Qslack
-        p = self.p
 
         LinPoints = self.LinPoints
         LinInput  = self.LinInput
         map = self.map
 
         # Select Points from SS
+        if (self.zVector[4]-x0[4] > map.TrackLength/2):
+            self.zVector[4] = np.max([self.zVector[4] - map.TrackLength,0])
+            self.LinPoints[4,-1] = self.LinPoints[4,-1]- map.TrackLength
+
+
         sortedLapTime = np.argsort(self.Qfun[0, 0:it])
 
         SS_PointSelectedTot = np.empty((n, 0))
-        SS_glob_PointSelectedTot = np.empty((n, 0))
+        Succ_SS_PointSelectedTot = np.empty((n, 0))
+        Succ_uSS_PointSelectedTot = np.empty((d, 0))
         Qfun_SelectedTot = np.empty((0))
         for jj in sortedLapTime[0:self.numSS_it]:
-            SS_PointSelected, Qfun_Selected = _SelectPoints(self, jj, x0, numSS_Points / self.numSS_it, shift)
-            SS_PointSelectedTot = np.append(SS_PointSelectedTot, SS_PointSelected, axis=1)
-            Qfun_SelectedTot = np.append(Qfun_SelectedTot, Qfun_Selected, axis=0)
+            SS_PointSelected, uSS_PointSelected, Qfun_Selected = _SelectPoints(self, jj, self.zVector, numSS_Points / self.numSS_it + 1)
+            Succ_SS_PointSelectedTot =  np.append(Succ_SS_PointSelectedTot, SS_PointSelected[:,1:], axis=1)
+            Succ_uSS_PointSelectedTot =  np.append(Succ_uSS_PointSelectedTot, uSS_PointSelected[:,1:], axis=1)
+            SS_PointSelectedTot      = np.append(SS_PointSelectedTot, SS_PointSelected[:,0:-1], axis=1)
+            Qfun_SelectedTot         = np.append(Qfun_SelectedTot, Qfun_Selected[0:-1], axis=0)
 
         self.SS_PointSelectedTot = SS_PointSelectedTot
         self.Qfun_SelectedTot = Qfun_SelectedTot
@@ -136,7 +141,7 @@ class ControllerLMPC():
             Solution = np.squeeze(res_cons['x'])     
 
         elif self.Solver == "OSQP":
-            # Adaptarion for QSQP from https://github.com/alexbuyval/RacingLMPC/
+            # Adaptation for QSQP from https://github.com/alexbuyval/RacingLMPC/
             res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
             Solution = res_cons.x
 
@@ -148,15 +153,18 @@ class ControllerLMPC():
         # Extract solution and set linerizations points
         xPred, uPred, lambd, slack = _LMPC_GetPred(Solution, n, d, N, np)
 
+        self.zVector = np.dot(Succ_SS_PointSelectedTot, lambd)
+        self.uVector = np.dot(Succ_uSS_PointSelectedTot, lambd)
+
         self.xPred = xPred.T
         if self.N == 1:
             self.uPred    = np.array([[uPred[0], uPred[1]]])
             self.LinInput =  np.array([[uPred[0], uPred[1]]])
         else:
             self.uPred = uPred.T
-            self.LinInput = np.vstack((uPred.T[1:, :], uPred.T[-1, :]))
+            self.LinInput = np.vstack((uPred.T[1:, :], self.uVector))
 
-        self.LinPoints = np.vstack((xPred.T[1:,:], xPred.T[-1,:]))
+        self.LinPoints = np.vstack((xPred.T[1:,:], self.zVector))
 
         self.OldInput = uPred.T[0,:]
 
@@ -168,6 +176,7 @@ class ControllerLMPC():
         it = self.it
 
         self.TimeSS[it] = ClosedLoopData.SimTime
+        self.LapCounter[it] = ClosedLoopData.SimTime
         self.SS[0:(self.TimeSS[it] + 1), :, it] = ClosedLoopData.x[0:(self.TimeSS[it] + 1), :]
         self.SS_glob[0:(self.TimeSS[it] + 1), :, it] = ClosedLoopData.x_glob[0:(self.TimeSS[it] + 1), :]
         self.uSS[0:self.TimeSS[it], :, it]      = ClosedLoopData.u[0:(self.TimeSS[it]), :]
@@ -183,7 +192,7 @@ class ControllerLMPC():
 
         self.it = self.it + 1
 
-    def addPoint(self, x, u, i):
+    def addPoint(self, x, u):
         """at iteration j add the current point to SS, uSS and Qfun of the previous iteration
         Arguments:
             x: current state
@@ -191,10 +200,15 @@ class ControllerLMPC():
             i: at the j-th iteration i is the time at which (x,u) are recorded
         """
         Counter = self.TimeSS[self.it - 1]
-        self.SS[Counter + i + 1, :, self.it - 1] = x + np.array([0, 0, 0, 0, self.map.TrackLength, 0])
-        self.uSS[Counter + i + 1, :, self.it - 1] = u
-        if self.Qfun[Counter + i + 1, self.it - 1] == 0:
-            self.Qfun[Counter + i + 1, self.it - 1] = self.Qfun[Counter + i, self.it - 1] - 1
+        self.SS[Counter, :, self.it - 1] = x + np.array([0, 0, 0, 0, self.map.TrackLength, 0])
+        self.uSS[Counter, :, self.it - 1] = u
+
+        # The above two lines are needed as the once the predicted trajectory has crossed the finish line the goal is
+        # to reach the end of the lap which is about to start
+        if self.Qfun[Counter, self.it - 1] == 0:
+            self.Qfun[Counter, self.it - 1] = self.Qfun[Counter, self.it - 1] - 1
+
+        self.TimeSS[self.it - 1] = self.TimeSS[self.it - 1] + 1
 
     def update(self, SS, uSS, Qfun, TimeSS, it, LinPoints, LinInput):
         """update controller parameters. This function is useful to transfer information among LMPC controller
@@ -336,8 +350,8 @@ def _LMPC_BuildMatIneqConst(LMPC):
     Fx = np.array([[0., 0., 0., 0., 0., 1.],
                    [0., 0., 0., 0., 0., -1.]])
 
-    bx = np.array([[0.4],  # max ey
-                   [0.4]])  # max ey
+    bx = np.array([[LMPC.map.halfWidth],  # max ey
+                   [LMPC.map.halfWidth]])  # max ey
 
     # Buil the matrices for the input constraint in each region. In the region i we want Fx[i]x <= bx[b]
     Fu = np.array([[1., 0.],
@@ -345,10 +359,10 @@ def _LMPC_BuildMatIneqConst(LMPC):
                    [0., 1.],
                    [0., -1.]])
 
-    bu = np.array([[0.5],  # Max Steering
-                   [0.5],  # Max Steering
-                   [1.],  # Max Acceleration
-                   [1.]])  # Max Acceleration
+    bu = np.array([[LMPC.inputConstraints[0,0]],  # Max Steering
+                   [LMPC.inputConstraints[0,1]],  # Min Steering
+                   [LMPC.inputConstraints[1,0]],   # Max Acceleration
+                   [LMPC.inputConstraints[1,1]]])  # Min Acceleration
 
 
 
@@ -419,8 +433,10 @@ def _LMPC_BuildMatIneqConst(LMPC):
     return F_return, b
 
 
-def _SelectPoints(LMPC, it, x0, numSS_Points, shift):
-    SS = LMPC.SS
+def _SelectPoints(LMPC, it, x0, numSS_Points):
+    SS  = LMPC.SS
+    uSS = LMPC.uSS
+    TimeSS = LMPC.TimeSS
     SS_glob = LMPC.SS_glob
     Qfun = LMPC.Qfun
     xPred = LMPC.xPred
@@ -428,7 +444,8 @@ def _SelectPoints(LMPC, it, x0, numSS_Points, shift):
     TrackLength = map.TrackLength
     currIt = LMPC.it
 
-    x = SS[:, :, it]
+    x = SS[:, 0:(TimeSS[it]-1), it]
+    u = uSS[:, 0:(TimeSS[it]-1), it]
     x_glob = SS_glob[:, :, it]
     oneVec = np.ones((x.shape[0], 1))
     x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
@@ -436,8 +453,8 @@ def _SelectPoints(LMPC, it, x0, numSS_Points, shift):
     norm = la.norm(diff, 1, axis=1)
     MinNorm = np.argmin(norm)
 
-    if (MinNorm + shift >= 0):
-        indexSSandQfun = range(shift + MinNorm, shift + MinNorm + numSS_Points)
+    if (MinNorm - numSS_Points/2 >= 0):
+        indexSSandQfun = range(-numSS_Points/2 + MinNorm, numSS_Points/2 + MinNorm)
         # SS_Points = x[shift + MinNorm:shift + MinNorm + numSS_Points, :].T
         # SS_glob_Points = x_glob[shift + MinNorm:shift + MinNorm + numSS_Points, :].T
         # Sel_Qfun = Qfun[shift + MinNorm:shift + MinNorm + numSS_Points, it]
@@ -447,33 +464,25 @@ def _SelectPoints(LMPC, it, x0, numSS_Points, shift):
         # SS_glob_Points = x_glob[MinNorm:MinNorm + numSS_Points, :].T
         # Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it]
 
-    SS_Points = x[indexSSandQfun, :].T
+    SS_Points  = x[indexSSandQfun, :].T
+    SSu_Points = u[indexSSandQfun, :].T
     SS_glob_Points = x_glob[indexSSandQfun, :].T
     Sel_Qfun = Qfun[indexSSandQfun, it]
 
-    # if xPred != []:
-    #     sPred = xPred[:, 4]
-    #     print sPred
-    #     print sPred > TrackLength, sum(sPred > TrackLength)
-    #     print (np.all((xPred[:, 4] > TrackLength) == False))
-
+    # Modify the cost if the predicion has crossed the finisch line
     if xPred == []:
-        # print "Here "
         Sel_Qfun = Qfun[indexSSandQfun, it]
     elif (np.all((xPred[:, 4] > TrackLength) == False)):
-        # print "Here 1"
         Sel_Qfun = Qfun[indexSSandQfun, it]
     elif it < currIt - 1:
-        # print "Here 2"
         Sel_Qfun = Qfun[indexSSandQfun, it] + Qfun[0, it + 1]
     else:
         sPred = xPred[:, 4]
-        # print "Here 3", sum(sPred > TrackLength)
         predCurrLap = LMPC.N - sum(sPred > TrackLength)
         currLapTime = LMPC.LapTime
         Sel_Qfun = Qfun[indexSSandQfun, it] + currLapTime + predCurrLap
 
-    return SS_Points, Sel_Qfun
+    return SS_Points, SSu_Points, Sel_Qfun
 
 def _ComputeCost(x, u, TrackLength):
     Cost = 10000 * np.ones((x.shape[0]))  # The cost has the same elements of the vector x --> time +1
@@ -566,8 +575,8 @@ def _LMPC_BuildMatEqConst(LMPC, A, B, C, N, n, d):
 def _LMPC_GetPred(Solution,n,d,N, np):
     xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n*(N+1))]),(N+1,n))))
     uPred = np.squeeze(np.transpose(np.reshape((Solution[n*(N+1)+np.arange(d*N)]),(N, d))))
-    lambd = Solution[n*(N+1)+d*N:Solution.shape[0]-n]
-    slack = Solution[Solution.shape[0]-n-2*N:]
+    lambd = Solution[(n*(N+1)+d*N):(Solution.shape[0]-n-2*N)]
+    slack = Solution[Solution.shape[0]-n-2*N:Solution.shape[0]-2*N]
     laneSlack = Solution[Solution.shape[0]-2*N:]
 
     # print np.sum(np.abs(laneSlack))
@@ -587,13 +596,13 @@ def _LMPC_EstimateABC(ControllerLMPC, sortedLapTime):
     N               = ControllerLMPC.N
     n               = ControllerLMPC.n
     d               = ControllerLMPC.d
-    SS              = ControllerLMPC.SS
-    uSS             = ControllerLMPC.uSS
     TimeSS          = ControllerLMPC.TimeSS
+    LapCounter      = ControllerLMPC.LapCounter
     PointAndTangent = ControllerLMPC.map.PointAndTangent
     dt              = ControllerLMPC.dt
     it              = ControllerLMPC.it
-    p               = ControllerLMPC.p
+    SS              = ControllerLMPC.SS
+    uSS             = ControllerLMPC.uSS
 
     ParallelComputation = 0
     Atv = []; Btv = []; Ctv = []; indexUsed_list = []
@@ -601,33 +610,18 @@ def _LMPC_EstimateABC(ControllerLMPC, sortedLapTime):
     usedIt = sortedLapTime[0:ControllerLMPC.itUsedSysID] # range(ControllerLMPC.it-ControllerLMPC.itUsedSysID, ControllerLMPC.it)
     MaxNumPoint = 40  # Need to reason on how these points are selected
 
-    if ParallelComputation == 1:
-        # Parallel Implementation
-        Fun = partial(RegressionAndLinearization,LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
-                       MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt)
-
-        index = np.arange(0, N)  # Create the index vector
-
-        Res = p.map(Fun, index)  # Run the process in parallel
-        ParallelResutl = np.asarray(Res)
 
     for i in range(0, N):
-        if ParallelComputation == 0:
-           Ai, Bi, Ci, indexSelected = RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
-                                                               MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i)
-           Atv.append(Ai)
-           Btv.append(Bi)
-           Ctv.append(Ci)
-           indexUsed_list.append(indexSelected)
-        else:
-           Atv.append(ParallelResutl[i][0])
-           Btv.append(ParallelResutl[i][1])
-           Ctv.append(ParallelResutl[i][2])
-           indexUsed_list.append(ParallelResutl[i][3])
+       Ai, Bi, Ci, indexSelected = RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS,
+                                                           MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i)
+       Atv.append(Ai)
+       Btv.append(Bi)
+       Ctv.append(Ci)
+       indexUsed_list.append(indexSelected)
 
     return Atv, Btv, Ctv, indexUsed_list
 
-def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i):
+def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, LapCounter, MaxNumPoint, qp, n, d, matrix, PointAndTangent, dt, i):
 
 
     x0 = LinPoints[i, :]
@@ -657,8 +651,8 @@ def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, TimeSS, Max
 
     indexSelected = []
     K = []
-    for i in usedIt:
-        indexSelected_i, K_i = ComputeIndex(h, SS, uSS, TimeSS, i, xLin, stateFeatures, scaling, MaxNumPoint,
+    for ii in usedIt:
+        indexSelected_i, K_i = ComputeIndex(h, SS, uSS, LapCounter, ii, xLin, stateFeatures, scaling, MaxNumPoint,
                                             ConsiderInput)
         indexSelected.append(indexSelected_i)
         K.append(K_i)
@@ -796,7 +790,7 @@ def LMPC_LocLinReg(Q, b, stateFeatures, inputFeatures, qp):
 
     return A, B, C
 
-def ComputeIndex(h, SS, uSS, TimeSS, it, x0, stateFeatures, scaling, MaxNumPoint, ConsiderInput):
+def ComputeIndex(h, SS, uSS, LapCounter, it, x0, stateFeatures, scaling, MaxNumPoint, ConsiderInput):
     import numpy as np
     from numpy import linalg as la
     import datetime
@@ -806,14 +800,14 @@ def ComputeIndex(h, SS, uSS, TimeSS, it, x0, stateFeatures, scaling, MaxNumPoint
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
 
     # What to learn a model such that: x_{k+1} = A x_k  + B u_k + C
-    oneVec = np.ones( (SS[0:TimeSS[it], :, it].shape[0]-1, 1) )
+    oneVec = np.ones( (SS[0:LapCounter[it], :, it].shape[0]-1, 1) )
 
     x0Vec = (np.dot( np.array([x0]).T, oneVec.T )).T
 
     if ConsiderInput == 1:
-        DataMatrix = np.hstack((SS[0:TimeSS[it]-1, stateFeatures, it], uSS[0:TimeSS[it]-1, :, it]))
+        DataMatrix = np.hstack((SS[0:LapCounter[it]-1, stateFeatures, it], uSS[0:LapCounter[it]-1, :, it]))
     else:
-        DataMatrix = SS[0:TimeSS[it]-1, stateFeatures, it]
+        DataMatrix = SS[0:LapCounter[it]-1, stateFeatures, it]
 
     # np.savetxt('A.csv', SS[0:TimeSS[it]-1, stateFeatures, it], delimiter=',', fmt='%f')
     # np.savetxt('B.csv', SS[0:TimeSS[it], :, it][0:-1, stateFeatures], delimiter=',', fmt='%f')
