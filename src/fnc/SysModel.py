@@ -32,7 +32,7 @@ class Simulator():
         u      = ClosedLoopData.u
 
         SimulationTime = 0
-        for i in range(0, ClosedLoopData.Points):
+        for i in range(0, int(ClosedLoopData.Points)):
             Controller.solve(x[i, :])
 
             u[i, :] = Controller.uPred[0,:]
@@ -95,8 +95,8 @@ class PID:
             x0: current state position
         """
         vt = self.vt
-        self.uPred[0, 0] = - 0.6 * x0[5] - 0.9 * x0[3] + np.maximum(-0.9, np.min(np.random.randn() * 0.25, 0.9))
-        self.uPred[0, 1] = 1.5 * (vt - x0[0]) + np.maximum(-0.2, np.min(np.random.randn() * 0.10, 0.2))
+        self.uPred[0, 0] = - 0.6 * x0[5] - 0.9 * x0[3] + np.max([-0.9, np.min([np.random.randn() * 0.25, 0.9])])
+        self.uPred[0, 1] = 1.5 * (vt - x0[0]) + np.max([-0.2, np.min([np.random.randn() * 0.10, 0.2])])
 # ======================================================================================================================
 # ======================================================================================================================
 # ================================ Internal functions for change of coordinates ========================================
@@ -185,9 +185,9 @@ def _DynModel(x, x_glob, u, np, dt, PointAndTangent):
         i = i+1
 
     # Noises
-    noise_vx = np.maximum(-0.05, np.min(np.random.randn() * 0.01, 0.05))
-    noise_vy = np.maximum(-0.1, np.min(np.random.randn() * 0.01, 0.1))
-    noise_wz = np.maximum(-0.05, np.min(np.random.randn() * 0.005, 0.05))
+    noise_vx = np.max([-0.05, np.min([np.random.randn() * 0.01, 0.05])])
+    noise_vy = np.max([-0.1, np.min([np.random.randn() * 0.01, 0.1])])
+    noise_wz = np.max([-0.05, np.min([np.random.randn() * 0.005, 0.05])])
 
     cur_x_next[0] = cur_x_next[0] + 0.1*noise_vx
     cur_x_next[1] = cur_x_next[1] + 0.1*noise_vy

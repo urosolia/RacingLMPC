@@ -73,7 +73,7 @@ TimeLMPC   = 400              # Simulation time
 Laps       = 30+2             # Total LMPC laps
 
 # Safe Set Parameters
-LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
+LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
 numSS_it = 2                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 40         # Number of points to select from each trajectory to build the safe set
 

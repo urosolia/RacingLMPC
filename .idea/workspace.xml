@@ -3,14 +3,11 @@
   <component name="ChangeListManager">
     <list default="true" id="b82c504b-cebe-4b95-a526-6942af548f40" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ClosedLoop.gif" beforeDir="false" afterPath="$PROJECT_DIR$/src/ClosedLoop.gif" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataLTI_MPC.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataLTI_MPC.obj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataLTV_MPC.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataLTV_MPC.obj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataPID.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataPID.obj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/fnc/LMPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/LMPC.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/fnc/SysModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/SysModel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/fnc/Track.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/Track.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/fnc/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/plot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -28,22 +25,17 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="363">
-              <caret line="214" column="57" selection-start-line="214" selection-start-column="57" selection-end-line="214" selection-end-column="57" />
+            <state relative-caret-position="91">
+              <caret line="57" column="16" lean-forward="true" selection-start-line="57" selection-start-column="16" selection-end-line="57" selection-end-column="16" />
             </state>
           </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="ClosedLoop.gif" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/ClosedLoop.gif">
-          <provider selected="true" editor-type-id="images" />
         </entry>
       </file>
       <file leaf-file-name="plot.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/plot.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="499">
-              <caret line="99" column="33" selection-start-line="99" selection-start-column="33" selection-end-line="99" selection-end-column="33" />
+            <state relative-caret-position="-3607">
+              <caret line="3" column="24" selection-start-line="3" selection-start-column="22" selection-end-line="3" selection-end-column="24" />
             </state>
           </provider>
         </entry>
@@ -72,11 +64,8 @@
       <file leaf-file-name="LMPC.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="425">
-              <caret line="206" column="10" selection-start-line="206" selection-start-column="10" selection-end-line="206" selection-end-column="10" />
-              <folding>
-                <element signature="e#0#10#0" expanded="true" />
-              </folding>
+            <state relative-caret-position="211">
+              <caret line="195" column="33" selection-start-line="195" selection-start-column="31" selection-end-line="195" selection-end-column="33" />
             </state>
           </provider>
         </entry>
@@ -104,7 +93,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>sys</find>
       <find>LMPC</find>
       <find>Mu</find>
       <find>ControllerLMPC</find>
@@ -129,11 +117,12 @@
       <find>_LMPC_BuildMatIneqConst</find>
       <find>widt</find>
       <find>_SelectPoints</find>
-      <find>AddPoint</find>
       <find>width</find>
       <find>_Select</find>
-      <find>TimeSS</find>
       <find>print</find>
+      <find>AddPoint</find>
+      <find>TimeSS</find>
+      <find>HEAD</find>
     </findStrings>
     <replaceStrings>
       <replace />
@@ -319,7 +308,7 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="21" />
+      <option name="time" value="22" />
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
@@ -521,16 +510,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="425">
-          <caret line="206" column="10" selection-start-line="206" selection-start-column="10" selection-end-line="206" selection-end-column="10" />
-          <folding>
-            <element signature="e#0#10#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/Track.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="128">
@@ -548,20 +527,27 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/plot.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="499">
-          <caret line="99" column="33" selection-start-line="99" selection-start-column="33" selection-end-line="99" selection-end-column="33" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/ClosedLoop.gif">
       <provider selected="true" editor-type-id="images" />
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/fnc/plot.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-3607">
+          <caret line="3" column="24" selection-start-line="3" selection-start-column="22" selection-end-line="3" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="211">
+          <caret line="195" column="33" selection-start-line="195" selection-start-column="31" selection-end-line="195" selection-end-column="33" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="363">
-          <caret line="214" column="57" selection-start-line="214" selection-start-column="57" selection-end-line="214" selection-end-column="57" />
+        <state relative-caret-position="91">
+          <caret line="57" column="16" lean-forward="true" selection-start-line="57" selection-start-column="16" selection-end-line="57" selection-end-column="16" />
         </state>
       </provider>
     </entry>

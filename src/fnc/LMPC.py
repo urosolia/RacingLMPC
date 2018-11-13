@@ -9,7 +9,7 @@ import datetime
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
-#from osqp import OSQP
+from osqp import OSQP
 
 solvers.options['show_progress'] = False
 
