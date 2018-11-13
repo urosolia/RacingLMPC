@@ -9,7 +9,7 @@ import datetime
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
-from osqp import OSQP
+#from osqp import OSQP
 
 solvers.options['show_progress'] = False
 
@@ -265,7 +265,7 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
     Check out for this point if you e.g. `get nan values
     <https://github.com/oxfordcontrol/osqp/issues/10>`_ in your solutions.
     """
-    osqp = OSQP()
+    # osqp = OSQP()
     if G is not None:
         l = -inf * ones(len(h))
         if A is not None:
