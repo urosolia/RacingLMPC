@@ -20,6 +20,13 @@ def plotTrajectory(map, x, x_glob, u):
     plt.plot(Points0[:, 0], Points0[:, 1], '--')
     plt.plot(Points1[:, 0], Points1[:, 1], '-b')
     plt.plot(Points2[:, 0], Points2[:, 1], '-b')
+    plt.show()
+
+    plt.figure()
+    plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
+    plt.plot(Points0[:, 0], Points0[:, 1], '--')
+    plt.plot(Points1[:, 0], Points1[:, 1], '-b')
+    plt.plot(Points2[:, 0], Points2[:, 1], '-b')
     plt.plot(x_glob[:, 4], x_glob[:, 5], '-r')
 
     plt.figure()
