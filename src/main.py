@@ -45,7 +45,7 @@ import pickle
 RunPID     = 0; plotFlag       = 0
 RunMPC     = 0; plotFlagMPC    = 0
 RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 0; animation_stateFlag = 0
+RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 0; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -70,7 +70,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ==================================== Initialize parameters for LMPC ==================================================
 # ======================================================================================================================
 TimeLMPC   = 400              # Simulation time
-Laps       = 30+2             # Total LMPC laps
+Laps       = 40+2             # Total LMPC laps
 
 # Safe Set Parameters
 LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
@@ -78,7 +78,7 @@ numSS_it = 2                  # Number of trajectories used at each iteration to
 numSS_Points = 40         # Number of points to select from each trajectory to build the safe set
 
 # Tuning Parameters
-Qslack  =  5 * np.diag([10, 1, 1, 1, 10, 1])            # Cost on the slack variable for the terminal constraint
+Qslack  =  2 * 5 * np.diag([10, 1, 1, 1, 10, 1])            # Cost on the slack variable for the terminal constraint
 Qlane   =  1 * np.array([0, 10])                        # Quadratic and linear slack lane cost
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
 R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
@@ -212,15 +212,15 @@ if plotFlagLMPC == 1:
     plotClosedLoopLMPC(LMPController, map)
 
 if animation_xyFlag == 1:
-    animation_xy(map, LMPCOpenLoopData, LMPController, 30)
+    animation_xy(map, LMPCOpenLoopData, LMPController, 3)
 
 if animation_stateFlag == 1:
-    animation_states(map, LMPCOpenLoopData, LMPController, 11)
+    animation_states(map, LMPCOpenLoopData, LMPController, 10)
 
 # unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
 # unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 # unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 30)
+saveGif_xyResults(map, LMPCOpenLoopData, LMPController, 40)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()
