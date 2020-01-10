@@ -64,7 +64,7 @@ class Simulator():
                 break
 
         ClosedLoopData.SimTime = SimulationTime
-        print("Number of laps completed: ", int(np.floor(x[-1, 4] / (self.map.TrackLength))))
+        print("Number of laps completed: ", int(np.floor(x[i+1, 4] / (self.map.TrackLength))))
 
 class PID:
     """Create the PID controller used for path following at constant speed
