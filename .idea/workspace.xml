@@ -5,7 +5,11 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/ClosedLoop.gif" beforeDir="false" afterPath="$PROJECT_DIR$/src/ClosedLoop.gif" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataLTI_MPC.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataLTI_MPC.obj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataLTV_MPC.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataLTV_MPC.obj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/ClosedLoopDataPID.obj" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/ClosedLoopDataPID.obj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fnc/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/fnc/plot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -20,11 +24,35 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="main.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="102">
-              <caret line="47" column="81" selection-start-line="47" selection-start-column="81" selection-end-line="47" selection-end-column="81" />
+            <state relative-caret-position="1005">
+              <caret line="119" selection-start-line="119" selection-end-line="119" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="PathFollowingLTVMPC.py" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="209">
+              <caret line="96" column="30" selection-start-line="96" selection-start-column="30" selection-end-line="96" selection-end-column="30" />
+              <folding>
+                <element signature="e#0#24#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="PathFollowingLTIMPC.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="149">
+              <caret line="103" selection-start-line="103" selection-end-line="103" />
+              <folding>
+                <element signature="e#0#24#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -32,8 +60,8 @@
       <file leaf-file-name="plot.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/plot.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="120">
-              <caret line="13" column="65" selection-start-line="13" selection-start-column="65" selection-end-line="13" selection-end-column="65" />
+            <state relative-caret-position="4920">
+              <caret line="333" column="57" selection-start-line="333" selection-start-column="57" selection-end-line="333" selection-end-column="57" />
               <folding>
                 <element signature="e#0#18#0" expanded="true" />
               </folding>
@@ -44,8 +72,8 @@
       <file leaf-file-name="LMPC.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1446">
-              <caret line="137" column="17" selection-start-line="137" selection-start-column="17" selection-end-line="137" selection-end-column="17" />
+            <state relative-caret-position="107">
+              <caret line="349" column="23" lean-forward="true" selection-start-line="349" selection-start-column="23" selection-end-line="349" selection-end-column="23" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -93,7 +121,6 @@
       <find>ComputeIndex</find>
       <find>_ComputeCost</find>
       <find>_LMPC_EstimateABC</find>
-      <find>pdb</find>
       <find>constra</find>
       <find>numSS</find>
       <find>_LMPC_BuildMatIneqConst</find>
@@ -106,6 +133,7 @@
       <find>HEAD</find>
       <find>width</find>
       <find>osqp</find>
+      <find>pdb</find>
     </findStrings>
     <replaceStrings>
       <replace />
@@ -126,14 +154,14 @@
         <option value="$PROJECT_DIR$/src/plot.py" />
         <option value="$PROJECT_DIR$/src/fnc/vvv.py" />
         <option value="$PROJECT_DIR$/README.md" />
-        <option value="$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py" />
-        <option value="$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py" />
         <option value="$PROJECT_DIR$/src/fnc/Utilities.py" />
         <option value="$PROJECT_DIR$/src/fnc/SysModel.py" />
         <option value="$PROJECT_DIR$/src/fnc/Track.py" />
         <option value="$PROJECT_DIR$/src/fnc/LMPC.py" />
         <option value="$PROJECT_DIR$/src/fnc/plot.py" />
         <option value="$PROJECT_DIR$/src/main.py" />
+        <option value="$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py" />
+        <option value="$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py" />
       </list>
     </option>
   </component>
@@ -244,8 +272,8 @@
       <window_info content_ui="combo" id="Project" order="0" sideWeight="0.48809522" visible="true" weight="0.18745595" />
       <window_info anchor="bottom" id="TODO" order="6" weight="0.32904884" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.41881442" />
-      <window_info anchor="bottom" id="Version Control" order="7" weight="0.32904884" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.31958762" />
+      <window_info anchor="bottom" id="Version Control" order="7" weight="0.3273196" />
       <window_info anchor="bottom" id="Python Console" order="7" weight="0.32714137" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Terminal" order="7" weight="0.32860824" />
@@ -281,6 +309,32 @@
       <window_info anchor="bottom" id="Python Console" order="9" />
     </layout-to-restore>
   </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="RECENTLY_FILTERED_USER_GROUPS">
+                <collection />
+              </option>
+              <option name="RECENTLY_FILTERED_BRANCH_GROUPS">
+                <collection />
+              </option>
+              <option name="COLUMN_ORDER">
+                <list>
+                  <option value="0" />
+                  <option value="1" />
+                  <option value="2" />
+                  <option value="3" />
+                </list>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
   </component>
@@ -296,7 +350,7 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="22" />
+      <option name="time" value="23" />
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
@@ -453,20 +507,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2370">
-          <caret line="162" column="100" selection-start-line="162" selection-start-column="100" selection-end-line="162" selection-end-column="100" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2745">
-          <caret line="188" column="100" selection-start-line="188" selection-start-column="100" selection-end-line="188" selection-end-column="100" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file:///System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/numpy/lib/function_base.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="432">
@@ -517,8 +557,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/plot.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="120">
-          <caret line="13" column="65" selection-start-line="13" selection-start-column="65" selection-end-line="13" selection-end-column="65" />
+        <state relative-caret-position="4920">
+          <caret line="333" column="57" selection-start-line="333" selection-start-column="57" selection-end-line="333" selection-end-column="57" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
           </folding>
@@ -527,8 +567,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/fnc/LMPC.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1446">
-          <caret line="137" column="17" selection-start-line="137" selection-start-column="17" selection-end-line="137" selection-end-column="17" />
+        <state relative-caret-position="107">
+          <caret line="349" column="23" lean-forward="true" selection-start-line="349" selection-start-column="23" selection-end-line="349" selection-end-column="23" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
@@ -537,8 +577,28 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="102">
-          <caret line="47" column="81" selection-start-line="47" selection-start-column="81" selection-end-line="47" selection-end-column="81" />
+        <state relative-caret-position="1005">
+          <caret line="119" selection-start-line="119" selection-end-line="119" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTIMPC.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="149">
+          <caret line="103" selection-start-line="103" selection-end-line="103" />
+          <folding>
+            <element signature="e#0#24#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fnc/PathFollowingLTVMPC.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="209">
+          <caret line="96" column="30" selection-start-line="96" selection-start-column="30" selection-end-line="96" selection-end-column="30" />
+          <folding>
+            <element signature="e#0#24#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>

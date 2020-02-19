@@ -42,10 +42,10 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 0; plotFlag       = 0
-RunMPC     = 0; plotFlagMPC    = 0
-RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 0; animation_stateFlag = 0
+RunPID     = 1; plotFlag       = 0
+RunMPC     = 1; plotFlagMPC    = 1
+RunMPC_tv  = 1; plotFlagMPC_tv = 1
+RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 0; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -87,7 +87,6 @@ dR_LMPC = 10 * np.array([1.0, 10.0])                    # Input rate cost u
 inputConstr = np.array([[0.5, 0.5],                     # Min Steering and Max Steering
                         [1.0, 1.0]])                    # Min Acceleration and Max Acceleration
 
-
 # Initialize LMPC simulator
 LMPCSimulator = Simulator(map, 1, 1)
 
@@ -118,7 +117,7 @@ A, B, Error = Regression(ClosedLoopDataPID.x, ClosedLoopDataPID.u, lamb)
 
 if RunMPC == 1:
     ClosedLoopDataLTI_MPC = ClosedLoopData(dt, TimeMPC, v0)
-    Controller_PathFollowingLTI_MPC = PathFollowingLTI_MPC(A, B, Q, R, N, vt)
+    Controller_PathFollowingLTI_MPC = PathFollowingLTI_MPC(A, B, Q, R, N, vt, inputConstr)
     simulator.Sim(ClosedLoopDataLTI_MPC, Controller_PathFollowingLTI_MPC)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'w')
@@ -136,7 +135,7 @@ print "===== MPC terminated"
 print "Starting TV-MPC"
 if RunMPC_tv == 1:
     ClosedLoopDataLTV_MPC = ClosedLoopData(dt, TimeMPC_tv, v0)
-    Controller_PathFollowingLTV_MPC = PathFollowingLTV_MPC(Q, R, N, vt, n, d, ClosedLoopDataPID.x, ClosedLoopDataPID.u, dt, map)
+    Controller_PathFollowingLTV_MPC = PathFollowingLTV_MPC(Q, R, N, vt, n, d, ClosedLoopDataPID.x, ClosedLoopDataPID.u, dt, map, inputConstr)
     simulator.Sim(ClosedLoopDataLTV_MPC, Controller_PathFollowingLTV_MPC)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'w')

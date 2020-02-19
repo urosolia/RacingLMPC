@@ -12,7 +12,7 @@ class PathFollowingLTV_MPC:
     Attributes:
         solve: given x0 computes the control action
     """
-    def __init__(self, Q, R, N, vt, n, d, x, u, dt, map):
+    def __init__(self, Q, R, N, vt, n, d, x, u, dt, map, inputConstr):
         """Initialization
         Q, R: weights to build the cost function h(x,u) = ||x||_Q + ||u||_R
         N: horizon length
@@ -36,6 +36,7 @@ class PathFollowingLTV_MPC:
         self.LinPoints = x[0:N+1,:]
         self.dt = dt
         self.map = map
+        self.inputConstr = inputConstr
 
         self.M, self.q = _buildMatCost(self)
         self.F, self.b = _buildMatIneqConst(self)
@@ -88,15 +89,16 @@ class PathFollowingLTV_MPC:
 def _buildMatIneqConst(Controller):
     N = Controller.N
     n = Controller.n
+    inputConstr = Controller.inputConstr
 
     # Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
     Fx = np.array([[1., 0., 0., 0., 0., 0.],
                    [0., 0., 0., 0., 0., 1.],
                    [0., 0., 0., 0., 0., -1.]])
 
-    bx = np.array([[10.],  # vx max
+    bx = np.array([[10],  # vx max
                    [2.],  # max ey
-                   [2.]])  # max ey
+                   [2.]]) # max ey
 
     # Buil the matrices for the input constraint in each region. In the region i we want Fx[i]x <= bx[b]
     Fu = np.array([[1., 0.],
@@ -104,10 +106,10 @@ def _buildMatIneqConst(Controller):
                    [0., 1.],
                    [0., -1.]])
 
-    bu = np.array([[0.5],  # Max Steering
-                   [0.5],  # Max Steering
-                   [1.],  # Max Acceleration
-                   [1.]])  # Max Acceleration
+    bu = np.array([[inputConstr[0,0]],  # -Min Steering
+                   [inputConstr[0,1]],  # Max Steering
+                   [inputConstr[1,0]],  # -Min Acceleration
+                   [inputConstr[1,1]]])  # Max Acceleration
 
     # Now stuck the constraint matrices to express them in the form Fz<=b. Note that z collects states and inputs
     # Let's start by computing the submatrix of F relates with the state

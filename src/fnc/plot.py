@@ -324,14 +324,14 @@ def saveGif_xyResults(map, LMPCOpenLoopData, LMPController, it):
     ax = plt.axes()
     SSpoints_x = []; SSpoints_y = []
     xPred = []; yPred = []
-    SSpoints, = ax.plot(SSpoints_x, SSpoints_y, 'sb', label="SS",zorder=0)
+    SSpoints, = ax.plot(SSpoints_x, SSpoints_y, 'og', label="SS",zorder=0)
     line, = ax.plot(xPred, yPred, '-or', label="Predicted Trajectory",zorder=1)
 
     v = np.array([[ 1.,  1.],
                   [ 1., -1.],
                   [-1., -1.],
                   [-1.,  1.]])
-    rec = patches.Polygon(v, alpha=0.7,closed=True, fc='r', ec='k',zorder=10)
+    rec = patches.Polygon(v, alpha=0.7,closed=True, fc='g', ec='k',zorder=10)
     ax.add_patch(rec)
 
     plt.legend(mode="expand", ncol=3)
