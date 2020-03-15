@@ -207,8 +207,8 @@ class ControllerLMPC():
         # to reach the end of the lap which is about to start
         if self.Qfun[Counter, self.it - 1] == 0:
             self.Qfun[Counter, self.it - 1] = self.Qfun[Counter, self.it - 1] - 1
-
         self.TimeSS[self.it - 1] = self.TimeSS[self.it - 1] + 1
+
 
     def update(self, SS, uSS, Qfun, TimeSS, it, LinPoints, LinInput):
         """update controller parameters. This function is useful to transfer information among LMPC controller

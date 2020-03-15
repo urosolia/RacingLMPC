@@ -146,8 +146,8 @@ def _DynModel(x, x_glob, u, np, dt, PointAndTangent):
         alpha_r = - np.arctan2( vy - lf * wz , vx)
 
         # Compute lateral force at front and rear tire
-        Fyf = 2 * Df * np.sin( Cf * np.arctan(Bf * alpha_f ) )
-        Fyr = 2 * Dr * np.sin( Cr * np.arctan(Br * alpha_r ) )
+        Fyf = Df * np.sin( Cf * np.arctan(Bf * alpha_f ) )
+        Fyr = Dr * np.sin( Cr * np.arctan(Br * alpha_r ) )
 
         # Propagate the dynamics of deltaT
         x_next[0] = vx  + deltaT * (a - 1 / m * Fyf * np.sin(delta) + wz*vy)
