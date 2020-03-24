@@ -170,7 +170,7 @@ if RunLMPC == 1:
     for it in range(2, Laps):
 
         ClosedLoopLMPC.updateInitialConditions(x0, x0_glob)
-        LMPCSimulator.Sim(ClosedLoopLMPC, LMPController, LMPCOpenLoopData)
+        LMPCSimulator.Sim(ClosedLoopLMPC, LMPController, LMPCprediction=LMPCOpenLoopData)
         LMPController.addTrajectory(ClosedLoopLMPC)
 
         if LMPController.feasible == 0:
