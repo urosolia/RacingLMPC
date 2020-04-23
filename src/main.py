@@ -211,7 +211,7 @@ if plotFlagLMPC == 1:
     plotClosedLoopLMPC(LMPController, map)
 
 if animation_xyFlag == 1:
-    animation_xy(map, LMPCOpenLoopData, LMPController, 3)
+    animation_xy(map, LMPCOpenLoopData, LMPController, Laps-1)
 
 if animation_stateFlag == 1:
     animation_states(map, LMPCOpenLoopData, LMPController, 10)
@@ -220,6 +220,6 @@ if animation_stateFlag == 1:
 # unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 # unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-1)
+# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-1)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()
