@@ -264,7 +264,7 @@ def _EstimateABC(Controller):
         s  = x0[4]; ey   = x0[5]
 
         if s<0:
-            print "s is negative, here the state: \n", LinPoints
+            print("s is negative, here the state: \n", LinPoints)
 
         cur = Curvature(s, PointAndTangent)
         den = 1 - cur *ey

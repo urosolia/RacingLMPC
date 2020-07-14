@@ -137,7 +137,7 @@ class ControllerLMPC():
                 feasible = 1
             else:
                 feasible = 0
-                print res_cons['status']
+                print(res_cons['status'])
             Solution = np.squeeze(res_cons['x'])     
 
         elif self.Solver == "OSQP":
@@ -453,16 +453,18 @@ def _SelectPoints(LMPC, it, x0, numSS_Points):
     norm = la.norm(diff, 1, axis=1)
     MinNorm = np.argmin(norm)
 
+
     if (MinNorm - numSS_Points/2 >= 0):
-        indexSSandQfun = range(-numSS_Points/2 + MinNorm, numSS_Points/2 + MinNorm)
-        # SS_Points = x[shift + MinNorm:shift + MinNorm + numSS_Points, :].T
-        # SS_glob_Points = x_glob[shift + MinNorm:shift + MinNorm + numSS_Points, :].T
-        # Sel_Qfun = Qfun[shift + MinNorm:shift + MinNorm + numSS_Points, it]
+        # print("one")
+        # print(numSS_Points, MinNorm)
+        indexSSandQfun = range(-int(numSS_Points/2) + MinNorm, int(numSS_Points/2) + MinNorm + 1)
+        # print(indexSSandQfun)
+        # pdb.set_trace()
     else:
-        indexSSandQfun = range(MinNorm, MinNorm + numSS_Points)
-        # SS_Points = x[MinNorm:MinNorm + numSS_Points, :].T
-        # SS_glob_Points = x_glob[MinNorm:MinNorm + numSS_Points, :].T
-        # Sel_Qfun = Qfun[MinNorm:MinNorm + numSS_Points, it]
+        # print("two")
+        # print(numSS_Points)
+        # pdb.set_trace()
+        indexSSandQfun = range(MinNorm, MinNorm + int(numSS_Points))
 
     SS_Points  = x[indexSSandQfun, :].T
     SSu_Points = u[indexSSandQfun, :].T
@@ -689,7 +691,7 @@ def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, LapCounter,
     s  = x0[4]; ey   = x0[5]
 
     if s < 0:
-        print "s is negative, here the state: \n", LinPoints
+        print("s is negative, here the state: \n", LinPoints)
 
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
     cur = Curvature(s, PointAndTangent)
