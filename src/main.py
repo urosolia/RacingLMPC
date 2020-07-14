@@ -76,7 +76,7 @@ Laps       = 50+numSS_it      # Total LMPC laps
 TimeLMPC   = 400              # Simulation time
 
 # Tuning Parameters
-Qslack  = 40 * np.diag([10, 1, 1, 1, 10, 1])            # Cost on the slack variable for the terminal constraint
+Qslack  = 20 * np.diag([10, 1, 1, 1, 10, 1])            # Cost on the slack variable for the terminal constraint
 Qlane   =  1 * np.array([0, 10])                        # Quadratic and linear slack lane cost
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
 R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]

@@ -1,3 +1,4 @@
 *.xml
+*.pyc
 *.obj
 **/*.obj
