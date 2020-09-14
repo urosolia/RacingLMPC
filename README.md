@@ -1,6 +1,6 @@
 # Learning Model Predictive Control (LMPC) for autonomous racing
 
-The Learning Model Predictive Control (LMPC) is a data-driven control framework developed at UCB in the MPC lab. In this example, we implemented the LMPC for the autonomous. The controller drives several laps of a race track and it learns from experience to improve the lap time.
+The Learning Model Predictive Control (LMPC) is a data-driven control framework developed at UCB in the MPC lab. In this example, we implemented the LMPC for the autonomous racing problem. The controller drives several laps on race track and it learns from experience how to drive faster.
 
 ### Prerequisites
 
