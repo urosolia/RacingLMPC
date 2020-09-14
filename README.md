@@ -8,6 +8,7 @@ The packeges needed for running the code can be installed using pip
 
 ```
 pip install cvxopt
+pip install osqp
 pip install pathos
 ```
 
