@@ -39,10 +39,10 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 1; plotFlag       = 0
-RunMPC     = 1; plotFlagMPC    = 0
-RunMPC_tv  = 1; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunPID     = 0; plotFlag       = 0
+RunMPC     = 0; plotFlagMPC    = 0
+RunMPC_tv  = 0; plotFlagMPC_tv = 0
+RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -68,7 +68,7 @@ simulator = Simulator(map)                # Initialize the Simulator
 # ======================================================================================================================
 
 # Safe Set Parameters
-LMPC_Solver = "CVX"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
+LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
 numSS_it = 4                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 40             # Number of points to select from each trajectory to build the safe set
 
@@ -144,6 +144,7 @@ else:
     ClosedLoopDataLTV_MPC = pickle.load(file_data)
     file_data.close()
 print("===== TV-MPC terminated")
+
 # ======================================================================================================================
 # ==============================  LMPC w\ LOCAL LINEAR REGRESSION ======================================================
 # ======================================================================================================================
@@ -220,6 +221,6 @@ if animation_stateFlag == 1:
 # unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 # unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-1)
+saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-2)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()

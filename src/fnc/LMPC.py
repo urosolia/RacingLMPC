@@ -9,7 +9,7 @@ import datetime
 from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
-#from osqp import OSQP
+from osqp import OSQP
 
 solvers.options['show_progress'] = False
 
@@ -265,7 +265,7 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
     Check out for this point if you e.g. `get nan values
     <https://github.com/oxfordcontrol/osqp/issues/10>`_ in your solutions.
     """
-    # osqp = OSQP()
+    osqp = OSQP()
     if G is not None:
         l = -inf * ones(len(h))
         if A is not None:
@@ -282,10 +282,9 @@ def osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
     if initvals is not None:
         osqp.warm_start(x=initvals)
     res = osqp.solve()
-    if res.info.status_val != osqp.constant('OSQP_SOLVED'):
-        print("OSQP exited with status '%s'" % res.info.status)
+
     feasible = 0
-    if res.info.status_val == osqp.constant('OSQP_SOLVED') or res.info.status_val == osqp.constant('OSQP_SOLVED_INACCURATE') or  res.info.status_val == osqp.constant('OSQP_MAX_ITER_REACHED'):
+    if res.info.status_val == 1:
         feasible = 1
     return res, feasible
 
@@ -318,9 +317,6 @@ def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
 
     xtrack = np.array([vt, 0, 0, 0, 0, 0])
     q0 = - 2 * np.dot(np.append(np.tile(xtrack, N + 1), np.zeros(R.shape[0] * N)), M00)
-
-
-
 
     # Derivative Input
     q0[n*(N+1):n*(N+1)+2] = -2 * np.dot( uOld, np.diag(dR) )
