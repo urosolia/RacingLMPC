@@ -335,6 +335,7 @@ def saveGif_xyResults(map, LMPCOpenLoopData, LMPController, it):
     ax.add_patch(rec)
 
     plt.legend(mode="expand", ncol=3)
+    plt.title('Lap: '+str(it))
     # plt.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
     #             mode="expand", borderaxespad=0, ncol=3)
 

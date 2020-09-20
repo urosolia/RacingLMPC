@@ -39,10 +39,10 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 1; plotFlag       = 0
-RunMPC     = 1; plotFlagMPC    = 0
-RunMPC_tv  = 1; plotFlagMPC_tv = 0
-RunLMPC    = 1; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunPID     = 0; plotFlag       = 0
+RunMPC     = 0; plotFlagMPC    = 0
+RunMPC_tv  = 0; plotFlagMPC_tv = 0
+RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -72,15 +72,15 @@ LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncom
 numSS_it = 4                  # Number of trajectories used at each iteration to build the safe set
 numSS_Points = 40             # Number of points to select from each trajectory to build the safe set
 
-Laps       = 50+numSS_it      # Total LMPC laps
+Laps       = 30+numSS_it      # Total LMPC laps
 TimeLMPC   = 400              # Simulation time
 
 # Tuning Parameters
 Qslack  = 20 * np.diag([10, 1, 1, 1, 10, 1])            # Cost on the slack variable for the terminal constraint
-Qlane   =  1 * np.array([0, 10])                        # Quadratic and linear slack lane cost
+Qlane   =  1 * np.array([0, 50])                        # Quadratic and linear slack lane cost
 Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
 R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
-dR_LMPC = 10 * np.array([1.0, 10.0])                    # Input rate cost u
+dR_LMPC =  5 * np.array([1.0, 10.0])                    # Input rate cost u
 
 inputConstr = np.array([[0.5, 0.5],                     # Min Steering and Max Steering
                         [10.0, 10.0]])                    # Min Acceleration and Max Acceleration
@@ -221,6 +221,6 @@ if animation_stateFlag == 1:
 # unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 # unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-2)
+saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-2)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()
