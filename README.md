@@ -29,9 +29,6 @@ The vehicle is modelled using the dynamics signle track bicycle model and the ti
 2) Lap 2: the data from lap 1 are used to estimate a LTI model used to design a MPC for path following
 3) Lap 3: the data from lap 1 are used to estimate a LTV model used to design a MPC for path following
 
-### The Learning Model Predictive Controller
-The data from the previous laps are used to build a safety set and a terminal cost which are used to initialize the LMPC. Futhermor, the LMPC uses a LTV model identified from data.
-
 
 ## References
 
