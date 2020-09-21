@@ -20,13 +20,6 @@ def plotTrajectory(map, x, x_glob, u):
     plt.plot(Points0[:, 0], Points0[:, 1], '--')
     plt.plot(Points1[:, 0], Points1[:, 1], '-b')
     plt.plot(Points2[:, 0], Points2[:, 1], '-b')
-    plt.show()
-
-    plt.figure()
-    plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
-    plt.plot(Points0[:, 0], Points0[:, 1], '--')
-    plt.plot(Points1[:, 0], Points1[:, 1], '-b')
-    plt.plot(Points2[:, 0], Points2[:, 1], '-b')
     plt.plot(x_glob[:, 4], x_glob[:, 5], '-r')
 
     plt.figure()
@@ -68,7 +61,7 @@ def plotClosedLoopLMPC(LMPController, map):
         Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
-    plt.figure(1)
+    plt.figure()
     plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
     plt.plot(Points0[:, 0], Points0[:, 1], '--')
     plt.plot(Points1[:, 0], Points1[:, 1], '-b')
@@ -77,7 +70,7 @@ def plotClosedLoopLMPC(LMPController, map):
     for i in range(2, TotNumberIt):
         plt.plot(SS_glob[0:LapCounter[i], 4, i], SS_glob[0:LapCounter[i], 5, i], '-r')
 
-    plt.figure(2)
+    plt.figure()
     plt.subplot(711)
     for i in range(2, TotNumberIt):
         plt.plot(SS[0:LapCounter[i], 4, i], SS[0:LapCounter[i], 0, i], '-o')

@@ -26,7 +26,7 @@ sys.path.append('fnc')
 from SysModel import Simulator, PID
 from Classes import ClosedLoopData, LMPCprediction
 from PathFollowingLTVMPC import PathFollowingLTV_MPC
-from PathFollowingLTIMPC import PathFollowingLTI_MPC
+from PredictiveControllers import MPC, MPC_parameters
 from Track import Map, unityTestChangeOfCoordinates
 from LMPC import ControllerLMPC
 from Utilities import Regression
@@ -39,10 +39,10 @@ import pickle
 # ======================================================================================================================
 # ============================ Choose which controller to run ==========================================================
 # ======================================================================================================================
-RunPID     = 0; plotFlag       = 0
-RunMPC     = 0; plotFlagMPC    = 0
-RunMPC_tv  = 0; plotFlagMPC_tv = 0
-RunLMPC    = 0; plotFlagLMPC   = 0; animation_xyFlag = 1; animation_stateFlag = 0
+RunPID     = 1; plotFlag       = 0
+RunMPC     = 1; plotFlagMPC    = 1
+RunMPC_tv  = 1; plotFlagMPC_tv = 1
+RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
 
 # ======================================================================================================================
 # ============================ Initialize parameters for path following ================================================
@@ -62,6 +62,33 @@ R = np.diag([1.0, 10.0])                  # delta, a
 
 map = Map(0.4)                            # Initialize the map
 simulator = Simulator(map)                # Initialize the Simulator
+
+# Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
+n = 6; d = 2
+Fx = np.array([[1., 0., 0., 0., 0., 0.],
+               [0., 0., 0., 0., 0., 1.],
+               [0., 0., 0., 0., 0., -1.]])
+
+bx = np.array([[10],   # vx max
+               [2.],   # max ey
+               [2.]]), # max ey
+
+Fu = np.kron(np.eye(2), np.array([1, -1])).T
+bu = np.array([[0.5],   # -Min Steering
+               [0.5],   # Max Steering
+               [10.0],  # -Min Acceleration
+               [10.0]]) # Max Acceleration
+
+mpcParameters = MPC_parameters(n, d, N)
+
+mpcParameters['Q']    = Q
+mpcParameters['Qf']   = Q
+mpcParameters['R']    = R
+mpcParameters['Fx']   = Fx
+mpcParameters['bx']   = bx
+mpcParameters['Fu']   = Fu
+mpcParameters['bu']   = bu
+mpcParameters['xRef'] = np.array([vt, 0, 0, 0, 0, 0])
 
 # ======================================================================================================================
 # ==================================== Initialize parameters for LMPC ==================================================
@@ -84,6 +111,8 @@ dR_LMPC =  5 * np.array([1.0, 10.0])                    # Input rate cost u
 
 inputConstr = np.array([[0.5, 0.5],                     # Min Steering and Max Steering
                         [10.0, 10.0]])                    # Min Acceleration and Max Acceleration
+
+
 
 # Initialize LMPC simulator
 LMPCSimulator = Simulator(map, 1, 1)
@@ -115,8 +144,11 @@ A, B, Error = Regression(ClosedLoopDataPID.x, ClosedLoopDataPID.u, lamb)
 
 if RunMPC == 1:
     ClosedLoopDataLTI_MPC = ClosedLoopData(dt, TimeMPC, v0)
-    Controller_PathFollowingLTI_MPC = PathFollowingLTI_MPC(A, B, Q, R, N, vt, inputConstr)
-    simulator.Sim(ClosedLoopDataLTI_MPC, Controller_PathFollowingLTI_MPC)
+    mpcParameters['A']    = A
+    mpcParameters['B']    = B
+    mpc = MPC(mpcParameters)
+
+    simulator.Sim(ClosedLoopDataLTI_MPC, mpc)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'wb')
     pickle.dump(ClosedLoopDataLTI_MPC, file_data)
@@ -221,6 +253,6 @@ if animation_stateFlag == 1:
 # unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
 # unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
 
-saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-2)
+# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-2)
 # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
 plt.show()

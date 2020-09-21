@@ -402,6 +402,10 @@ def _LMPC_BuildMatIneqConst(LMPC):
     LaneSlack[rowIndexPositive, colIndexPositive] = -1.0
     LaneSlack[rowIndexNegative, rowIndexNegative] = -1.0
 
+
+    LaneSlack1 = np.zeros((F_hard.shape[0], 2 * N))
+    LaneSlack1[0:2*N, 0:2*N] = -np.eye(2*N)
+
     F_1 = np.hstack((F_hard, LaneSlack))
 
     I = - np.eye(2*N)
@@ -410,9 +414,7 @@ def _LMPC_BuildMatIneqConst(LMPC):
 
     F = np.vstack((F_1, Positivity))
 
-    # np.savetxt('F.csv', F, delimiter=',', fmt='%f')
-    # pdb.set_trace()
-
+    # np.savetxt('LaneSlack.csv', F, delimiter=',', fmt='%f')
 
 
     b_1 = np.hstack((bxtot, butot, np.zeros(numSS_Points)))

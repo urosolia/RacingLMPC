@@ -24,9 +24,6 @@ class Simulator():
         Controller: controller used in the closed-loop
         LMPCprediction: object where the open-loop predictions and safe set are stored
         """
-
-        # Assign x = ClosedLoopData.x. IMPORTANT: x and ClosedLoopData.x share the same memory and therefore
-        # if you modofy one is like modifying the other one!
         x      = ClosedLoopData.x
         x_glob = ClosedLoopData.x_glob
         u      = ClosedLoopData.u
@@ -46,10 +43,6 @@ class Simulator():
 
             x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
             SimulationTime = i + 1
-
-            # print(getAngle(x[i+1,4], x[i+1,3], self.map.PointAndTangent))
-            # print(x[i+1,3], x_glob[i+1,3], wrap(x_glob[i+1,3]))
-            # pdb.set_trace()
 
             if i <= 5:
                 print("Linearization time: %.4fs Solver time: %.4fs" % (Controller.linearizationTime.total_seconds(), Controller.solverTime.total_seconds()))
