@@ -32,7 +32,8 @@ def MPC_parameters(n, d, N):
       "bu": [],
       "xRef": np.zeros(n), # reference point # TO DO: add LTV option
       "slacks": False, # Flase = no slack variable for state constraints, True = Use slack for input constraints
-      "timeVarying": False # False = LTI model, true = LTV model (TO DO)
+      "timeVarying": False, # False = LTI model, true = LTV model (TO DO)
+      "predictiveModel": [] # This object is used to update the LTV prediction model (used if timeVarying == True)
     }
     return mpcPrameters
 
@@ -43,12 +44,7 @@ class MPC():
     def __init__(self,  mpcPrameters):
         """Initialization
         Arguments:
-            N: horizon length
-            Q,R: weight to define cost function h(x,u) = ||x||_Q + ||u||_R
-            dR: weight to define the input rate cost h(x,u) = ||x_{k+1}-x_k||_dR
-            n,d: state and input dimensiton
-            map: map
-            Solver: solver used in the reformulation of the LMPC as QP
+            mpcPrameters: struct containing MPC parameters
         """
         self.N      = mpcPrameters['N']
         self.Qslack = mpcPrameters['Qslack']
@@ -66,17 +62,21 @@ class MPC():
         self.bu     = mpcPrameters['bu']
         self.xRef   = mpcPrameters['xRef']
 
-        self.slacks      = mpcPrameters['slacks']
-        self.timeVarying = mpcPrameters['timeVarying']
+        self.slacks          = mpcPrameters['slacks']
+        self.timeVarying     = mpcPrameters['timeVarying']
+        self.predictiveModel = mpcPrameters['predictiveModel'] 
+
+        if self.timeVarying == True:
+            self.xLin = self.predictiveModel.xStored[-1][0:self.N+1,:]
+            self.uLin = self.predictiveModel.uStored[-1][0:self.N,:]
+            self.computeLTVdynamics()
         
-        self.OldInput = np.zeros((1,2))
-
-
+        self.OldInput = np.zeros((1,2)) # TO DO fix size
 
         # Build matrices for inequality constraints
         self.buildIneqConstr()
-        self.buildEqConstr()
         self.buildCost()
+        self.buildEqConstr()
 
         self.xPred = []
 
@@ -86,11 +86,21 @@ class MPC():
         self.solverTime = deltaTimer
         self.linearizationTime = deltaTimer
 
+    def computeLTVdynamics(self):
+        self.A = []; self.B = []; self.C =[]
+        for i in range(0, self.N):
+            Ai, Bi, Ci = self.predictiveModel.regressionAndLinearization(self.xLin[i], self.uLin[i])
+            self.A.append(Ai); self.B.append(Bi); self.C.append(Ci)
+
     def solve(self, x0):
         """Computes control action
         Arguments:
             x0: current state
         """
+        # If LTV active --> identify system model
+        if self.timeVarying == True:
+            self.computeLTVdynamics()
+            self.buildEqConstr()
         # Solve QP
         startTimer = datetime.datetime.now()
         self.osqp_solve_qp(self.H, self.q, self.F, self.b, self.G, np.add(np.dot(self.E,x0),self.L[:,0]))
@@ -98,9 +108,16 @@ class MPC():
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.solverTime = deltaTimer
 
+        # If LTV active --> compute state-input linearization trajectory
+        if self.timeVarying == True:
+            self.xLin = np.vstack((self.xPred[1:, :], self.xPred[-1,:]))
+            self.uLin = np.vstack((self.uPred[1:, :], self.uPred[-1,:]))
+
+        # update applied input
         self.OldInput = self.uPred[:,0]
 
     def unpackSolution(self):
+        # Extract predicted state and predicted input trajectories
         self.xPred = np.squeeze(np.transpose(np.reshape((self.Solution[np.arange(self.n*(self.N+1))]),(self.N+1,self.n)))).T
         self.uPred = np.squeeze(np.transpose(np.reshape((self.Solution[self.n*(self.N+1)+np.arange(self.d*self.N)]),(self.N, self.d)))).T
         
@@ -195,7 +212,7 @@ class MPC():
 
     def osqp_solve_qp(self, P, q, G= None, h=None, A=None, b=None, initvals=None):
         """ 
-        Solve a Quadratic Prog ram defined as:
+        Solve a Quadratic Program defined as:
         minimize
             (1/2) * x.T * P * x + q.T * x
         subject to

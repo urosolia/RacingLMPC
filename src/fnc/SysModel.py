@@ -28,6 +28,11 @@ class Simulator():
         x_glob = ClosedLoopData.x_glob
         u      = ClosedLoopData.u
 
+        x_cl   = []
+        u_cl   = []
+        x_cl_glob = []
+        sim_t  = 0
+        
         SimulationTime = 0
         for i in range(0, int(ClosedLoopData.Points)):
             Controller.solve(x[i, :])
@@ -42,11 +47,13 @@ class Simulator():
                 LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
 
             x[i + 1, :], x_glob[i + 1, :] = _DynModel(x[i, :], x_glob[i, :], u[i, :], np, ClosedLoopData.dt, self.map.PointAndTangent)
+            
             SimulationTime = i + 1
 
-            if i <= 5:
-                print("Linearization time: %.4fs Solver time: %.4fs" % (Controller.linearizationTime.total_seconds(), Controller.solverTime.total_seconds()))
-                print("Time: ", i * ClosedLoopData.dt, "Current State and Input: ", x[i, :], u[i, :])
+            sim_t += 1
+            x_cl.append(x[i, :])
+            u_cl.append(u[i, :])
+            x_cl_glob.append(x_glob[i, :])
 
             if Controller.feasible == 0:
                 print("Unfeasible at time ", i*ClosedLoopData.dt)
@@ -62,6 +69,9 @@ class Simulator():
 
         ClosedLoopData.SimTime = SimulationTime
         print("Number of laps completed: ", int(np.floor(x[-1, 4] / (self.map.TrackLength))))
+
+        print("Sim time: ", sim_t, "SimulationTime: ", SimulationTime)
+        return np.array(x_cl), np.array(u_cl), np.array(x_cl_glob)
 
 class PID:
     """Create the PID controller used for path following at constant speed

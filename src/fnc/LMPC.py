@@ -775,14 +775,10 @@ def LMPC_LocLinReg(Q, b, stateFeatures, inputFeatures, qp):
     from numpy import linalg as la
     import datetime
 
-    # K = np.ones(len(index))
-
     startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
     res_cons = qp(Q, b) # This is ordered as [A B C]
 
     endTimer = datetime.datetime.now(); deltaTimer_tv = endTimer - startTimer
-
-    # print "Non removable time: ", deltaTimer_tv.total_seconds()
     Result = np.squeeze(np.array(res_cons['x']))
     A = Result[0:len(stateFeatures)]
     B = Result[len(stateFeatures):(len(stateFeatures)+len(inputFeatures))]

@@ -25,8 +25,8 @@ import sys
 sys.path.append('fnc')
 from SysModel import Simulator, PID
 from Classes import ClosedLoopData, LMPCprediction
-from PathFollowingLTVMPC import PathFollowingLTV_MPC
 from PredictiveControllers import MPC, MPC_parameters
+from PredictiveModel import PredictiveModel
 from Track import Map, unityTestChangeOfCoordinates
 from LMPC import ControllerLMPC
 from Utilities import Regression
@@ -79,16 +79,18 @@ bu = np.array([[0.5],   # -Min Steering
                [10.0],  # -Min Acceleration
                [10.0]]) # Max Acceleration
 
-mpcParameters = MPC_parameters(n, d, N)
+mpcParameters    = MPC_parameters(n, d, N)
+mpcParametersLTV = MPC_parameters(n, d, N)
 
-mpcParameters['Q']    = Q
-mpcParameters['Qf']   = Q
-mpcParameters['R']    = R
-mpcParameters['Fx']   = Fx
-mpcParameters['bx']   = bx
-mpcParameters['Fu']   = Fu
-mpcParameters['bu']   = bu
-mpcParameters['xRef'] = np.array([vt, 0, 0, 0, 0, 0])
+for mpcPram in [mpcParameters, mpcParametersLTV]:
+    mpcPram['Q']    = Q
+    mpcPram['Qf']   = Q
+    mpcPram['R']    = R
+    mpcPram['Fx']   = Fx
+    mpcPram['bx']   = bx
+    mpcPram['Fu']   = Fu
+    mpcPram['bu']   = bu
+    mpcPram['xRef'] = np.array([vt, 0, 0, 0, 0, 0])
 
 # ======================================================================================================================
 # ==================================== Initialize parameters for LMPC ==================================================
@@ -124,7 +126,7 @@ print("Starting PID")
 if RunPID == 1:
     ClosedLoopDataPID = ClosedLoopData(dt, Time , v0)
     PIDController = PID(vt)
-    simulator.Sim(ClosedLoopDataPID, PIDController)
+    xPID_cl, uPID_cl, xPID_cl_glob = simulator.Sim(ClosedLoopDataPID, PIDController)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataPID.obj', 'wb')
     pickle.dump(ClosedLoopDataPID, file_data)
@@ -148,7 +150,7 @@ if RunMPC == 1:
     mpcParameters['B']    = B
     mpc = MPC(mpcParameters)
 
-    simulator.Sim(ClosedLoopDataLTI_MPC, mpc)
+    xMPC_cl, uMPC_cl, xMPC_cl_glob = simulator.Sim(ClosedLoopDataLTI_MPC, mpc)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'wb')
     pickle.dump(ClosedLoopDataLTI_MPC, file_data)
@@ -164,9 +166,16 @@ print("===== MPC terminated")
 # ======================================================================================================================
 print("Starting TV-MPC")
 if RunMPC_tv == 1:
+    predictiveModel = PredictiveModel(n, d, map)
+    predictiveModel.xStored.append(xPID_cl)
+    predictiveModel.uStored.append(uPID_cl)
+    
+    mpcParametersLTV["timeVarying"]     = True 
+    mpcParametersLTV["predictiveModel"] = predictiveModel
+    mpc = MPC(mpcParametersLTV)
+
     ClosedLoopDataLTV_MPC = ClosedLoopData(dt, TimeMPC_tv, v0)
-    Controller_PathFollowingLTV_MPC = PathFollowingLTV_MPC(Q, R, N, vt, n, d, ClosedLoopDataPID.x, ClosedLoopDataPID.u, dt, map, inputConstr)
-    simulator.Sim(ClosedLoopDataLTV_MPC, Controller_PathFollowingLTV_MPC)
+    simulator.Sim(ClosedLoopDataLTV_MPC, mpc)
 
     file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'wb')
     pickle.dump(ClosedLoopDataLTV_MPC, file_data)
