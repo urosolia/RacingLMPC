@@ -1,5 +1,4 @@
 from cvxopt import spmatrix, matrix, solvers
-from Utilities import Curvature
 from numpy import linalg as la
 from cvxopt.solvers import qp
 import numpy as np
@@ -26,7 +25,22 @@ class PredictiveModel():
         self.stateFeatures    = [0, 1, 2]
         self.inputFeaturesVx  = [1]
         self.inputFeaturesLat = [0]
+    
+    def curvature(self, s):
+        TrackLength = self.map.PointAndTangent[-1,3]+self.map.PointAndTangent[-1,4]
 
+        # In case on a lap after the first one
+        while (s > TrackLength):
+            s = s - TrackLength
+
+        # Given s \in [0, TrackLength] compute the curvature
+        # Compute the segment in which system is evolving
+        index = np.all([[s >= self.map.PointAndTangent[:, 3]], [s < self.map.PointAndTangent[:, 3] + self.map.PointAndTangent[:, 4]]], axis=0)
+
+        i = int(np.where(np.squeeze(index))[0])
+        cur = self.map.PointAndTangent[i, 5]
+
+        return cur
     def regressionAndLinearization(self, x, u, usedIt = [0]):
         Ai = np.zeros((self.n, self.n))
         Bi = np.zeros((self.n, self.d))
@@ -73,8 +87,8 @@ class PredictiveModel():
             print("s is negative, here the state: \n", x)
 
         startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
-        cur = Curvature(s, self.map.PointAndTangent)
-        cur = Curvature(s, self.map.PointAndTangent)
+        cur = self.curvature(s)
+        cur = self.curvature(s)
         den = 1 - cur * ey
 
         # ===========================

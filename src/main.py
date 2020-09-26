@@ -212,6 +212,8 @@ if RunLMPC == 1:
         LMPCSimulator.Sim(ClosedLoopLMPC, LMPController, LMPCOpenLoopData)
         LMPController.addTrajectory(ClosedLoopLMPC)
 
+        print("Completed lap: ", it, " in ", np.round(LMPController.Qfun[0, it]*dt, 2)," seconds")
+
         if LMPController.feasible == 0:
             break
         else:
@@ -236,7 +238,7 @@ print("===== LMPC terminated")
 # ========================================= PLOT TRACK =================================================================
 # ======================================================================================================================
 for i in range(0, LMPController.it):
-    print("Lap time at iteration ", i, " is ", LMPController.Qfun[0, i]*dt, "s")
+    print("Lap time at iteration ", i, " is ",np.round( LMPController.Qfun[0, i]*dt, 2), "s")
 
 
 print("===== Start Plotting")

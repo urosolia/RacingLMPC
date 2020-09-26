@@ -64,13 +64,10 @@ class Simulator():
                 Controller.addPoint(x[i, :], u[i, :])
 
             if (self.laps == 1) and (int(np.floor(x[i+1, 4] / (self.map.TrackLength))))>0:
-                print("Simulation terminated: Lap completed")
+                print("Lap completed")
                 break
 
         ClosedLoopData.SimTime = SimulationTime
-        print("Number of laps completed: ", int(np.floor(x[-1, 4] / (self.map.TrackLength))))
-
-        print("Sim time: ", sim_t, "SimulationTime: ", SimulationTime)
         return np.array(x_cl), np.array(u_cl), np.array(x_cl_glob)
 
 class PID:
