@@ -289,6 +289,26 @@ class Map():
 
         return s, ey, epsi, CompletedFlag
 
+    def curvature(self, s):
+        """curvature computation
+        s: curvilinear abscissa at which the curvature has to be evaluated
+        PointAndTangent: points and tangent vectors defining the map (these quantities are initialized in the map object)
+        """
+        TrackLength = self.PointAndTangent[-1,3]+self.PointAndTangent[-1,4]
+
+        # In case on a lap after the first one
+        while (s > TrackLength):
+            s = s - TrackLength
+
+        # Given s \in [0, TrackLength] compute the curvature
+        # Compute the segment in which system is evolving
+        index = np.all([[s >= self.PointAndTangent[:, 3]], [s < self.PointAndTangent[:, 3] + self.PointAndTangent[:, 4]]], axis=0)
+
+        i = int(np.where(np.squeeze(index))[0])
+        curvature = self.PointAndTangent[i, 5]
+
+        return curvature
+
 # ======================================================================================================================
 # ======================================================================================================================
 # ====================================== Internal utilities functions ==================================================
@@ -298,14 +318,6 @@ def computeAngle(point1, origin, point2):
     # The orientation of this angle matches that of the coordinate system. Tha is why a minus sign is needed
     v1 = np.array(point1) - np.array(origin)
     v2 = np.array(point2) - np.array(origin)
-    #
-    # cosang = np.dot(v1, v2)
-    # sinang = la.norm(np.cross(v1, v2))
-    #
-    # dp = np.dot(v1, v2)
-    # laa = la.norm(v1)
-    # lba = la.norm(v2)
-    # costheta = dp / (laa * lba)
 
     dot = v1[0] * v2[0] + v1[1] * v2[1]  # dot product between [x1, y1] and [x2, y2]
     det = v1[0] * v2[1] - v1[1] * v2[0]  # determinant
@@ -330,32 +342,3 @@ def sign(a):
         res = -1
 
     return res
-
-def unityTestChangeOfCoordinates(map, ClosedLoopData):
-    """For each point in ClosedLoopData change (X, Y) into (s, ey) and back to (X, Y) to check accurancy
-    """
-    TestResult = 1
-    for i in range(0, ClosedLoopData.x.shape[0]):
-        xdat = ClosedLoopData.x
-        xglobdat = ClosedLoopData.x_glob
-
-        s, ey, _, _ = map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5], xglobdat[i, 3])
-        v1 = np.array([s, ey])
-        v2 = np.array(xdat[i, 4:6])
-        v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
-        v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-        # print v1, v2, np.dot(v1 - v2, v1 - v2), np.dot(v3 - v4, v3 - v4)
-
-        if np.dot(v3 - v4, v3 - v4) > 0.00000001:
-            TestResult = 0
-            print("ERROR", v1, v2, v3, v4)
-            pdb.set_trace()
-            v1 = np.array(map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5]))
-            v2 = np.array(xdat[i, 4:6])
-            v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
-            v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-            print(np.dot(v3 - v4, v3 - v4))
-            pdb.set_trace()
-
-    if TestResult == 1:
-        print("Change of coordinates test passed!")

@@ -5,7 +5,7 @@ import matplotlib.patches as patches
 
 import pdb
 
-def plotTrajectory(map, x, x_glob, u):
+def plotTrajectory(map, x, x_glob, u, stringTitle):
     Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
     Points1 = np.zeros((Points, 2))
     Points2 = np.zeros((Points, 2))
@@ -21,6 +21,7 @@ def plotTrajectory(map, x, x_glob, u):
     plt.plot(Points1[:, 0], Points1[:, 1], '-b')
     plt.plot(Points2[:, 0], Points2[:, 1], '-b')
     plt.plot(x_glob[:, 4], x_glob[:, 5], '-r')
+    plt.title(stringTitle)
 
     plt.figure()
     plt.subplot(711)
@@ -39,11 +40,12 @@ def plotTrajectory(map, x, x_glob, u):
     plt.plot(x[:, 4], x[:, 5], '-o')
     plt.ylabel('ey')
     plt.subplot(716)
-    plt.plot(x[0:-1, 4], u[:, 0], '-o')
+    plt.plot(x[:, 4], u[:, 0], '-o')
     plt.ylabel('steering')
     plt.subplot(717)
-    plt.plot(x[0:-1, 4], u[:, 1], '-o')
+    plt.plot(x[:, 4], u[:, 1], '-o')
     plt.ylabel('acc')
+    plt.title(stringTitle)
 
 def plotClosedLoopLMPC(LMPController, map):
     SS_glob = LMPController.SS_glob
@@ -67,7 +69,7 @@ def plotClosedLoopLMPC(LMPController, map):
     plt.plot(Points1[:, 0], Points1[:, 1], '-b')
     plt.plot(Points2[:, 0], Points2[:, 1], '-b')
 
-    for i in range(2, TotNumberIt):
+    for i in range(TotNumberIt-5, TotNumberIt):
         plt.plot(SS_glob[0:LapCounter[i], 4, i], SS_glob[0:LapCounter[i], 5, i], '-r')
 
     plt.figure()

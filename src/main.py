@@ -23,247 +23,173 @@
 
 import sys
 sys.path.append('fnc')
-from SysModel import Simulator, PID
-from Classes import ClosedLoopData, LMPCprediction
+sys.path.append('fnc/simulator')
+sys.path.append('fnc/controller')
+from SysModel import Simulator
+from Classes import LMPCprediction
 from PredictiveControllers import MPC, MPC_parameters
 from PredictiveModel import PredictiveModel
-from Track import Map, unityTestChangeOfCoordinates
+from Track import Map
 from LMPC import ControllerLMPC
-from Utilities import Regression
+from Utilities import Regression, PID
 from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults, Save_statesAnimation
 import numpy as np
 import matplotlib.pyplot as plt
 import pdb
 import pickle
 
-# ======================================================================================================================
-# ============================ Choose which controller to run ==========================================================
-# ======================================================================================================================
-RunPID     = 1; plotFlag       = 0
-RunMPC     = 1; plotFlagMPC    = 1
-RunMPC_tv  = 1; plotFlagMPC_tv = 1
-RunLMPC    = 1; plotFlagLMPC   = 1; animation_xyFlag = 1; animation_stateFlag = 0
+def main():
+    # ======================================================================================================================
+    # ============================================= Initialize parameters  =================================================
+    # ======================================================================================================================
+    N = 12                                    # Horizon length
+    n = 6;   d = 2                            # State and Input dimension
+    x0 = np.array([0.5, 0, 0, 0, 0, 0])       # Initial condition
+    xS = [x0, x0]
+    dt = 0.1
 
-# ======================================================================================================================
-# ============================ Initialize parameters for path following ================================================
-# ======================================================================================================================
-dt         = 1.0/10.0        # Controller discretization time
-Time       = 100             # Simulation time for PID
-TimeMPC    = 100             # Simulation time for path following MPC
-TimeMPC_tv = 100             # Simulation time for path following LTV-MPC
-vt         = 0.8             # Reference velocity for path following controllers
-v0         = 0.5             # Initial velocity at lap 0
-N          = 12              # Horizon length
-n = 6;   d = 2               # State and Input dimension
+    map = Map(0.4)                            # Initialize map
+    simulator = Simulator(map)                # Initialize Simulator
+    vt = 0.8                                  # target vevlocity
+    mpcParameters, mpcParametersLTV = initMPCparameters(n, d, N,vt)
 
-# Path Following tuning
-Q = np.diag([1.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
-R = np.diag([1.0, 10.0])                  # delta, a
+    LMPCSimulator = Simulator(map, multiLap = False, flagLMPC = True)
+    LMPC_Solver, numSS_it, numSS_Points, Laps, TimeLMPC, Qslack, Qlane, Q_LMPC, R_LMPC, dR_LMPC, inputConstr = initLMPCparameters()
 
-map = Map(0.4)                            # Initialize the map
-simulator = Simulator(map)                # Initialize the Simulator
-
-# Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
-n = 6; d = 2
-Fx = np.array([[1., 0., 0., 0., 0., 0.],
-               [0., 0., 0., 0., 0., 1.],
-               [0., 0., 0., 0., 0., -1.]])
-
-bx = np.array([[10],   # vx max
-               [2.],   # max ey
-               [2.]]), # max ey
-
-Fu = np.kron(np.eye(2), np.array([1, -1])).T
-bu = np.array([[0.5],   # -Min Steering
-               [0.5],   # Max Steering
-               [10.0],  # -Min Acceleration
-               [10.0]]) # Max Acceleration
-
-mpcParameters    = MPC_parameters(n, d, N)
-mpcParametersLTV = MPC_parameters(n, d, N)
-
-for mpcPram in [mpcParameters, mpcParametersLTV]:
-    mpcPram['Q']    = Q
-    mpcPram['Qf']   = Q
-    mpcPram['R']    = R
-    mpcPram['Fx']   = Fx
-    mpcPram['bx']   = bx
-    mpcPram['Fu']   = Fu
-    mpcPram['bu']   = bu
-    mpcPram['xRef'] = np.array([vt, 0, 0, 0, 0, 0])
-
-# ======================================================================================================================
-# ==================================== Initialize parameters for LMPC ==================================================
-# ======================================================================================================================
-
-# Safe Set Parameters
-LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
-numSS_it = 4                  # Number of trajectories used at each iteration to build the safe set
-numSS_Points = 40             # Number of points to select from each trajectory to build the safe set
-
-Laps       = 30+numSS_it      # Total LMPC laps
-TimeLMPC   = 400              # Simulation time
-
-# Tuning Parameters
-Qslack  = 20 * np.diag([10, 1, 1, 1, 10, 1])            # Cost on the slack variable for the terminal constraint
-Qlane   =  1 * np.array([0, 50])                        # Quadratic and linear slack lane cost
-Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
-R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
-dR_LMPC =  5 * np.array([1.0, 10.0])                    # Input rate cost u
-
-inputConstr = np.array([[0.5, 0.5],                     # Min Steering and Max Steering
-                        [10.0, 10.0]])                    # Min Acceleration and Max Acceleration
-
-
-
-# Initialize LMPC simulator
-LMPCSimulator = Simulator(map, 1, 1)
-
-# ======================================================================================================================
-# ======================================= PID path following ===========================================================
-# ======================================================================================================================
-print("Starting PID")
-if RunPID == 1:
-    ClosedLoopDataPID = ClosedLoopData(dt, Time , v0)
+    # ======================================================================================================================
+    # ======================================= PID path following ===========================================================
+    # ======================================================================================================================
+    print("Starting PID")
+    # Initialize pid and run sim
     PIDController = PID(vt)
-    xPID_cl, uPID_cl, xPID_cl_glob = simulator.Sim(ClosedLoopDataPID, PIDController)
+    xPID_cl, uPID_cl, xPID_cl_glob, _ = simulator.sim(xS, PIDController)
+    print("===== PID terminated")
 
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataPID.obj', 'wb')
-    pickle.dump(ClosedLoopDataPID, file_data)
-    file_data.close()
-else:
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataPID.obj', 'rb')
-    ClosedLoopDataPID = pickle.load(file_data)
-    file_data.close()
-print("===== PID terminated")
-
-# ======================================================================================================================
-# ======================================  LINEAR REGRESSION ============================================================
-# ======================================================================================================================
-print("Starting MPC")
-lamb = 0.0000001
-A, B, Error = Regression(ClosedLoopDataPID.x, ClosedLoopDataPID.u, lamb)
-
-if RunMPC == 1:
-    ClosedLoopDataLTI_MPC = ClosedLoopData(dt, TimeMPC, v0)
+    # ======================================================================================================================
+    # ======================================  LINEAR REGRESSION ============================================================
+    # ======================================================================================================================
+    print("Starting MPC")
+    # Estimate system dynamics
+    lamb = 0.0000001
+    A, B, Error = Regression(xPID_cl, uPID_cl, lamb)
+    ClosedLoopDataLTI_MPC = []
     mpcParameters['A']    = A
     mpcParameters['B']    = B
+    # Initialize MPC and run closed-loop sim
     mpc = MPC(mpcParameters)
+    xMPC_cl, uMPC_cl, xMPC_cl_glob, _ = simulator.sim(xS, mpc)
+    print("===== MPC terminated")
 
-    xMPC_cl, uMPC_cl, xMPC_cl_glob = simulator.Sim(ClosedLoopDataLTI_MPC, mpc)
-
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'wb')
-    pickle.dump(ClosedLoopDataLTI_MPC, file_data)
-    file_data.close()
-else:
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTI_MPC.obj', 'rb')
-    ClosedLoopDataLTI_MPC = pickle.load(file_data)
-    file_data.close()
-print("===== MPC terminated")
-
-# ======================================================================================================================
-# ===================================  LOCAL LINEAR REGRESSION =========================================================
-# ======================================================================================================================
-print("Starting TV-MPC")
-if RunMPC_tv == 1:
+    # ======================================================================================================================
+    # ===================================  LOCAL LINEAR REGRESSION =========================================================
+    # ======================================================================================================================
+    print("Starting TV-MPC")
+    # Initialized predictive model
     predictiveModel = PredictiveModel(n, d, map)
     predictiveModel.xStored.append(xPID_cl)
     predictiveModel.uStored.append(uPID_cl)
-    
+    #Initialize TV-MPC
     mpcParametersLTV["timeVarying"]     = True 
     mpcParametersLTV["predictiveModel"] = predictiveModel
     mpc = MPC(mpcParametersLTV)
+    # Run closed-loop sim
+    xTVMPC_cl, uTVMPC_cl, xTVMPC_cl_glob, _ = simulator.sim(xS, mpc)
+    print("===== TV-MPC terminated")
 
-    ClosedLoopDataLTV_MPC = ClosedLoopData(dt, TimeMPC_tv, v0)
-    simulator.Sim(ClosedLoopDataLTV_MPC, mpc)
-
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'wb')
-    pickle.dump(ClosedLoopDataLTV_MPC, file_data)
-    file_data.close()
-else:
-    file_data = open(sys.path[0]+'/data/ClosedLoopDataLTV_MPC.obj', 'rb')
-    ClosedLoopDataLTV_MPC = pickle.load(file_data)
-    file_data.close()
-print("===== TV-MPC terminated")
-
-# ======================================================================================================================
-# ==============================  LMPC w\ LOCAL LINEAR REGRESSION ======================================================
-# ======================================================================================================================
-print("Starting LMPC")
-ClosedLoopLMPC = ClosedLoopData(dt, TimeLMPC, v0)
-LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
-LMPCSimulator = Simulator(map, 1, 1)
-
-LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Qlane, Q_LMPC, R_LMPC, dR_LMPC, dt, map, Laps, TimeLMPC, LMPC_Solver, inputConstr)
-LMPController.addTrajectory(ClosedLoopDataPID)
-LMPController.addTrajectory(ClosedLoopDataLTV_MPC)
-LMPController.addTrajectory(ClosedLoopDataPID)
-LMPController.addTrajectory(ClosedLoopDataLTV_MPC)
-
-x0           = np.zeros((1,n))
-x0_glob      = np.zeros((1,n))
-x0[0,:]      = ClosedLoopLMPC.x[0,:]
-x0_glob[0,:] = ClosedLoopLMPC.x_glob[0,:]
-
-if RunLMPC == 1:
+    # ======================================================================================================================
+    # ==============================  LMPC w\ LOCAL LINEAR REGRESSION ======================================================
+    # ======================================================================================================================
+    print("Starting LMPC")
+    LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
+    # Initialize Controller
+    LMPController = ControllerLMPC(numSS_Points, numSS_it, N, Qslack, Qlane, Q_LMPC, R_LMPC, dR_LMPC, map, Laps, TimeLMPC, LMPC_Solver, inputConstr)
+    # Add historical data to controller
+    LMPController.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
+    LMPController.addTrajectory( xTVMPC_cl, uTVMPC_cl, xTVMPC_cl_glob)
+    LMPController.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
+    LMPController.addTrajectory( xTVMPC_cl, uTVMPC_cl, xTVMPC_cl_glob)
+    # Run sevaral laps
     for it in range(numSS_it, Laps):
-
-        ClosedLoopLMPC.updateInitialConditions(x0, x0_glob)
-        LMPCSimulator.Sim(ClosedLoopLMPC, LMPController, LMPCOpenLoopData)
-        LMPController.addTrajectory(ClosedLoopLMPC)
-
+        # Simulate controller
+        xLMPC, uLMPC, xLMPC_glob, xS = LMPCSimulator.sim(xS,  LMPController, LMPCprediction = LMPCOpenLoopData)
+        # Add trajectory to controller
+        LMPController.addTrajectory( xLMPC, uLMPC, xLMPC_glob)
         print("Completed lap: ", it, " in ", np.round(LMPController.Qfun[0, it]*dt, 2)," seconds")
+    print("===== LMPC terminated")
 
-        if LMPController.feasible == 0:
-            break
-        else:
-            # Reset Initial Conditions
-            x0[0,:]      = ClosedLoopLMPC.x[ClosedLoopLMPC.SimTime, :] - np.array([0, 0, 0, 0, map.TrackLength, 0])
-            x0_glob[0,:] = ClosedLoopLMPC.x_glob[ClosedLoopLMPC.SimTime, :]
+    # ======================================================================================================================
+    # ========================================= PLOT TRACK =================================================================
+    # ======================================================================================================================
+    for i in range(0, LMPController.it):
+        print("Lap time at iteration ", i, " is ",np.round( LMPController.Qfun[0, i]*dt, 2), "s")
 
-    file_data = open(sys.path[0]+'/data/LMPController.obj', 'wb')
-    pickle.dump(ClosedLoopLMPC, file_data)
-    pickle.dump(LMPController, file_data)
-    pickle.dump(LMPCOpenLoopData, file_data)
-    file_data.close()
-else:
-    file_data = open(sys.path[0]+'/data/LMPController.obj', 'rb')
-    ClosedLoopLMPC = pickle.load(file_data)
-    LMPController  = pickle.load(file_data)
-    LMPCOpenLoopData  = pickle.load(file_data)
-    file_data.close()
-
-print("===== LMPC terminated")
-# ======================================================================================================================
-# ========================================= PLOT TRACK =================================================================
-# ======================================================================================================================
-for i in range(0, LMPController.it):
-    print("Lap time at iteration ", i, " is ",np.round( LMPController.Qfun[0, i]*dt, 2), "s")
-
-
-print("===== Start Plotting")
-if plotFlag == 1:
-    plotTrajectory(map, ClosedLoopDataPID.x, ClosedLoopDataPID.x_glob, ClosedLoopDataPID.u)
-
-if plotFlagMPC == 1:
-    plotTrajectory(map, ClosedLoopDataLTI_MPC.x, ClosedLoopDataLTI_MPC.x_glob, ClosedLoopDataLTI_MPC.u)
-
-if plotFlagMPC_tv == 1:
-    plotTrajectory(map, ClosedLoopDataLTV_MPC.x, ClosedLoopDataLTV_MPC.x_glob, ClosedLoopDataLTV_MPC.u)
-
-if plotFlagLMPC == 1:
+    print("===== Start Plotting")
+    plotTrajectory(map, xPID_cl, xPID_cl_glob, uPID_cl, 'PID')
+    plotTrajectory(map, xMPC_cl, xMPC_cl_glob, uMPC_cl, 'MPC')
+    plotTrajectory(map, xTVMPC_cl, xTVMPC_cl_glob, uTVMPC_cl, 'TV-MPC')
     plotClosedLoopLMPC(LMPController, map)
-
-if animation_xyFlag == 1:
     animation_xy(map, LMPCOpenLoopData, LMPController, Laps-2)
 
-if animation_stateFlag == 1:
-    animation_states(map, LMPCOpenLoopData, LMPController, 10)
+    # animation_states(map, LMPCOpenLoopData, LMPController, 10)
+    # saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-2)
+    # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
+    plt.show()
 
-# unityTestChangeOfCoordinates(map, ClosedLoopDataPID)
-# unityTestChangeOfCoordinates(map, ClosedLoopDataLTI_MPC)
-# unityTestChangeOfCoordinates(map, ClosedLoopLMPC)
+def initMPCparameters(n, d, N, vt):
+        # Path Following tuning
+    Q = np.diag([1.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
+    R = np.diag([1.0, 10.0])                  # delta, a
 
-# saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-2)
-# Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
-plt.show()
+    # Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
+    Fx = np.array([[1., 0., 0., 0., 0., 0.],
+                   [0., 0., 0., 0., 0., 1.],
+                   [0., 0., 0., 0., 0., -1.]])
+
+    bx = np.array([[10],   # vx max
+                   [2.],   # max ey
+                   [2.]]), # max ey
+
+    Fu = np.kron(np.eye(2), np.array([1, -1])).T
+    bu = np.array([[0.5],   # -Min Steering
+                   [0.5],   # Max Steering
+                   [10.0],  # -Min Acceleration
+                   [10.0]]) # Max Acceleration
+
+    mpcParameters    = MPC_parameters(n, d, N)
+    mpcParametersLTV = MPC_parameters(n, d, N)
+
+    for mpcPram in [mpcParameters, mpcParametersLTV]:
+        mpcPram['Q']    = Q
+        mpcPram['Qf']   = Q
+        mpcPram['R']    = R
+        mpcPram['Fx']   = Fx
+        mpcPram['bx']   = bx
+        mpcPram['Fu']   = Fu
+        mpcPram['bu']   = bu
+        mpcPram['xRef'] = np.array([vt, 0, 0, 0, 0, 0])
+
+    return mpcParameters, mpcParametersLTV
+
+def initLMPCparameters():
+    # Safe Set Parameters
+    LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
+    numSS_it = 4                  # Number of trajectories used at each iteration to build the safe set
+    numSS_Points = 40             # Number of points to select from each trajectory to build the safe set
+
+    Laps       = 35+numSS_it      # Total LMPC laps
+    TimeLMPC   = 400              # Simulation time
+
+    # Tuning Parameters
+    Qslack  = 20 * np.diag([10, 1, 1, 1, 10, 1])            # Cost on the slack variable for the terminal constraint
+    Qlane   =  1 * np.array([0, 50])                        # Quadratic and linear slack lane cost
+    Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
+    R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
+    dR_LMPC =  5 * np.array([1.0, 10.0])                    # Input rate cost u
+
+    inputConstr = np.array([[0.5, 0.5],                     # Min Steering and Max Steering
+                            [10.0, 10.0]])                  # Min Acceleration and Max Acceleration
+    
+    return LMPC_Solver, numSS_it, numSS_Points, Laps, TimeLMPC, Qslack, Qlane, Q_LMPC, R_LMPC, dR_LMPC, inputConstr
+
+if __name__== "__main__":
+  main()

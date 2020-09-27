@@ -1,5 +1,7 @@
 import numpy as np
 import pdb
+import datetime
+
 def Regression(x, u, lamb):
     """Estimates linear system dynamics
     x, u: date used in the regression
@@ -95,3 +97,32 @@ def wrap(angle):
         w_angle = angle
 
     return w_angle
+
+
+class PID:
+    """Create the PID controller used for path following at constant speed
+    Attributes:
+        solve: given x0 computes the control action
+    """
+    def __init__(self, vt):
+        """Initialization
+        Arguments:
+            vt: target velocity
+        """
+        self.vt = vt
+        self.uPred = np.zeros([1,2])
+
+        startTimer = datetime.datetime.now()
+        endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
+        self.solverTime = deltaTimer
+        self.linearizationTime = deltaTimer
+        self.feasible = 1
+
+    def solve(self, x0):
+        """Computes control action
+        Arguments:
+            x0: current state position
+        """
+        vt = self.vt
+        self.uPred[0, 0] = - 0.6 * x0[5] - 0.9 * x0[3] + np.max([-0.9, np.min([np.random.randn() * 0.25, 0.9])])
+        self.uPred[0, 1] = 1.5 * (vt - x0[0]) + np.max([-0.2, np.min([np.random.randn() * 0.10, 0.2])])

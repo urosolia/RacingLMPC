@@ -22,7 +22,7 @@ class ControllerLMPC():
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
 
-    def __init__(self, numSS_Points, numSS_it, N, Qslack, Qlane, Q, R, dR, dt,  map, Laps, TimeLMPC, Solver, inputConstraints):
+    def __init__(self, numSS_Points, numSS_it, N, Qslack, Qlane, Q, R, dR, map, Laps, TimeLMPC, Solver, inputConstraints, dt = 0.1):
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
@@ -168,20 +168,20 @@ class ControllerLMPC():
 
         self.OldInput = uPred.T[0,:]
 
-    def addTrajectory(self, ClosedLoopData):
+    def addTrajectory(self, x, u, x_glob):
         """update iteration index and construct SS, uSS and Qfun
         Arguments:
             ClosedLoopData: ClosedLoopData object
         """
         it = self.it
+        self.TimeSS[it] = x.shape[0]
+        self.LapCounter[it] = x.shape[0]
+        self.SS[0:(self.TimeSS[it]), :, it] = x
+        self.SS_glob[0:(self.TimeSS[it]), :, it] = x_glob
+        self.uSS[0:self.TimeSS[it], :, it]      = u
+        self.Qfun[0:(self.TimeSS[it]), it]  = _ComputeCost(x,u, self.map.TrackLength)
 
-        self.TimeSS[it] = ClosedLoopData.SimTime
-        self.LapCounter[it] = ClosedLoopData.SimTime
-        self.SS[0:(self.TimeSS[it] + 1), :, it] = ClosedLoopData.x[0:(self.TimeSS[it] + 1), :]
-        self.SS_glob[0:(self.TimeSS[it] + 1), :, it] = ClosedLoopData.x_glob[0:(self.TimeSS[it] + 1), :]
-        self.uSS[0:self.TimeSS[it], :, it]      = ClosedLoopData.u[0:(self.TimeSS[it]), :]
-        self.Qfun[0:(self.TimeSS[it] + 1), it]  = _ComputeCost(ClosedLoopData.x[0:(self.TimeSS[it] + 1), :],
-                                                              ClosedLoopData.u[0:(self.TimeSS[it]), :], self.map.TrackLength)
+
         for i in np.arange(0, self.Qfun.shape[0]):
             if self.Qfun[i, it] == 0:
                 self.Qfun[i, it] = self.Qfun[i - 1, it] - 1
@@ -202,7 +202,7 @@ class ControllerLMPC():
         Counter = self.TimeSS[self.it - 1]
         self.SS[Counter, :, self.it - 1] = x + np.array([0, 0, 0, 0, self.map.TrackLength, 0])
         self.uSS[Counter, :, self.it - 1] = u
-
+        
         # The above two lines are needed as the once the predicted trajectory has crossed the finish line the goal is
         # to reach the end of the lap which is about to start
         if self.Qfun[Counter, self.it - 1] == 0:
