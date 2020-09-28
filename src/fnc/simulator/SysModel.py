@@ -32,8 +32,8 @@ class Simulator():
         flagExt = False
         while (i<int(maxSimTime/self.dt)) and (flagExt==False):
             Controller.solve(x_cl[-1])
-
             u_cl.append(Controller.uPred[0,:].copy())
+
             if self.flagLMPC == True:
                 Controller.addPoint(x_cl[-1], u_cl[-1])
 

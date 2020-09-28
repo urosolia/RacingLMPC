@@ -323,7 +323,6 @@ def _LMPC_BuildMatCost(LMPC, Sel_Qfun, numSS_Points, N, Qslack, Q, R, dR, uOld):
 
     # np.savetxt('q0.csv', q0, delimiter=',', fmt='%f')
     linLaneSlack = Qlane[1] * np.ones(2*LMPC.N)
-
     q = np.append(np.append(np.append(q0, Sel_Qfun), np.zeros(Q.shape[0])), linLaneSlack)
 
     # np.savetxt('q.csv', q, delimiter=',', fmt='%f')
