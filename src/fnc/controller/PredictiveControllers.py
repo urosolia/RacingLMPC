@@ -301,7 +301,6 @@ class ControllerLMPC_child(MPC):
         self.it      = 0
 
         # Build matrices for inequality constraints
-        self.Fold, self.bold = _LMPC_BuildMatIneqConst(self)
 
         self.buildIneqConstr()
         self.F = self.F.todense()
@@ -618,6 +617,33 @@ def _LMPC_GetPred(Solution,n,d,N, np, LMPC):
 
     return xPred, uPred, lambd, slack
 
+def _LMPC_BuildMatEqConst(LMPC, A, B, C, N, n, d):
+    # Buil matrices for optimization (Convention from Chapter 15.2 Borrelli, Bemporad and Morari MPC book)
+    # We are going to build our optimization vector z \in \mathbb{R}^((N+1) \dot n \dot N \dot d), note that this vector
+    # stucks the predicted trajectory x_{k|t} \forall k = t, \ldots, t+N+1 over the horizon and
+    # the predicte input u_{k|t} \forall k = t, \ldots, t+N over the horizon
+    Gx = np.eye(n * (N + 1))
+    Gu = np.zeros((n * (N + 1), d * (N)))
+
+    E = np.zeros((n * (N + 1), n))
+    E[np.arange(n)] = np.eye(n)
+
+    L = np.zeros((n * (N + 1), 1)) # n+1 for the terminal constraint
+
+    for i in range(0, N):
+        ind1 = n + i * n + np.arange(n)
+        ind2x = i * n + np.arange(n)
+        ind2u = i * d + np.arange(d)
+
+        Gx[np.ix_(ind1, ind2x)] = -A[i]
+        Gu[np.ix_(ind1, ind2u)] = -B[i]
+        L[ind1, :]              =  C[i]
+
+    G = np.hstack( (Gx, Gu, np.zeros( ( Gx.shape[0], LMPC.Fx.shape[0]*LMPC.N) ) ) )
+
+    L_return = L
+
+    return L_return, G, E
 # ======================================================================================================================
 # ======================================================================================================================
 # ========================= Internal functions for Local Regression and Linearization ==================================

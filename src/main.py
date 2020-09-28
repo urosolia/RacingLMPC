@@ -102,7 +102,8 @@ def main():
     print("Starting LMPC")
     LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
     # Initialize Controller
-    LMPController = ControllerLMPC(numSS_Points, numSS_it, N, QterminalSlack, Qslack, Q_LMPC, R_LMPC, dR_LMPC, map, Laps, TimeLMPC, LMPC_Solver, inputConstr)
+    # LMPController = ControllerLMPC(numSS_Points, numSS_it, N, QterminalSlack, Qslack, Q_LMPC, R_LMPC, dR_LMPC, map, Laps, TimeLMPC, LMPC_Solver, inputConstr)
+    LMPController = ControllerLMPC_child(numSS_Points, numSS_it, N, QterminalSlack, Qslack, Q_LMPC, R_LMPC, dR_LMPC, map, Laps, TimeLMPC, LMPC_Solver, inputConstr, lmpcParameters)
     LMPController.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
     LMPController.addTrajectory( xMPC_cl, uMPC_cl, xMPC_cl_glob)
     LMPController.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
