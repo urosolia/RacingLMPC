@@ -309,6 +309,45 @@ class Map():
 
         return curvature
 
+    def getAngle(self, s, epsi):
+        """TO DO
+        """
+        TrackLength = self.PointAndTangent[-1,3]+self.PointAndTangent[-1,4]
+
+        # In case on a lap after the first one
+        while (s > TrackLength):
+            s = s - TrackLength
+
+        # Given s \in [0, TrackLength] compute the curvature
+        # Compute the segment in which system is evolving
+        index = np.all([[s >= self.PointAndTangent[:, 3]], [s < self.PointAndTangent[:, 3] + self.PointAndTangent[:, 4]]], axis=0)
+
+        i = int(np.where(np.squeeze(index))[0])
+
+        if i > 0:
+            ang = self.PointAndTangent[i - 1, 2]
+        else:
+            ang = 0
+
+        if self.PointAndTangent[i, 5] == 0:
+            r= 0
+        else:
+            r = 1 / self.PointAndTangent[i, 5]  # Radius of curvature
+
+        if r == 0:
+            # On a straight part of the circuit
+            angle_at_s = ang + epsi
+        else:
+            # On a curve
+            cumulative_s = self.PointAndTangent[i, 3]
+            relative_s = s - cumulative_s
+            spanAng = relative_s / np.abs(r)  # Angle spanned by the circle
+            psi = wrap(ang + spanAng * np.sign(r))  # Angle of the tangent vector at the last point of the segment
+            # pdb.set_trace()
+            angle_at_s = psi + epsi
+
+        return angle_at_s
+
 # ======================================================================================================================
 # ======================================================================================================================
 # ====================================== Internal utilities functions ==================================================

@@ -6,65 +6,78 @@ from scipy import linalg
 from scipy import sparse
 from cvxopt.solvers import qp
 import datetime
-from Utilities import Curvature
 from numpy import hstack, inf, ones
 from scipy.sparse import vstack
 from osqp import OSQP
+from dataclasses import dataclass, field
 
 solvers.options['show_progress'] = False
 
-# MPC paramters struct
-def MPC_parameters(n, d, N):
-    mpcPrameters = {
-      "n": n, # dimension state space
-      "d": d, # dimension input space
-      "N": N, # horizon length
-      "A": np.zeros((n,n)), # prediction matrices. Single matrix for LTI and list for LTV
-      "B": np.zeros((n,d)), # prediction matrices. Single matrix for LTI and list for LTV
-      "Q": np.zeros((n,n)), # quadratic state cost
-      "Qf": np.zeros((n,n)), # quadratic state cost final
-      "R": np.zeros((d,d)), # quadratic input cost
-      "dR": np.zeros(d), # rate cost. It has to be a vector and penalized the rate for each input component
-      "Qslack": np.zeros(2), # it has to be a vector. Qslack = [linearSlackCost, quadraticSlackCost]
-      "Fx": [], # State constraint Fx * x <= bx
-      "bx": [],
-      "Fu": [], # State constraint Fu * u <= bu
-      "bu": [],
-      "xRef": np.zeros(n), # reference point # TO DO: add LTV option
-      "slacks": False, # Flase = no slack variable for state constraints, True = Use slack for input constraints
-      "timeVarying": False, # False = LTI model, true = LTV model (TO DO)
-      "predictiveModel": [] # This object is used to update the LTV prediction model (used if timeVarying == True)
-    }
-    return mpcPrameters
+@dataclass
+class PythonMsg:
+    def __setattr__(self,key,value):
+        if not hasattr(self,key):
+            raise TypeError ('Cannot add new field "%s" to frozen class %s' %(key,self))
+        else:
+            object.__setattr__(self,key,value)
+
+@dataclass
+class MPCParams(PythonMsg):
+    n: int = field(default=None) # dimension state space
+    d: int = field(default=None) # dimension input space
+    N: int = field(default=None) # horizon length
+
+    A: np.array = field(default=None) # prediction matrices. Single matrix for LTI and list for LTV
+    B: np.array = field(default=None) # prediction matrices. Single matrix for LTI and list for LTV
+
+    Q: np.array = field(default=np.array((n, n))) # quadratic state cost
+    R: np.array = field(default=None) # quadratic input cost
+    Qf: np.array = field(default=None) # quadratic state cost final
+    dR: np.array = field(default=None) # Quadratic rate cost
+    
+    Qslack: float = field(default=None) # it has to be a vector. Qslack = [linearSlackCost, quadraticSlackCost]
+    Fx: np.array = field(default=None) # State constraint Fx * x <= bx
+    bx: np.array = field(default=None)
+    Fu: np.array = field(default=None) # State constraint Fu * u <= bu
+    bu: np.array = field(default=None)
+    xRef: np.array = field(default=None)
+
+    slacks: bool = field(default=True)
+    timeVarying: bool = field(default=False)
+
+    def __post_init__(self):
+        if self.Qf is None: self.Qf = np.zeros((self.n, self.n))
+        if self.dR is None: self.dR = np.zeros(self.d)
+        if self.xRef is None: self.xRef = np.zeros(self.n)
 
 ############################################################################################
 ####################################### MPC CLASS ##########################################
 ############################################################################################
 class MPC():
-    def __init__(self,  mpcPrameters):
+    def __init__(self,  mpcParameters, predictiveModel=[]):
         """Initialization
         Arguments:
-            mpcPrameters: struct containing MPC parameters
+            mpcParameters: struct containing MPC parameters
         """
-        self.N      = mpcPrameters['N']
-        self.Qslack = mpcPrameters['Qslack']
-        self.Q      = mpcPrameters['Q']
-        self.Qf     = mpcPrameters['Qf']
-        self.R      = mpcPrameters['R']
-        self.dR     = mpcPrameters['dR']
-        self.n      = mpcPrameters['n']
-        self.d      = mpcPrameters['d']
-        self.A      = mpcPrameters['A']
-        self.B      = mpcPrameters['B']
-        self.Fx     = mpcPrameters['Fx']
-        self.Fu     = mpcPrameters['Fu']
-        self.bx     = mpcPrameters['bx']
-        self.bu     = mpcPrameters['bu']
-        self.xRef   = mpcPrameters['xRef']
+        self.N      = mpcParameters.N
+        self.Qslack = mpcParameters.Qslack
+        self.Q      = mpcParameters.Q
+        self.Qf     = mpcParameters.Qf
+        self.R      = mpcParameters.R
+        self.dR     = mpcParameters.dR
+        self.n      = mpcParameters.n
+        self.d      = mpcParameters.d
+        self.A      = mpcParameters.A
+        self.B      = mpcParameters.B
+        self.Fx     = mpcParameters.Fx
+        self.Fu     = mpcParameters.Fu
+        self.bx     = mpcParameters.bx
+        self.bu     = mpcParameters.bu
+        self.xRef   = mpcParameters.xRef
 
-        self.slacks          = mpcPrameters['slacks']
-        self.timeVarying     = mpcPrameters['timeVarying']
-        self.predictiveModel = mpcPrameters['predictiveModel'] 
+        self.slacks          = mpcParameters.slacks
+        self.timeVarying     = mpcParameters.timeVarying
+        self.predictiveModel = predictiveModel
 
         if self.timeVarying == True:
             self.xLin = self.predictiveModel.xStored[-1][0:self.N+1,:]
@@ -101,7 +114,6 @@ class MPC():
         self.G_FTOCP = sparse.csc_matrix(self.G)
         self.E_FTOCP = self.E
         self.L_FTOCP = self.L
-        return []
 
     def solve(self, x0):
         """Computes control action
@@ -271,8 +283,7 @@ class LMPC(MPC):
         addPoint: this function allows to add the closed loop data at iteration j to the SS of iteration (j-1)
         update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
-
-    def __init__(self, numSS_Points, numSS_it, QterminalSlack, TimeLMPC, Laps, mpcPrameters, dt = 0.1):
+    def __init__(self, numSS_Points, numSS_it, QterminalSlack, TimeLMPC, Laps, mpcPrameters, predictiveModel, dt = 0.1):
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
@@ -287,13 +298,14 @@ class LMPC(MPC):
             TimeLMPC: maximum time [s] that an lap can last (used to avoid dynamic allocation)
             Solver: solver used in the reformulation of the LMPC as QP
         """
-        super().__init__(mpcPrameters)
+        super().__init__(mpcPrameters, predictiveModel)
         self.numSS_Points = numSS_Points
         self.numSS_it     = numSS_it
         self.QterminalSlack = QterminalSlack
         self.LapTime = 0
 
         self.OldInput = np.zeros((1,2))
+        self.xPred    = []
 
         # Initialize the following quantities to avoid dynamic allocation
         NumPoints = int(TimeLMPC / dt) + 1
@@ -313,8 +325,6 @@ class LMPC(MPC):
         self.buildIneqConstr()
         self.buildCost()
         self.addSafeSetIneqConstr()
-
-        self.xPred = []
 
     def addSafeSetIneqConstr(self):
         # Add positiviti constraints for lambda_{SafeSet}. Note that no constraint is enforced on slack_{SafeSet} ---> add np.hstack(-np.eye(self.numSS_Points), np.zeros(self.n)) 
@@ -339,7 +349,6 @@ class LMPC(MPC):
         # need to multiply the quadratic term as cost is (1/2) z'*Q*z
         self.H_FTOCP = sparse.csc_matrix(linalg.block_diag(self.H, np.zeros((self.SS_PointSelectedTot.shape[1], self.SS_PointSelectedTot.shape[1])), 2*self.QterminalSlack) )
         self.q_FTOCP = np.append(np.append(self.q, self.Qfun_SelectedTot), np.zeros(self.n))
-
    
     def unpackSolution(self):
         stateIdx = self.n*(self.N+1)
@@ -354,20 +363,22 @@ class LMPC(MPC):
         self.lambd = self.Solution[slackIdx:lambdIdx]
         self.slackTerminal = self.Solution[lambdIdx:]
 
-
     def feasibleStateInput(self):
         self.zt = np.dot(self.Succ_SS_PointSelectedTot, self.lambd)
         self.zt_u = np.dot(self.Succ_uSS_PointSelectedTot, self.lambd)
 
     def addTerminalComponents(self,x0):
-        # TO DO: add description
-        # Select Points from SS
+        """add terminal constraint and terminal cost
+        Arguments:
+            x: initial condition
+        """        
+        # Update zt and xLin is they have crossed the finish line. We want s \in [0, TrackLength]
         if (self.zt[4]-x0[4] > self.predictiveModel.map.TrackLength/2):
             self.zt[4] = np.max([self.zt[4] - self.predictiveModel.map.TrackLength,0])
             self.xLin[4,-1] = self.xLin[4,-1]- self.predictiveModel.map.TrackLength
-
         sortedLapTime = np.argsort(self.Qfun[0, 0:self.it])
 
+        # Select Points from historical data. These points will be used to construct the terminal cost function and constraint set
         SS_PointSelectedTot = np.empty((self.n, 0))
         Succ_SS_PointSelectedTot = np.empty((self.n, 0))
         Succ_uSS_PointSelectedTot = np.empty((self.d, 0))
@@ -384,13 +395,16 @@ class LMPC(MPC):
         self.SS_PointSelectedTot = SS_PointSelectedTot
         self.Qfun_SelectedTot = Qfun_SelectedTot
         
+        # Update terminal set and cost
         self.addSafeSetEqConstr()
         self.addSafeSetCost()
 
     def addTrajectory(self, x, u, x_glob):
         """update iteration index and construct SS, uSS and Qfun
         Arguments:
-            ClosedLoopData: ClosedLoopData object
+            x: closed-loop trajectory
+            u: applied inputs
+            x_gloab: closed-loop trajectory in global frame
         """
         self.TimeSS[self.it] = x.shape[0]
         self.LapCounter[self.it] = x.shape[0]
@@ -410,6 +424,11 @@ class LMPC(MPC):
         self.it = self.it + 1
 
     def computeCost(self, x, u):
+        """compute roll-out cost
+        Arguments:
+            x: closed-loop trajectory
+            u: applied inputs
+        """
         Cost = 10000 * np.ones((x.shape[0]))  # The cost has the same elements of the vector x --> time +1
         # Now compute the cost moving backwards in a Dynamic Programming (DP) fashion.
         # We start from the last element of the vector x and we sum the running cost
@@ -428,7 +447,6 @@ class LMPC(MPC):
         Arguments:
             x: current state
             u: current input
-            i: at the j-th iteration i is the time at which (x,u) are recorded
         """
         Counter = self.TimeSS[self.it - 1]
         self.SS[Counter, :, self.it - 1] = x + np.array([0, 0, 0, 0, self.predictiveModel.map.TrackLength, 0])
@@ -440,11 +458,16 @@ class LMPC(MPC):
             self.Qfun[Counter, self.it - 1] = self.Qfun[Counter, self.it - 1] - 1
         self.TimeSS[self.it - 1] = self.TimeSS[self.it - 1] + 1
 
-    def selectPoints(self, it, x0, numPoints):
+    def selectPoints(self, it, zt, numPoints):
+        """selecte (numPoints)-nearest neivbor to zt. These states will be used to construct the safe set and the value function approximation
+        Arguments:
+            x: current state
+            u: current input
+        """
         x = self.SS[:, 0:(self.TimeSS[it]-1), it]
         u = self.uSS[:, 0:(self.TimeSS[it]-1), it]
         oneVec = np.ones((x.shape[0], 1))
-        x0Vec = (np.dot(np.array([x0]).T, oneVec.T)).T
+        x0Vec = (np.dot(np.array([zt]).T, oneVec.T)).T
         diff = x - x0Vec
         norm = la.norm(diff, 1, axis=1)
         MinNorm = np.argmin(norm)

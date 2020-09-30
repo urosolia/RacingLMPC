@@ -1,7 +1,7 @@
 import numpy as np
 import pdb
 import datetime
-from Utilities import Curvature, getAngle, wrap
+from Utilities import wrap
 
 class Simulator():
     """Vehicle simulator

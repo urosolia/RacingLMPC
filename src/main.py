@@ -20,22 +20,22 @@
 # 3) A MPC which uses a LTV model identified from the date collected in 1)
 # 4) A LMPC for racing where the safe set and value function approximation are build using the data from 1), 2) and 3)
 # ----------------------------------------------------------------------------------------------------------------------
-
 import sys
-sys.path.append('fnc')
 sys.path.append('fnc/simulator')
 sys.path.append('fnc/controller')
-from SysModel import Simulator
-from Classes import LMPCprediction
-from PredictiveControllers import MPC, MPC_parameters, LMPC
-from PredictiveModel import PredictiveModel
-from Track import Map
-from Utilities import Regression, PID
-from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults, Save_statesAnimation
-import numpy as np
+sys.path.append('fnc')
 import matplotlib.pyplot as plt
-import pdb
+from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults, Save_statesAnimation
+from initControllerParameters import initMPCParams, initLMPCParams
+from PredictiveControllers import MPC, LMPC, MPCParams
+from PredictiveModel import PredictiveModel
+from Utilities import Regression, PID
+from Classes import LMPCprediction
+from SysModel import Simulator
+from Track import Map
+import numpy as np
 import pickle
+import pdb
 
 def main():
     # ======================================================================================================================
@@ -48,12 +48,15 @@ def main():
     dt = 0.1
 
     map = Map(0.4)                            # Initialize map
-    simulator = Simulator(map)                # Initialize Simulator
     vt = 0.8                                  # target vevlocity
-    mpcParameters, mpcParametersLTV = initMPCparameters(n, d, N,vt)
 
-    LMPCSimulator = Simulator(map, multiLap = False, flagLMPC = True)
-    LMPC_Solver, numSS_it, numSS_Points, Laps, TimeLMPC, QterminalSlack, Qslack, Q_LMPC, R_LMPC, dR_LMPC, inputConstr, lmpcParameters = initLMPCparameters(map, N)
+    # Initialize controller parameters
+    mpcParam, ltvmpcParam = initMPCParams(n, d, N, vt)
+    numSS_it, numSS_Points, Laps, TimeLMPC, QterminalSlack, lmpcParameters = initLMPCParams(map, N)
+
+    # Init simulators
+    simulator     = Simulator(map)
+    LMPCsimulator = Simulator(map, multiLap = False, flagLMPC = True)
 
     # ======================================================================================================================
     # ======================================= PID path following ===========================================================
@@ -71,11 +74,10 @@ def main():
     # Estimate system dynamics
     lamb = 0.0000001
     A, B, Error = Regression(xPID_cl, uPID_cl, lamb)
-    ClosedLoopDataLTI_MPC = []
-    mpcParameters['A']    = A
-    mpcParameters['B']    = B
+    mpcParam.A = A
+    mpcParam.B = B
     # Initialize MPC and run closed-loop sim
-    mpc = MPC(mpcParameters)
+    mpc = MPC(mpcParam)
     xMPC_cl, uMPC_cl, xMPC_cl_glob, _ = simulator.sim(xS, mpc)
     print("===== MPC terminated")
 
@@ -87,9 +89,8 @@ def main():
     predictiveModel = PredictiveModel(n, d, map, 1)
     predictiveModel.addTrajectory(xPID_cl,uPID_cl)
     #Initialize TV-MPC
-    mpcParametersLTV["timeVarying"]     = True 
-    mpcParametersLTV["predictiveModel"] = predictiveModel
-    mpc = MPC(mpcParametersLTV)
+    ltvmpcParam.timeVarying = True 
+    mpc = MPC(ltvmpcParam, predictiveModel)
     # Run closed-loop sim
     xTVMPC_cl, uTVMPC_cl, xTVMPC_cl_glob, _ = simulator.sim(xS, mpc)
     print("===== TV-MPC terminated")
@@ -99,33 +100,31 @@ def main():
     # ======================================================================================================================
     print("Starting LMPC")
     LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
-    # Initialize Predictive Model
+    # Initialize Predictive Model for lmpc
     lmpcpredictiveModel = PredictiveModel(n, d, map, 4)
-    for i in range(0,4):
+    for i in range(0,4): # add trajectories used for model learning
         lmpcpredictiveModel.addTrajectory(xPID_cl,uPID_cl)
 
     # Initialize Controller
-    # LMPController = ControllerLMPC(numSS_Points, numSS_it, N, QterminalSlack, Qslack, Q_LMPC, R_LMPC, dR_LMPC, map, Laps, TimeLMPC, LMPC_Solver, inputConstr)
-    lmpcParameters["timeVarying"]     = True 
-    lmpcParameters["predictiveModel"] = lmpcpredictiveModel   
-    lmpc = LMPC(numSS_Points, numSS_it, QterminalSlack, TimeLMPC, Laps, lmpcParameters)
-    for i in range(0,4):
+    lmpcParameters.timeVarying     = True 
+    lmpc = LMPC(numSS_Points, numSS_it, QterminalSlack, TimeLMPC, Laps, lmpcParameters, lmpcpredictiveModel)
+    for i in range(0,4): # add trajectories for safe set
         lmpc.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
     
     # Run sevaral laps
     for it in range(numSS_it, Laps):
         # Simulate controller
-        xLMPC, uLMPC, xLMPC_glob, xS = LMPCSimulator.sim(xS,  lmpc, LMPCprediction = LMPCOpenLoopData)
+        xLMPC, uLMPC, xLMPC_glob, xS = LMPCsimulator.sim(xS,  lmpc, LMPCprediction = LMPCOpenLoopData)
         # Add trajectory to controller
         lmpc.addTrajectory( xLMPC, uLMPC, xLMPC_glob)
-        lmpcpredictiveModel.addTrajectory(np.append(xLMPC,np.array([xS[0]]),0),np.append(uLMPC, np.zeros((1,2)),0))
-        # lmpcpredictiveModel.addTrajectory(xLMPC,uLMPC)
+        # lmpcpredictiveModel.addTrajectory(np.append(xLMPC,np.array([xS[0]]),0),np.append(uLMPC, np.zeros((1,2)),0))
+        lmpcpredictiveModel.addTrajectory(xLMPC,uLMPC)
         print("Completed lap: ", it, " in ", np.round(lmpc.Qfun[0, it]*dt, 2)," seconds")
     print("===== LMPC terminated")
 
-    # ======================================================================================================================
-    # ========================================= PLOT TRACK =================================================================
-    # ======================================================================================================================
+    # # ======================================================================================================================
+    # # ========================================= PLOT TRACK =================================================================
+    # # ======================================================================================================================
     for i in range(0, lmpc.it):
         print("Lap time at iteration ", i, " is ",np.round( lmpc.Qfun[0, i]*dt, 2), "s")
 
@@ -143,93 +142,6 @@ def main():
     # saveGif_xyResults(map, LMPCOpenLoopData, lmpc, Laps-2)
     # Save_statesAnimation(map, LMPCOpenLoopData, lmpc, 5)
     plt.show()
-
-def initMPCparameters(n, d, N, vt):
-        # Path Following tuning
-    Q = np.diag([1.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
-    R = np.diag([1.0, 10.0])                  # delta, a
-
-    # Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
-    Fx = np.array([[0., 0., 0., 0., 0., 1.],
-                   [0., 0., 0., 0., 0., -1.]])
-
-    bx = np.array([[2.],   # max ey
-                   [2.]]), # max ey
-
-    Fu = np.kron(np.eye(2), np.array([1, -1])).T
-    bu = np.array([[0.5],   # -Min Steering
-                   [0.5],   # Max Steering
-                   [10.0],  # -Min Acceleration
-                   [10.0]]) # Max Acceleration
-
-    mpcParameters    = MPC_parameters(n, d, N)
-    mpcParametersLTV = MPC_parameters(n, d, N)
-
-    for mpcPram in [mpcParameters, mpcParametersLTV]:
-        mpcPram['N']      = N
-        mpcPram['Q']      = Q
-        mpcPram['Qf']     = Q
-        mpcPram['R']      = R
-        mpcPram['Fx']     = Fx
-        mpcPram['bx']     = bx
-        mpcPram['Fu']     = Fu
-        mpcPram['bu']     = bu
-        mpcPram['xRef']   = np.array([vt, 0, 0, 0, 0, 0])
-        mpcPram['slacks'] = True
-        mpcPram['Qslack'] = 1 * np.array([0, 50])
-        
-
-    return mpcParameters, mpcParametersLTV
-
-def initLMPCparameters(map, N):
-    # Path Following tuning
-    Q = np.diag([1.0, 1.0, 1, 1, 0.0, 100.0]) # vx, vy, wz, epsi, s, ey
-    R = np.diag([1.0, 10.0])                  # delta, a
-
-    # Buil the matrices for the state constraint in each region. In the region i we want Fx[i]x <= bx[b]
-    Fx = np.array([[0., 0., 0., 0., 0., 1.],
-                   [0., 0., 0., 0., 0., -1.]])
-
-    bx = np.array([[map.halfWidth],   # max ey
-                   [map.halfWidth]]), # max ey
-
-    Fu = np.kron(np.eye(2), np.array([1, -1])).T
-    bu = np.array([[0.5],   # -Min Steering
-                   [0.5],   # Max Steering
-                   [10.0],  # -Min Acceleration
-                   [10.0]]) # Max Acceleration
-
-   # Safe Set Parameters
-    LMPC_Solver = "OSQP"           # Can pick CVX for cvxopt or OSQP. For OSQP uncomment line 14 in LMPC.py
-    numSS_it = 4                  # Number of trajectories used at each iteration to build the safe set
-    numSS_Points = 40             # Number of points to select from each trajectory to build the safe set
-
-    Laps       = 40+numSS_it      # Total LMPC laps
-    TimeLMPC   = 400              # Simulation time
-
-    # Tuning Parameters
-    QterminalSlack  = 5*20 * np.diag([10, 10, 1, 10, 10, 1])    # Cost on the slack variable for the terminal constraint
-    Qslack  =  1 * np.array([0, 50])                       # Quadratic and linear slack lane cost
-    Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
-    R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
-    dR_LMPC =  5 * np.array([1.0, 10.0])                    # Input rate cost u
-
-    inputConstr = np.array([[0.5, 0.5],                     # Min Steering and Max Steering
-                            [10.0, 10.0]])                  # Min Acceleration and Max Acceleration
-    
-    lmpcParameters    = MPC_parameters(Q.shape[0], R.shape[0], N)
-    lmpcParameters['Q']      = Q_LMPC
-    lmpcParameters['N']      = N
-    lmpcParameters['dR']     = dR_LMPC
-    lmpcParameters['R']      = R_LMPC
-    lmpcParameters['Fx']     = Fx
-    lmpcParameters['bx']     = bx
-    lmpcParameters['Fu']     = Fu
-    lmpcParameters['bu']     = bu
-    lmpcParameters['slacks'] = True
-    lmpcParameters['Qslack'] = Qslack
-
-    return LMPC_Solver, numSS_it, numSS_Points, Laps, TimeLMPC, QterminalSlack, Qslack, Q_LMPC, R_LMPC, dR_LMPC, inputConstr, lmpcParameters
 
 if __name__== "__main__":
   main()
