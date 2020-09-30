@@ -6,11 +6,11 @@ import datetime
 import pdb
 
 class PredictiveModel():
-    def __init__(self,  n, d, map):
+    def __init__(self,  n, d, map, trToUse):
         self.map = map
         self.n = n # state dimension
         self.d = d # input dimention
-        self.MaxNumPoint = 200 
+        self.MaxNumPoint = 20 
         self.xStored = []
         self.uStored = []
         self.h = 5
@@ -25,7 +25,23 @@ class PredictiveModel():
         self.stateFeatures    = [0, 1, 2]
         self.inputFeaturesVx  = [1]
         self.inputFeaturesLat = [0]
+        self.usedIt = [i for i in range(trToUse)]
+        self.lapTime = []
     
+
+    def addTrajectory(self, x, u):
+        if self.lapTime == [] or x.shape[0] >= self.lapTime[-1]:
+            self.xStored.append(x)
+            self.uStored.append(u)
+            self.lapTime.append(x.shape[0])
+        else:
+            for i in range(0, len(self.xStored)):
+                if x.shape[0] < self.lapTime[i]:
+                    self.xStored.insert(i, x) 
+                    self.uStored.insert(i, u) 
+                    self.lapTime.insert(i, x.shape[0]) 
+                    break
+
     def curvature(self, s):
         TrackLength = self.map.PointAndTangent[-1,3]+self.map.PointAndTangent[-1,4]
 
@@ -41,7 +57,7 @@ class PredictiveModel():
         cur = self.map.PointAndTangent[i, 5]
 
         return cur
-    def regressionAndLinearization(self, x, u, usedIt = [0]):
+    def regressionAndLinearization(self, x, u):
         Ai = np.zeros((self.n, self.n))
         Bi = np.zeros((self.n, self.d))
         Ci = np.zeros((self.n, 1))
@@ -50,30 +66,31 @@ class PredictiveModel():
         xuLin = np.hstack((x[self.stateFeatures], u[:]))
         self.indexSelected = []
         self.K = []
-        for ii in usedIt:
+        for ii in self.usedIt:
             indexSelected_i, K_i = self.computeIndices(xuLin, ii)
             self.indexSelected.append(indexSelected_i)
             self.K.append(K_i)
-
+        # print("xuLin: ",xuLin)
+        # print("aaa indexSelected: ", self.indexSelected)
 
         # =========================
         # ====== Identify vx ======
-        Q_vx, M_vx = self.compute_Q_M(self.inputFeaturesVx, usedIt)
+        Q_vx, M_vx = self.compute_Q_M(self.inputFeaturesVx, self.usedIt)
 
         yIndex = 0
-        b_vx = self.compute_b(yIndex, usedIt, M_vx)
+        b_vx = self.compute_b(yIndex, self.usedIt, M_vx)
         Ai[yIndex, self.stateFeatures], Bi[yIndex, self.inputFeaturesVx], Ci[yIndex] = self.LMPC_LocLinReg(Q_vx, b_vx, self.inputFeaturesVx)
 
         # =======================================
         # ====== Identify Lateral Dynamics ======
-        Q_lat, M_lat = self.compute_Q_M(self.inputFeaturesLat, usedIt)
+        Q_lat, M_lat = self.compute_Q_M(self.inputFeaturesLat, self.usedIt)
 
         yIndex = 1  # vy
-        b_vy = self.compute_b(yIndex, usedIt, M_lat)
+        b_vy = self.compute_b(yIndex, self.usedIt, M_lat)
         Ai[yIndex, self.stateFeatures], Bi[yIndex, self.inputFeaturesLat], Ci[yIndex] = self.LMPC_LocLinReg(Q_lat, b_vy, self.inputFeaturesLat)
 
         yIndex = 2  # wz
-        b_wz = self.compute_b(yIndex, usedIt, M_lat)
+        b_wz = self.compute_b(yIndex, self.usedIt, M_lat)
         Ai[yIndex, self.stateFeatures], Bi[yIndex, self.inputFeaturesLat], Ci[yIndex] = self.LMPC_LocLinReg(Q_lat, b_wz, self.inputFeaturesLat)
 
         # ===========================
@@ -186,5 +203,7 @@ class PredictiveModel():
             index = indexTot
 
         K  = ( 1 - ( norm[index] / self.h )**2 ) * 3/4
+        # if norm.shape[0]<500:
+        #     print("norm: ", norm, norm.shape)
 
         return index, K

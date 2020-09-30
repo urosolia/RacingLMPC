@@ -92,6 +92,17 @@ class MPC():
             Ai, Bi, Ci = self.predictiveModel.regressionAndLinearization(self.xLin[i], self.uLin[i])
             self.A.append(Ai); self.B.append(Bi); self.C.append(Ci)
 
+    def addTerminalComponents(self):
+        # TO DO: ....
+        self.H_FTOCP = sparse.csc_matrix(self.H)
+        self.q_FTOCP = self.q
+        self.F_FTOCP = sparse.csc_matrix(self.F)
+        self.b_FTOCP = self.b
+        self.G_FTOCP = sparse.csc_matrix(self.G)
+        self.E_FTOCP = self.E
+        self.L_FTOCP = self.L
+        return []
+
     def solve(self, x0):
         """Computes control action
         Arguments:
@@ -101,20 +112,27 @@ class MPC():
         if self.timeVarying == True:
             self.computeLTVdynamics()
             self.buildEqConstr()
+        
+        self.addTerminalComponents()
         # Solve QP
         startTimer = datetime.datetime.now()
-        self.osqp_solve_qp(self.H, self.q, self.F, self.b, self.G, np.add(np.dot(self.E,x0),self.L[:,0]))
+        self.osqp_solve_qp(self.H_FTOCP, self.q_FTOCP, self.F_FTOCP, self.b_FTOCP, self.G_FTOCP, np.add(np.dot(self.E_FTOCP,x0),self.L_FTOCP[:,0]))
         self.unpackSolution()
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.solverTime = deltaTimer
 
         # If LTV active --> compute state-input linearization trajectory
+        self.feasibleStateInput()
         if self.timeVarying == True:
-            self.xLin = np.vstack((self.xPred[1:, :], self.xPred[-1,:]))
-            self.uLin = np.vstack((self.uPred[1:, :], self.uPred[-1,:]))
+            self.xLin = np.vstack((self.xPred[1:, :], self.zt))
+            self.uLin = np.vstack((self.uPred[1:, :], self.zt_u))
 
         # update applied input
         self.OldInput = self.uPred[:,0]
+
+    def feasibleStateInput(self):
+        self.zt   = self.xPred[-1,:]
+        self.zt_u = self.uPred[-1,:]
 
     def unpackSolution(self):
         # Extract predicted state and predicted input trajectories
@@ -149,10 +167,10 @@ class MPC():
             Positivity = np.hstack((Zeros, I))
 
             # Let's stack all together
-            self.F = sparse.csc_matrix(np.vstack(( np.hstack((F_hard, addSlack)) , Positivity)))
+            self.F = np.vstack(( np.hstack((F_hard, addSlack)) , Positivity))
             self.b = np.hstack((bxtot, butot, np.zeros(nc_x*self.N)))
         else:
-            self.F = sparse.csc_matrix(F_hard)
+            self.F = F_hard
             self.b = np.hstack((bxtot, butot))
 
     def buildEqConstr(self):
@@ -176,9 +194,9 @@ class MPC():
                 Gu[(self.n + i*self.n):(self.n + i*self.n + self.n), (i*self.d):(i*self.d + self.d)] = -self.B
 
         if self.slacks == True:
-            self.G = sparse.csc_matrix(np.hstack( (Gx, Gu, np.zeros( ( Gx.shape[0], self.Fx.shape[0]*self.N) ) ) ) )
+            self.G = np.hstack( (Gx, Gu, np.zeros( ( Gx.shape[0], self.Fx.shape[0]*self.N) ) ) ) 
         else:
-            self.G = sparse.csc_matrix(np.hstack((Gx, Gu)))
+            self.G = np.hstack((Gx, Gu))
     
         self.E = E
         self.L = L
@@ -206,10 +224,10 @@ class MPC():
         if self.slacks == True: 
             quadSlack = self.Qslack[0] * np.eye(self.Fx.shape[0]*self.N)
             linSlack  = self.Qslack[1] * np.ones(self.Fx.shape[0]*self.N )
-            self.H = sparse.csc_matrix(linalg.block_diag(Hx, self.Qf, Hu, quadSlack))
+            self.H = linalg.block_diag(Hx, self.Qf, Hu, quadSlack)
             self.q = np.append(q, linSlack)
         else: 
-            self.H = sparse.csc_matrix(linalg.block_diag(Hx, self.Qf, Hu))
+            self.H = linalg.block_diag(Hx, self.Qf, Hu)
             self.q = q 
  
         self.H = 2 * self.H  #  Need to multiply by two because CVX considers 1/2 in front of quadratic cost
@@ -303,10 +321,8 @@ class ControllerLMPC_child(MPC):
         # Build matrices for inequality constraints
 
         self.buildIneqConstr()
-        self.F = self.F.todense()
 
         self.buildCost()
-        self.H = self.H.todense()
 
         self.addSafeSetIneqConstr()
 
@@ -314,8 +330,8 @@ class ControllerLMPC_child(MPC):
 
     def addSafeSetIneqConstr(self):
         # Add positiviti constraints for lambda_{SafeSet}. Note that no constraint is enforced on slack_{SafeSet} ---> add np.hstack(-np.eye(self.numSS_Points), np.zeros(self.n)) 
-        self.F_LMPC = sparse.csc_matrix( linalg.block_diag( self.F, np.hstack((-np.eye(self.numSS_Points), np.zeros((self.numSS_Points, self.n)))) ) )
-        self.b_LMPC = np.append(self.b, np.zeros(self.numSS_Points))
+        self.F_FTOCP = sparse.csc_matrix( linalg.block_diag( self.F, np.hstack((-np.eye(self.numSS_Points), np.zeros((self.numSS_Points, self.n)))) ) )
+        self.b_FTOCP = np.append(self.b, np.zeros(self.numSS_Points))
     
     def addSafeSetEqConstr(self):
         # Add constrains for x, u, slack
@@ -327,14 +343,14 @@ class ControllerLMPC_child(MPC):
         # Constraints on lambda = 1
         G_lambda = np.append(np.append(np.zeros(self.G.shape[1]), np.ones(self.SS_PointSelectedTot.shape[1])), np.zeros(self.n))
         # Put all together
-        self.G_LMPC = sparse.csc_matrix(np.vstack((np.hstack((G_x_u_slack, G_lambda_slackSafeSet)), G_lambda)))
-        self.E_LMPC = np.vstack((self.E, np.zeros((self.n+1,self.n)))) # adding n for terminal constraint and 1 for lambda = 1
-        self.L_LMPC = np.append(np.append(self.L, np.zeros(self.n)), 1)
+        self.G_FTOCP = sparse.csc_matrix(np.vstack((np.hstack((G_x_u_slack, G_lambda_slackSafeSet)), G_lambda)))
+        self.E_FTOCP = np.vstack((self.E, np.zeros((self.n+1,self.n)))) # adding n for terminal constraint and 1 for lambda = 1
+        self.L_FTOCP = np.append(np.append(self.L, np.zeros(self.n)), 1)
 
     def addSafeSetCost(self):
         # need to multiply the quadratic term as cost is (1/2) z'*Q*z
-        self.H_LMPC = sparse.csc_matrix(linalg.block_diag(self.H, np.zeros((self.SS_PointSelectedTot.shape[1], self.SS_PointSelectedTot.shape[1])), 2*self.QterminalSlack) )
-        self.q_LMPC = np.append(np.append(self.q, self.Qfun_SelectedTot), np.zeros(self.n))
+        self.H_FTOCP = sparse.csc_matrix(linalg.block_diag(self.H, np.zeros((self.SS_PointSelectedTot.shape[1], self.SS_PointSelectedTot.shape[1])), 2*self.QterminalSlack) )
+        self.q_FTOCP = np.append(np.append(self.q, self.Qfun_SelectedTot), np.zeros(self.n))
 
     def solve(self, x0, uOld = np.zeros([0, 0])):
         """Computes control action
@@ -381,22 +397,29 @@ class ControllerLMPC_child(MPC):
         self.Qfun_SelectedTot = Qfun_SelectedTot
 
         startTimer = datetime.datetime.now()
-        Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self, sortedLapTime)
+        # print("======= Start")
+        # print("========= Start")
+        # Atv, Btv, Ctv, indexUsed_list = _LMPC_EstimateABC(self, sortedLapTime)
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
-        L, npG, npE = _LMPC_BuildMatEqConst(self, Atv, Btv, Ctv, N, n, d)
+        # L, npG, npE = _LMPC_BuildMatEqConst(self, Atv, Btv, Ctv, N, n, d)
         self.linearizationTime = deltaTimer
 
         # self.buildIneqConstr()
         # self.F = self.F.todense()
+        self.computeLTVdynamics()
+        self.buildEqConstr()
+        # if (self.A[0] != Atv[0]).any():
+        #     pdb.set_trace()
+        # print("========= End")
 
         self.buildCost() # Need to build cost because of the input rate
-        self.H = self.H.todense()
-
+        # print("======= End")
+        # pdb.set_trace()
         # self.addSafeSetIneqConstr()
         # Build Terminal cost and Constraint
-        self.G = npG
-        self.L = L
-        self.E = npE
+        # self.G = npG
+        # self.L = L
+        # self.E = npE
         self.addSafeSetEqConstr()
         self.addSafeSetCost()
         # G, E = _LMPC_TermConstr(self, npG, npE, N, n, d, SS_PointSelectedTot)
@@ -405,7 +428,7 @@ class ControllerLMPC_child(MPC):
         # Solve QP
         startTimer = datetime.datetime.now()
         # res_cons, feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F), b, sparse.csr_matrix(G), np.add(np.dot(E,x0),L[:,0]))
-        res_cons, feasible = osqp_solve_qp(self.H_LMPC, self.q_LMPC, self.F_LMPC, self.b_LMPC, self.G_LMPC, np.add(np.dot(self.E_LMPC,x0),self.L_LMPC))
+        res_cons, feasible = osqp_solve_qp(self.H_FTOCP, self.q_FTOCP, self.F_FTOCP, self.b_FTOCP, self.G_FTOCP, np.add(np.dot(self.E_FTOCP,x0),self.L_FTOCP))
         Solution = res_cons.x
 
         self.feasible = feasible
@@ -429,6 +452,9 @@ class ControllerLMPC_child(MPC):
 
         self.LinPoints = np.vstack((xPred.T[1:,:], self.zVector))
 
+        self.xLin = self.LinPoints
+        self.uLin = self.LinInput 
+
         self.OldInput = uPred.T[0,:]
 
     def addTrajectory(self, x, u, x_glob):
@@ -451,6 +477,8 @@ class ControllerLMPC_child(MPC):
         if self.it == 0:
             self.LinPoints = self.SS[1:self.N + 2, :, it]
             self.LinInput  = self.uSS[1:self.N + 1, :, it]
+            self.xLin = self.LinPoints
+            self.uLin = self.LinInput
 
         self.it = self.it + 1
 
@@ -711,11 +739,13 @@ def RegressionAndLinearization(LinPoints, LinInput, usedIt, SS, uSS, LapCounter,
     indexSelected = []
     K = []
     for ii in usedIt:
+        # print("it: ", ii)
         indexSelected_i, K_i = ComputeIndex(h, SS, uSS, LapCounter, ii, xLin, stateFeatures, scaling, MaxNumPoint,
                                             ConsiderInput)
         indexSelected.append(indexSelected_i)
         K.append(K_i)
-
+    # print("xLin: ", xLin)
+    # print("indexSelected: ", indexSelected)
     # =========================
     # ====== Identify vx ======
     inputFeatures = [1]
@@ -882,8 +912,10 @@ def ComputeIndex(h, SS, uSS, LapCounter, it, x0, stateFeatures, scaling, MaxNumP
         #     index = indexTot[MinNorm:MinNorm+MaxNumPoint]
     else:
         index = indexTot
-
     K  = ( 1 - ( norm[index] / h )**2 ) * 3/4
+    if norm.shape[0] < 500:
+        print(LapCounter[it])
+        print("norm: ", norm, norm.shape)
     # K = np.ones(len(index))
 
     return index, K

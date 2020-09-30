@@ -42,7 +42,7 @@ def main():
     # ======================================================================================================================
     # ============================================= Initialize parameters  =================================================
     # ======================================================================================================================
-    N = 12                                    # Horizon length
+    N = 14                                    # Horizon length
     n = 6;   d = 2                            # State and Input dimension
     x0 = np.array([0.5, 0, 0, 0, 0, 0])       # Initial condition
     xS = [x0, x0]
@@ -85,9 +85,8 @@ def main():
     # ======================================================================================================================
     # print("Starting TV-MPC")
     # # Initialized predictive model
-    # predictiveModel = PredictiveModel(n, d, map)
-    # predictiveModel.xStored.append(xPID_cl)
-    # predictiveModel.uStored.append(uPID_cl)
+    # predictiveModel = PredictiveModel(n, d, map, 1)
+    # predictiveModel.addTrajectory(xPID_cl,uPID_cl)
     # #Initialize TV-MPC
     # mpcParametersLTV["timeVarying"]     = True 
     # mpcParametersLTV["predictiveModel"] = predictiveModel
@@ -101,13 +100,23 @@ def main():
     # ======================================================================================================================
     print("Starting LMPC")
     LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
+    # Initialize Predictive Model
+    lmpcpredictiveModel = PredictiveModel(n, d, map, 4)
+    lmpcpredictiveModel.addTrajectory(xPID_cl,uPID_cl)
+    lmpcpredictiveModel.addTrajectory(xPID_cl,uPID_cl)
+    lmpcpredictiveModel.addTrajectory(xPID_cl,uPID_cl)
+    lmpcpredictiveModel.addTrajectory(xPID_cl,uPID_cl)
     # Initialize Controller
     # LMPController = ControllerLMPC(numSS_Points, numSS_it, N, QterminalSlack, Qslack, Q_LMPC, R_LMPC, dR_LMPC, map, Laps, TimeLMPC, LMPC_Solver, inputConstr)
+    lmpcParameters["timeVarying"]     = True 
+    lmpcParameters["predictiveModel"] = lmpcpredictiveModel
     LMPController = ControllerLMPC_child(numSS_Points, numSS_it, N, QterminalSlack, Qslack, Q_LMPC, R_LMPC, dR_LMPC, map, Laps, TimeLMPC, LMPC_Solver, inputConstr, lmpcParameters)
     LMPController.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
-    LMPController.addTrajectory( xMPC_cl, uMPC_cl, xMPC_cl_glob)
     LMPController.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
-    LMPController.addTrajectory( xMPC_cl, uMPC_cl, xMPC_cl_glob)
+    LMPController.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
+    # LMPController.addTrajectory( xMPC_cl, uMPC_cl, xMPC_cl_glob)
+    LMPController.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
+    # LMPController.addTrajectory( xMPC_cl, uMPC_cl, xMPC_cl_glob)
 
     # Run sevaral laps
     for it in range(numSS_it, Laps):
@@ -115,6 +124,8 @@ def main():
         xLMPC, uLMPC, xLMPC_glob, xS = LMPCSimulator.sim(xS,  LMPController, LMPCprediction = LMPCOpenLoopData)
         # Add trajectory to controller
         LMPController.addTrajectory( xLMPC, uLMPC, xLMPC_glob)
+        lmpcpredictiveModel.addTrajectory(np.append(xLMPC,np.array([xS[0]]),0),np.append(uLMPC, np.zeros((1,2)),0))
+        # lmpcpredictiveModel.addTrajectory(xLMPC,uLMPC)
         print("Completed lap: ", it, " in ", np.round(LMPController.Qfun[0, it]*dt, 2)," seconds")
     print("===== LMPC terminated")
 
@@ -131,7 +142,10 @@ def main():
     plotClosedLoopLMPC(LMPController, map)
     animation_xy(map, LMPCOpenLoopData, LMPController, Laps-2)
 
-    # animation_states(map, LMPCOpenLoopData, LMPController, 10)
+    # animation_states(map, LMPCOpenLoopData, LMPController, Laps-2)
+    # animation_states(map, LMPCOpenLoopData, LMPController, Laps-2)
+    # animation_states(map, LMPCOpenLoopData, LMPController, Laps-2)
+    # animation_states(map, LMPCOpenLoopData, LMPController, Laps-2)
     # saveGif_xyResults(map, LMPCOpenLoopData, LMPController, Laps-2)
     # Save_statesAnimation(map, LMPCOpenLoopData, LMPController, 5)
     plt.show()
@@ -199,7 +213,7 @@ def initLMPCparameters(map, N):
     TimeLMPC   = 400              # Simulation time
 
     # Tuning Parameters
-    QterminalSlack  = 20 * np.diag([10, 1, 1, 1, 10, 1])    # Cost on the slack variable for the terminal constraint
+    QterminalSlack  = 5*20 * np.diag([10, 1, 1, 10, 10, 1])    # Cost on the slack variable for the terminal constraint
     Qslack  =  1 * np.array([0, 50])                       # Quadratic and linear slack lane cost
     Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State cost x = [vx, vy, wz, epsi, s, ey]
     R_LMPC  =  0 * np.diag([1.0, 1.0])                      # Input cost u = [delta, a]
