@@ -4,17 +4,20 @@ from cvxopt.solvers import qp
 import numpy as np
 import datetime
 import pdb
+# This class is not generic and is tailored to the autonomous racing problem.
+# The only method need the LT-MPC and the LMPC is regressionAndLinearization, which given a state-action pair
+# compute the matrices A,B,C such that x_{k+1} = A x_k + Bu_k + C
 
 class PredictiveModel():
     def __init__(self,  n, d, map, trToUse):
         self.map = map
         self.n = n # state dimension
         self.d = d # input dimention
-        self.MaxNumPoint = 20 
         self.xStored = []
         self.uStored = []
-        self.h = 5
-        self.lamb = 0.0
+        self.MaxNumPoint = 20 # max number of point per lap to use 
+        self.h = 5 # bandwidth of the Kernel for local linear regression
+        self.lamb = 0.0 # regularization
         self.dt = 0.1
         self.scaling = np.array([[0.1, 0.0, 0.0, 0.0, 0.0],
                                 [0.0, 1.0, 0.0, 0.0, 0.0],
@@ -42,25 +45,10 @@ class PredictiveModel():
                     self.lapTime.insert(i, x.shape[0]) 
                     break
 
-    def curvature(self, s):
-        TrackLength = self.map.PointAndTangent[-1,3]+self.map.PointAndTangent[-1,4]
-
-        # In case on a lap after the first one
-        while (s > TrackLength):
-            s = s - TrackLength
-
-        # Given s \in [0, TrackLength] compute the curvature
-        # Compute the segment in which system is evolving
-        index = np.all([[s >= self.map.PointAndTangent[:, 3]], [s < self.map.PointAndTangent[:, 3] + self.map.PointAndTangent[:, 4]]], axis=0)
-
-        i = int(np.where(np.squeeze(index))[0])
-        cur = self.map.PointAndTangent[i, 5]
-
-        return cur
     def regressionAndLinearization(self, x, u):
         Ai = np.zeros((self.n, self.n))
         Bi = np.zeros((self.n, self.d))
-        Ci = np.zeros((self.n, 1))
+        Ci = np.zeros(self.n)
 
         # Compute Index to use for each stored lap
         xuLin = np.hstack((x[self.stateFeatures], u[:]))
@@ -104,8 +92,8 @@ class PredictiveModel():
             print("s is negative, here the state: \n", x)
 
         startTimer = datetime.datetime.now()  # Start timer for LMPC iteration
-        cur = self.curvature(s)
-        cur = self.curvature(s)
+        cur = self.map.curvature(s)
+        cur = self.map.curvature(s)
         den = 1 - cur * ey
 
         # ===========================
