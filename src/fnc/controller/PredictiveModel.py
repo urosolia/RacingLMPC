@@ -15,7 +15,7 @@ class PredictiveModel():
         self.d = d # input dimention
         self.xStored = []
         self.uStored = []
-        self.MaxNumPoint = 20 # max number of point per lap to use 
+        self.MaxNumPoint = 7 # max number of point per lap to use 
         self.h = 5 # bandwidth of the Kernel for local linear regression
         self.lamb = 0.0 # regularization
         self.dt = 0.1

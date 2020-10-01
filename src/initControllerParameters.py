@@ -41,14 +41,14 @@ def initLMPCParams(map, N):
 
    # Safe Set Parameters
     numSS_it = 4                  # Number of trajectories used at each iteration to build the safe set
-    numSS_Points = 40             # Number of points to select from each trajectory to build the safe set
+    numSS_Points = 12*numSS_it    # Number of points to select from each trajectory to build the safe set
 
     Laps       = 40+numSS_it      # Total LMPC laps
     TimeLMPC   = 400              # Simulation time
 
     # Tuning Parameters
-    QterminalSlack  = 5*20 * np.diag([10, 10, 10, 10, 10, 1])  # Cost on the slack variable for the terminal constraint
-    Qslack  =  1 * np.array([0, 50])                           # Quadratic and linear slack lane cost
+    QterminalSlack  = 500 * np.diag([1, 1, 1, 1, 1, 1])  # Cost on the slack variable for the terminal constraint
+    Qslack  =  1 * np.array([5, 25])                           # Quadratic and linear slack lane cost
     Q_LMPC  =  0 * np.diag([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])     # State cost x = [vx, vy, wz, epsi, s, ey]
     R_LMPC  =  0 * np.diag([1.0, 1.0])                         # Input cost u = [delta, a]
     dR_LMPC =  5 * np.array([1.0, 10.0])                       # Input rate cost u
