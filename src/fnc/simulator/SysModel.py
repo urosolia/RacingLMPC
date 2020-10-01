@@ -19,7 +19,7 @@ class Simulator():
         self.flagLMPC = flagLMPC
         self.dt = dt
 
-    def sim(self, x0,  Controller, maxSimTime = 100, LMPCprediction=0):
+    def sim(self, x0,  Controller, maxSimTime = 100):
         """Simulate closed-loop system
         """
         x_cl      = [x0[0]]
@@ -37,14 +37,6 @@ class Simulator():
             if self.flagLMPC == True:
                 Controller.addPoint(x_cl[-1], u_cl[-1])
 
-            if LMPCprediction != 0:
-                Controller.LapTime = i
-                LMPCprediction.PredictedStates[:,:,i, Controller.it]   = Controller.xPred
-                LMPCprediction.PredictedInputs[:, :, i, Controller.it] = Controller.uPred
-                LMPCprediction.SSused[:, :, i, Controller.it]          = Controller.SS_PointSelectedTot
-                LMPCprediction.Qfunused[:, i, Controller.it]           = Controller.Qfun_SelectedTot
-
-            
             xt, xt_glob = self.dynModel(x_cl[-1], x_cl_glob[-1], u_cl[-1])
             
             x_cl.append(xt)

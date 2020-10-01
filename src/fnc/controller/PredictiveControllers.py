@@ -104,6 +104,8 @@ class MPC():
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.solverTime = deltaTimer
         self.linearizationTime = deltaTimer
+        self.timeStep = 0
+
 
     def solve(self, x0):
         """Computes control action
@@ -132,6 +134,8 @@ class MPC():
 
         # update applied input
         self.OldInput = self.uPred[0,:]
+        self.timeStep += 1
+
 
     def computeLTVdynamics(self):
         # Estimate system dynamics
@@ -286,7 +290,7 @@ class LMPC(MPC):
         addTrajectory: given a ClosedLoopData object adds the trajectory to SS, Qfun, uSS and updates the iteration index
         addPoint: this function allows to add the closed loop data at iteration j to the SS of iteration (j-1)
     """
-    def __init__(self, numSS_Points, numSS_it, QterminalSlack, TimeLMPC, Laps, mpcPrameters, predictiveModel, dt = 0.1):
+    def __init__(self, numSS_Points, numSS_it, QterminalSlack, mpcPrameters, predictiveModel, dt = 0.1):
         """Initialization
         Arguments:
             numSS_Points: number of points selected from the previous trajectories to build SS
@@ -305,19 +309,23 @@ class LMPC(MPC):
         self.numSS_Points = numSS_Points
         self.numSS_it     = numSS_it
         self.QterminalSlack = QterminalSlack
-        self.LapTime = 0
 
         self.OldInput = np.zeros((1,2))
         self.xPred    = []
 
         # Initialize the following quantities to avoid dynamic allocation
-        NumPoints = int(TimeLMPC / dt) + 1
-        self.LapCounter = 10000 * np.ones(Laps).astype(int)        # Time at which each j-th iteration is completed
-        self.TimeSS     = 10000 * np.ones(Laps).astype(int)        # Time at which each j-th iteration is completed
-        self.SS         = 10000 * np.ones((NumPoints, 6, Laps))    # Sampled Safe SS
-        self.uSS        = 10000 * np.ones((NumPoints, 2, Laps))    # Input associated with the points in SS
-        self.Qfun       =     0 * np.ones((NumPoints, Laps))       # Qfun: cost-to-go from each point in SS
-        self.SS_glob    = 10000 * np.ones((NumPoints, 6, Laps))    # SS in global (X-Y) used for plotting
+        self.LapTime = []        # Time at which each j-th iteration is completed
+        self.SS         = []    # Sampled Safe SS
+        self.uSS        = []    # Input associated with the points in SS
+        self.Qfun       = []       # Qfun: cost-to-go from each point in SS
+        self.SS_glob    = []   # SS in global (X-Y) used for plotting
+
+        self.xStoredPredTraj     = []
+        self.xStoredPredTraj_it  = []
+        self.uStoredPredTraj     = []
+        self.uStoredPredTraj_it  = []
+        self.SSStoredPredTraj    = []
+        self.SSStoredPredTraj_it = []
 
         self.zt = np.array([0.0, 0.0, 0.0, 0.0, 10.0, 0.0])
 
@@ -366,6 +374,11 @@ class LMPC(MPC):
         self.lambd = self.Solution[slackIdx:lambdIdx]
         self.slackTerminal = self.Solution[lambdIdx:]
 
+        self.xStoredPredTraj_it.append(self.xPred)
+        self.uStoredPredTraj_it.append(self.uPred)
+        self.SSStoredPredTraj_it.append(self.SS_PointSelectedTot.T)
+        
+
     def feasibleStateInput(self):
         self.zt = np.dot(self.Succ_SS_PointSelectedTot, self.lambd)
         self.zt_u = np.dot(self.Succ_uSS_PointSelectedTot, self.lambd)
@@ -379,7 +392,7 @@ class LMPC(MPC):
         if (self.zt[4]-x0[4] > self.predictiveModel.map.TrackLength/2):
             self.zt[4] = np.max([self.zt[4] - self.predictiveModel.map.TrackLength,0])
             self.xLin[4,-1] = self.xLin[4,-1]- self.predictiveModel.map.TrackLength
-        sortedLapTime = np.argsort(self.Qfun[0, 0:self.it])
+        sortedLapTime = np.argsort(np.array(self.LapTime))
 
         # Select Points from historical data. These points will be used to construct the terminal cost function and constraint set
         SS_PointSelectedTot = np.empty((self.n, 0))
@@ -409,22 +422,27 @@ class LMPC(MPC):
             u: applied inputs
             x_gloab: closed-loop trajectory in global frame
         """
-        self.TimeSS[self.it] = x.shape[0]
-        self.LapCounter[self.it] = x.shape[0]
-        self.SS[0:(self.TimeSS[self.it]), :, self.it] = x
-        self.SS_glob[0:(self.TimeSS[self.it]), :, self.it] = x_glob
-        self.uSS[0:self.TimeSS[self.it], :, self.it]      = u
-        self.Qfun[0:(self.TimeSS[self.it]), self.it]  = self.computeCost(x,u)
-
-        for i in np.arange(0, self.Qfun.shape[0]):
-            if self.Qfun[i, self.it] == 0:
-                self.Qfun[i, self.it] = self.Qfun[i - 1, self.it] - 1
+        self.LapTime.append(x.shape[0])
+        self.SS.append(x)
+        self.SS_glob.append(x_glob)
+        self.uSS.append(u)
+        self.Qfun.append(self.computeCost(x,u))
 
         if self.it == 0:
-            self.xLin = self.SS[1:self.N + 2, :, self.it]
-            self.uLin  = self.uSS[1:self.N + 1, :, self.it]
+            self.xLin = self.SS[self.it][1:self.N + 2, :]
+            self.uLin = self.uSS[self.it][1:self.N + 1, :]
+
+        self.xStoredPredTraj.append(self.xStoredPredTraj_it)
+        self.xStoredPredTraj_it = []
+
+        self.uStoredPredTraj.append(self.uStoredPredTraj_it)
+        self.uStoredPredTraj_it = []
+
+        self.SSStoredPredTraj.append(self.SSStoredPredTraj_it)
+        self.SSStoredPredTraj_it = []
 
         self.it = self.it + 1
+        self.timeStep = 0
 
     def computeCost(self, x, u):
         """compute roll-out cost
@@ -451,15 +469,11 @@ class LMPC(MPC):
             x: current state
             u: current input
         """
-        Counter = self.TimeSS[self.it - 1]
-        self.SS[Counter, :, self.it - 1] = x + np.array([0, 0, 0, 0, self.predictiveModel.map.TrackLength, 0])
-        self.uSS[Counter, :, self.it - 1] = u
-        
+        self.SS[self.it - 1]  = np.append(self.SS[self.it - 1], np.array([x + np.array([0, 0, 0, 0, self.predictiveModel.map.TrackLength, 0])]), axis=0)
+        self.uSS[self.it - 1] = np.append(self.uSS[self.it - 1], np.array([u]),axis=0)
+        self.Qfun[self.it - 1] = np.append(self.Qfun[self.it - 1], self.Qfun[self.it - 1][-1]-1)
         # The above two lines are needed as the once the predicted trajectory has crossed the finish line the goal is
         # to reach the end of the lap which is about to start
-        if self.Qfun[Counter, self.it - 1] == 0:
-            self.Qfun[Counter, self.it - 1] = self.Qfun[Counter, self.it - 1] - 1
-        self.TimeSS[self.it - 1] = self.TimeSS[self.it - 1] + 1
 
     def selectPoints(self, it, zt, numPoints):
         """selecte (numPoints)-nearest neivbor to zt. These states will be used to construct the safe set and the value function approximation
@@ -467,8 +481,8 @@ class LMPC(MPC):
             x: current state
             u: current input
         """
-        x = self.SS[:, 0:(self.TimeSS[it]-1), it]
-        u = self.uSS[:, 0:(self.TimeSS[it]-1), it]
+        x = self.SS[it]
+        u = self.uSS[it]
         oneVec = np.ones((x.shape[0], 1))
         x0Vec = (np.dot(np.array([zt]).T, oneVec.T)).T
         diff = x - x0Vec
@@ -482,19 +496,19 @@ class LMPC(MPC):
 
         SS_Points  = x[indexSSandQfun, :].T
         SSu_Points = u[indexSSandQfun, :].T
-        Sel_Qfun = self.Qfun[indexSSandQfun, it]
+        Sel_Qfun = self.Qfun[it][indexSSandQfun]
 
         # Modify the cost if the predicion has crossed the finisch line
         if self.xPred == []:
-            Sel_Qfun = self.Qfun[indexSSandQfun, it]
+            Sel_Qfun = self.Qfun[it][indexSSandQfun]
         elif (np.all((self.xPred[:, 4] > self.predictiveModel.map.TrackLength) == False)):
-            Sel_Qfun = self.Qfun[indexSSandQfun, it]
+            Sel_Qfun = self.Qfun[it][indexSSandQfun]
         elif it < self.it - 1:
-            Sel_Qfun = self.Qfun[indexSSandQfun, it] + self.Qfun[0, it + 1]
+            Sel_Qfun = self.Qfun[it][indexSSandQfun] + self.Qfun[it][0]
         else:
             sPred = self.xPred[:, 4]
             predCurrLap = self.N - sum(sPred > self.predictiveModel.map.TrackLength)
-            currLapTime = self.LapTime
-            Sel_Qfun = self.Qfun[indexSSandQfun, it] + currLapTime + predCurrLap
+            currLapTime = self.timeStep
+            Sel_Qfun = self.Qfun[it][indexSSandQfun] + currLapTime + predCurrLap
 
         return SS_Points, SSu_Points, Sel_Qfun

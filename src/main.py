@@ -25,12 +25,11 @@ sys.path.append('fnc/simulator')
 sys.path.append('fnc/controller')
 sys.path.append('fnc')
 import matplotlib.pyplot as plt
-from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults, Save_statesAnimation
+from plot import plotTrajectory, plotClosedLoopLMPC, animation_xy, animation_states, saveGif_xyResults
 from initControllerParameters import initMPCParams, initLMPCParams
 from PredictiveControllers import MPC, LMPC, MPCParams
 from PredictiveModel import PredictiveModel
 from Utilities import Regression, PID
-from Classes import LMPCprediction
 from SysModel import Simulator
 from Track import Map
 import numpy as np
@@ -99,7 +98,6 @@ def main():
     # ==============================  LMPC w\ LOCAL LINEAR REGRESSION ======================================================
     # ======================================================================================================================
     print("Starting LMPC")
-    LMPCOpenLoopData = LMPCprediction(N, n, d, TimeLMPC, numSS_Points, Laps)
     # Initialize Predictive Model for lmpc
     lmpcpredictiveModel = PredictiveModel(n, d, map, 4)
     for i in range(0,4): # add trajectories used for model learning
@@ -107,41 +105,40 @@ def main():
 
     # Initialize Controller
     lmpcParameters.timeVarying     = True 
-    lmpc = LMPC(numSS_Points, numSS_it, QterminalSlack, TimeLMPC, Laps, lmpcParameters, lmpcpredictiveModel)
+    lmpc = LMPC(numSS_Points, numSS_it, QterminalSlack, lmpcParameters, lmpcpredictiveModel)
     for i in range(0,4): # add trajectories for safe set
         lmpc.addTrajectory( xPID_cl, uPID_cl, xPID_cl_glob)
     
     # Run sevaral laps
     for it in range(numSS_it, Laps):
         # Simulate controller
-        xLMPC, uLMPC, xLMPC_glob, xS = LMPCsimulator.sim(xS,  lmpc, LMPCprediction = LMPCOpenLoopData)
+        xLMPC, uLMPC, xLMPC_glob, xS = LMPCsimulator.sim(xS,  lmpc)
         # Add trajectory to controller
         lmpc.addTrajectory( xLMPC, uLMPC, xLMPC_glob)
         # lmpcpredictiveModel.addTrajectory(np.append(xLMPC,np.array([xS[0]]),0),np.append(uLMPC, np.zeros((1,2)),0))
         lmpcpredictiveModel.addTrajectory(xLMPC,uLMPC)
-        print("Completed lap: ", it, " in ", np.round(lmpc.Qfun[0, it]*dt, 2)," seconds")
+        print("Completed lap: ", it, " in ", np.round(lmpc.Qfun[it][0]*dt, 2)," seconds")
     print("===== LMPC terminated")
 
     # # ======================================================================================================================
     # # ========================================= PLOT TRACK =================================================================
     # # ======================================================================================================================
     for i in range(0, lmpc.it):
-        print("Lap time at iteration ", i, " is ",np.round( lmpc.Qfun[0, i]*dt, 2), "s")
+        print("Lap time at iteration ", i, " is ",np.round( lmpc.Qfun[i][0]*dt, 2), "s")
 
     print("===== Start Plotting")
     plotTrajectory(map, xPID_cl, xPID_cl_glob, uPID_cl, 'PID')
     # plotTrajectory(map, xMPC_cl, xMPC_cl_glob, uMPC_cl, 'MPC')
     # plotTrajectory(map, xTVMPC_cl, xTVMPC_cl_glob, uTVMPC_cl, 'TV-MPC')
     plotClosedLoopLMPC(lmpc, map)
-    animation_xy(map, LMPCOpenLoopData, lmpc, Laps-2)
+    animation_xy(map, lmpc, Laps-1)
+    plt.show()
 
     # animation_states(map, LMPCOpenLoopData, lmpc, Laps-2)
     # animation_states(map, LMPCOpenLoopData, lmpc, Laps-2)
     # animation_states(map, LMPCOpenLoopData, lmpc, Laps-2)
     # animation_states(map, LMPCOpenLoopData, lmpc, Laps-2)
     # saveGif_xyResults(map, LMPCOpenLoopData, lmpc, Laps-2)
-    # Save_statesAnimation(map, LMPCOpenLoopData, lmpc, 5)
-    plt.show()
 
 if __name__== "__main__":
   main()
