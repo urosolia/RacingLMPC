@@ -137,7 +137,7 @@ class Simulator():
 
         # Noises
         noise_vx = np.max([-0.05, np.min([np.random.randn() * 0.01, 0.05])])
-        noise_vy = np.max([-0.1, np.min([np.random.randn() * 0.01, 0.1])])
+        noise_vy = np.max([-0.05, np.min([np.random.randn() * 0.01, 0.05])])
         noise_wz = np.max([-0.05, np.min([np.random.randn() * 0.005, 0.05])])
 
         cur_x_next[0] = cur_x_next[0] + 0.01*noise_vx
