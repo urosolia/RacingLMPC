@@ -54,6 +54,12 @@ class MPCParams(PythonMsg):
 ####################################### MPC CLASS ##########################################
 ############################################################################################
 class MPC():
+    """Model Predicitve Controller class
+    Methods (needed by user):
+        solve: given system's state xt compute control action at
+    Arguments:
+        mpcParameters: model paramters
+    """
     def __init__(self,  mpcParameters, predictiveModel=[]):
         """Initialization
         Arguments:
@@ -99,22 +105,6 @@ class MPC():
         self.solverTime = deltaTimer
         self.linearizationTime = deltaTimer
 
-    def computeLTVdynamics(self):
-        self.A = []; self.B = []; self.C =[]
-        for i in range(0, self.N):
-            Ai, Bi, Ci = self.predictiveModel.regressionAndLinearization(self.xLin[i], self.uLin[i])
-            self.A.append(Ai); self.B.append(Bi); self.C.append(Ci)
-
-    def addTerminalComponents(self, x0):
-        # TO DO: ....
-        self.H_FTOCP = sparse.csc_matrix(self.H)
-        self.q_FTOCP = self.q
-        self.F_FTOCP = sparse.csc_matrix(self.F)
-        self.b_FTOCP = self.b
-        self.G_FTOCP = sparse.csc_matrix(self.G)
-        self.E_FTOCP = self.E
-        self.L_FTOCP = self.L
-
     def solve(self, x0):
         """Computes control action
         Arguments:
@@ -142,9 +132,23 @@ class MPC():
 
         # update applied input
         self.OldInput = self.uPred[0,:]
-        # print(self.uPred)
-        # if self.feasible == 0:
-        #     pdb.set_trace()
+
+    def computeLTVdynamics(self):
+        # Estimate system dynamics
+        self.A = []; self.B = []; self.C =[]
+        for i in range(0, self.N):
+            Ai, Bi, Ci = self.predictiveModel.regressionAndLinearization(self.xLin[i], self.uLin[i])
+            self.A.append(Ai); self.B.append(Bi); self.C.append(Ci)
+
+    def addTerminalComponents(self, x0):
+        # TO DO: ....
+        self.H_FTOCP = sparse.csc_matrix(self.H)
+        self.q_FTOCP = self.q
+        self.F_FTOCP = sparse.csc_matrix(self.F)
+        self.b_FTOCP = self.b
+        self.G_FTOCP = sparse.csc_matrix(self.G)
+        self.E_FTOCP = self.E
+        self.L_FTOCP = self.L
 
     def feasibleStateInput(self):
         self.zt   = self.xPred[-1,:]
@@ -277,11 +281,10 @@ class MPC():
 ############## Below LMPC class which is a child of the MPC super class
 class LMPC(MPC):
     """Create the LMPC
-    Attributes:
+    Methods (needed by user):
         solve: given x0 computes the control action
         addTrajectory: given a ClosedLoopData object adds the trajectory to SS, Qfun, uSS and updates the iteration index
         addPoint: this function allows to add the closed loop data at iteration j to the SS of iteration (j-1)
-        update: this function can be used to set SS, Qfun, uSS and the iteration index.
     """
     def __init__(self, numSS_Points, numSS_it, QterminalSlack, TimeLMPC, Laps, mpcPrameters, predictiveModel, dt = 0.1):
         """Initialization
