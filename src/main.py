@@ -69,30 +69,30 @@ def main():
     # ======================================================================================================================
     # ======================================  LINEAR REGRESSION ============================================================
     # ======================================================================================================================
-    # print("Starting MPC")
-    # # Estimate system dynamics
-    # lamb = 0.0000001
-    # A, B, Error = Regression(xPID_cl, uPID_cl, lamb)
-    # mpcParam.A = A
-    # mpcParam.B = B
-    # # Initialize MPC and run closed-loop sim
-    # mpc = MPC(mpcParam)
-    # xMPC_cl, uMPC_cl, xMPC_cl_glob, _ = simulator.sim(xS, mpc)
-    # print("===== MPC terminated")
+    print("Starting MPC")
+    # Estimate system dynamics
+    lamb = 0.0000001
+    A, B, Error = Regression(xPID_cl, uPID_cl, lamb)
+    mpcParam.A = A
+    mpcParam.B = B
+    # Initialize MPC and run closed-loop sim
+    mpc = MPC(mpcParam)
+    xMPC_cl, uMPC_cl, xMPC_cl_glob, _ = simulator.sim(xS, mpc)
+    print("===== MPC terminated")
 
-    # # ======================================================================================================================
-    # # ===================================  LOCAL LINEAR REGRESSION =========================================================
-    # # ======================================================================================================================
-    # print("Starting TV-MPC")
-    # # Initialized predictive model
-    # predictiveModel = PredictiveModel(n, d, map, 1)
-    # predictiveModel.addTrajectory(xPID_cl,uPID_cl)
-    # #Initialize TV-MPC
-    # ltvmpcParam.timeVarying = True 
-    # mpc = MPC(ltvmpcParam, predictiveModel)
-    # # Run closed-loop sim
-    # xTVMPC_cl, uTVMPC_cl, xTVMPC_cl_glob, _ = simulator.sim(xS, mpc)
-    # print("===== TV-MPC terminated")
+    # ======================================================================================================================
+    # ===================================  LOCAL LINEAR REGRESSION =========================================================
+    # ======================================================================================================================
+    print("Starting TV-MPC")
+    # Initialized predictive model
+    predictiveModel = PredictiveModel(n, d, map, 1)
+    predictiveModel.addTrajectory(xPID_cl,uPID_cl)
+    #Initialize TV-MPC
+    ltvmpcParam.timeVarying = True 
+    mpc = MPC(ltvmpcParam, predictiveModel)
+    # Run closed-loop sim
+    xTVMPC_cl, uTVMPC_cl, xTVMPC_cl_glob, _ = simulator.sim(xS, mpc)
+    print("===== TV-MPC terminated")
 
     # ======================================================================================================================
     # ==============================  LMPC w\ LOCAL LINEAR REGRESSION ======================================================
@@ -128,8 +128,8 @@ def main():
 
     print("===== Start Plotting")
     plotTrajectory(map, xPID_cl, xPID_cl_glob, uPID_cl, 'PID')
-    # plotTrajectory(map, xMPC_cl, xMPC_cl_glob, uMPC_cl, 'MPC')
-    # plotTrajectory(map, xTVMPC_cl, xTVMPC_cl_glob, uTVMPC_cl, 'TV-MPC')
+    plotTrajectory(map, xMPC_cl, xMPC_cl_glob, uMPC_cl, 'MPC')
+    plotTrajectory(map, xTVMPC_cl, xTVMPC_cl_glob, uTVMPC_cl, 'TV-MPC')
     plotClosedLoopLMPC(lmpc, map)
     animation_xy(map, lmpc, Laps-1)
     plt.show()
